@@ -16,9 +16,12 @@ ClipShot.
 2. Open a normal web page.
 3. Press `Control + Shift + 5`, or click the ClipShot extension action.
 4. Move across the page to change the component root.
-5. Press `Tab` to move into nested DOM boxes.
-6. Click or press `Enter` to copy the cropped PNG.
-7. Press `Escape` to cancel.
+5. Hover a visible nested preview box to select it directly.
+6. Press `Tab` or `ArrowDown` to move into nested DOM boxes.
+7. Press `ArrowUp` to move back up the parent chain.
+8. Press `ArrowLeft` or `ArrowRight` to move across sibling boxes at the same level.
+9. Click or press `Enter` to copy the cropped PNG.
+10. Press `Escape` to cancel.
 
 The extension crops the current tab image and sends the PNG to the native
 ClipShot app on `127.0.0.1:17272/clipboard`.

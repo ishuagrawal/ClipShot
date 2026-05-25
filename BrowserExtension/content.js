@@ -140,7 +140,7 @@
     selectedIndex = 0;
     ensureOverlay();
     overlayHost.style.display = "block";
-    showHint("Move over a component. Tab enters nested boxes. Click or Enter copies.");
+    showHint("Hover nested previews to select. Tab/Down enters. Up returns to parent.");
 
     window.addEventListener("mousemove", handleMouseMove, true);
     window.addEventListener("keydown", handleKeyDown, true);
@@ -327,7 +327,35 @@
 
     if (event.key === "Tab") {
       swallowEvent(event);
-      cycleSelection(event.shiftKey ? -1 : 1);
+      if (event.shiftKey) {
+        cycleSelection(-1);
+      } else if (!selectChildCandidate()) {
+        cycleSelection(1);
+      }
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      swallowEvent(event);
+      selectParentCandidate();
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      swallowEvent(event);
+      selectChildCandidate();
+      return;
+    }
+
+    if (event.key === "ArrowLeft") {
+      swallowEvent(event);
+      selectSiblingCandidate(-1);
+      return;
+    }
+
+    if (event.key === "ArrowRight") {
+      swallowEvent(event);
+      selectSiblingCandidate(1);
       return;
     }
 
@@ -382,8 +410,10 @@
       rootElement = nextRoot;
       candidates = collectCandidates(rootElement);
       selectedIndex = 0;
-      render();
     }
+
+    selectPreviewCandidateAtPoint(x, y);
+    render();
   }
 
   function findComponentRoot(x, y) {
@@ -778,6 +808,35 @@
     return false;
   }
 
+  function selectPreviewCandidateAtPoint(x, y) {
+    if (!candidates.length) {
+      return false;
+    }
+
+    const pointedPreviewEntries = candidates
+      .map((candidate, index) => ({ candidate, index }))
+      .filter(({ candidate }) => candidate.preview && pointInsideRect(x, y, candidate.rect))
+      .sort((left, right) => {
+        if (right.candidate.depth !== left.candidate.depth) {
+          return right.candidate.depth - left.candidate.depth;
+        }
+
+        if (left.candidate.area !== right.candidate.area) {
+          return left.candidate.area - right.candidate.area;
+        }
+
+        return left.index - right.index;
+      });
+
+    const nextIndex = pointedPreviewEntries[0]?.index ?? 0;
+    if (nextIndex === selectedIndex) {
+      return false;
+    }
+
+    selectedIndex = nextIndex;
+    return true;
+  }
+
   function isMeaningfullyInside(rect, rootRect) {
     const intersectionLeft = Math.max(rect.left, rootRect.left);
     const intersectionTop = Math.max(rect.top, rootRect.top);
@@ -849,6 +908,113 @@
 
     selectedIndex = (selectedIndex + delta + candidates.length) % candidates.length;
     render();
+  }
+
+  function selectParentCandidate() {
+    const selected = candidates[selectedIndex];
+    if (!selected) {
+      return false;
+    }
+
+    const parentIndex = parentCandidateIndex(selected, selectedIndex);
+    if (parentIndex === -1) {
+      return false;
+    }
+
+    selectedIndex = parentIndex;
+    render();
+    return true;
+  }
+
+  function selectChildCandidate() {
+    const selected = candidates[selectedIndex];
+    if (!selected) {
+      return false;
+    }
+
+    const childEntries = sortedHierarchyEntries(
+      candidates
+        .map((candidate, index) => ({ candidate, index }))
+        .filter(({ index }) => parentCandidateIndex(candidates[index], index) === selectedIndex)
+    );
+
+    if (!childEntries.length) {
+      return false;
+    }
+
+    selectedIndex = childEntries[0].index;
+    render();
+    return true;
+  }
+
+  function selectSiblingCandidate(delta) {
+    const selected = candidates[selectedIndex];
+    if (!selected) {
+      return false;
+    }
+
+    const parentIndex = parentCandidateIndex(selected, selectedIndex);
+    if (parentIndex === -1) {
+      return false;
+    }
+
+    const siblingEntries = sortedHierarchyEntries(
+      candidates
+        .map((candidate, index) => ({ candidate, index }))
+        .filter(({ index }) => {
+          return (
+            index !== parentIndex &&
+            parentCandidateIndex(candidates[index], index) === parentIndex
+          );
+        })
+    );
+
+    const currentSiblingPosition = siblingEntries.findIndex(({ index }) => index === selectedIndex);
+    if (currentSiblingPosition === -1 || siblingEntries.length < 2) {
+      return false;
+    }
+
+    const nextPosition = (currentSiblingPosition + delta + siblingEntries.length) % siblingEntries.length;
+    selectedIndex = siblingEntries[nextPosition].index;
+    render();
+    return true;
+  }
+
+  function parentCandidateIndex(selected, selectedCandidateIndex) {
+    let parentIndex = -1;
+    let parentDepth = Number.NEGATIVE_INFINITY;
+
+    candidates.forEach((candidate, index) => {
+      if (index === selectedCandidateIndex || candidate.depth >= selected.depth) {
+        return;
+      }
+
+      if (candidate.element.contains(selected.element) && candidate.depth > parentDepth) {
+        parentIndex = index;
+        parentDepth = candidate.depth;
+      }
+    });
+
+    return parentIndex;
+  }
+
+  function sortedHierarchyEntries(entries) {
+    return entries.slice().sort((left, right) => compareCandidateVisualOrder(left.candidate, right.candidate));
+  }
+
+  function compareCandidateVisualOrder(left, right) {
+    const rowTolerance = Math.max(10, Math.min(left.rect.height, right.rect.height) * 0.35);
+    const topDelta = left.rect.top - right.rect.top;
+    if (Math.abs(topDelta) > rowTolerance) {
+      return topDelta;
+    }
+
+    const leftDelta = left.rect.left - right.rect.left;
+    if (Math.abs(leftDelta) > 1) {
+      return leftDelta;
+    }
+
+    return left.domIndex - right.domIndex;
   }
 
   function confirmSelection() {
