@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "ClipShot DOM Selector",
+  "description": "DOM-based component selection for ClipShot web captures.",
+  "version": "0.1.0",
+  "permissions": ["activeTab", "scripting"],
+  "host_permissions": ["http://127.0.0.1:17272/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "ClipShot DOM Capture"
+  },
+  "commands": {
+    "start-dom-capture": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+5",
+        "mac": "MacCtrl+Shift+5"
+      },
+      "description": "Start ClipShot DOM capture"
+    }
+  }
+}
