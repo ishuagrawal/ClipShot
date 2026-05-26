@@ -15,11 +15,11 @@ ClipShot.
 1. Keep `/Applications/ClipShot.app` running.
 2. Open a normal web page.
 3. Press `Control + Shift + 5`, or click the ClipShot extension action.
-4. Move across the page to change the component root.
-5. Hover a visible nested preview box to select it directly.
-6. Press `Tab` or `ArrowDown` to move into nested DOM boxes.
-7. Press `ArrowUp` to move back up the parent chain.
-8. Press `ArrowLeft` or `ArrowRight` to move across sibling boxes at the same level.
+4. Move across the page to change the selected component.
+5. The selected area is highlighted in blue.
+6. Colored arrow chips show available navigation: up for parent, down for first child, and left/right for siblings.
+7. Matching colored outlines appear on those destination boxes so you can see where each arrow key will move before pressing it.
+8. Click any chip to jump to that destination, or use the arrow keys.
 9. Click or press `Enter` to copy the cropped PNG.
 10. Press `Escape` to cancel.
 

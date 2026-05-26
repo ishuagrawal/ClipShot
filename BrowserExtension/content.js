@@ -1,8 +1,13 @@
 (() => {
-  if (window.__clipshotDOMSelector) {
-    window.__clipshotDOMSelector.start();
-    return;
+  const previousSelector = window.__clipshotDOMSelector;
+  if (previousSelector) {
+    if (typeof previousSelector.destroy === "function") {
+      previousSelector.destroy();
+    } else if (typeof previousSelector.stop === "function") {
+      previousSelector.stop();
+    }
   }
+  document.getElementById("clipshot-dom-selector-host")?.remove();
 
   const BRIDGE_URL = "http://127.0.0.1:17272/clipboard";
   const MAX_CANDIDATES = 48;
@@ -94,6 +99,8 @@
   const UTILITY_TEXT_PATTERN =
     /^(\d+\s+)?(more|show more|read more|less|show less|reply|replies|like|dislike|share|save|subscribe|menu|options|\.{3}|…|…more)$/i;
 
+  const DIRECTION_GLYPHS = { up: "↑", down: "↓", left: "←", right: "→" };
+
   let active = false;
   let rootElement = null;
   let candidates = [];
@@ -102,17 +109,12 @@
   let overlayHost = null;
   let shadowRoot = null;
   let boxesLayer = null;
-  let labelElement = null;
+  let chipsLayer = null;
+  let ghostsLayer = null;
   let hintElement = null;
+  const placedChipRects = [];
 
-  const api = {
-    start,
-    stop
-  };
-
-  window.__clipshotDOMSelector = api;
-
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  const messageListener = (message, _sender, sendResponse) => {
     if (message?.type !== "CLIPSHOT_VISIBLE_TAB_CAPTURED") {
       return false;
     }
@@ -125,7 +127,18 @@
       });
 
     return true;
-  });
+  };
+
+  const api = {
+    version: "overlay-navigation-v2",
+    start,
+    stop,
+    destroy,
+    inspect
+  };
+
+  window.__clipshotDOMSelector = api;
+  chrome.runtime.onMessage.addListener(messageListener);
 
   start();
 
@@ -140,7 +153,7 @@
     selectedIndex = 0;
     ensureOverlay();
     overlayHost.style.display = "block";
-    showHint("Hover nested previews to select. Tab/Down enters. Up returns to parent.");
+    showHint("⏎ capture   esc cancel");
 
     window.addEventListener("mousemove", handleMouseMove, true);
     window.addEventListener("keydown", handleKeyDown, true);
@@ -180,6 +193,22 @@
     }
   }
 
+  function destroy() {
+    stop();
+    chrome.runtime.onMessage.removeListener(messageListener);
+    overlayHost?.remove();
+    overlayHost = null;
+    shadowRoot = null;
+    boxesLayer = null;
+    ghostsLayer = null;
+    chipsLayer = null;
+    hintElement = null;
+
+    if (window.__clipshotDOMSelector === api) {
+      delete window.__clipshotDOMSelector;
+    }
+  }
+
   function ensureOverlay() {
     if (overlayHost?.isConnected) {
       return;
@@ -206,44 +235,68 @@
           background: rgba(5, 10, 18, 0.14);
         }
 
-        .boxes {
+        .ghosts,
+        .boxes,
+        .chips {
           position: fixed;
           inset: 0;
         }
 
+        .ghost {
+          position: fixed;
+          top: 0;
+          left: 0;
+          box-sizing: border-box;
+          border-radius: 7px;
+          pointer-events: none;
+          border-width: 2.5px;
+          border-style: solid;
+        }
+
+        .ghost.up {
+          border-color: rgb(232, 152, 128);
+          box-shadow: 0 0 0 1px rgba(232, 152, 128, 0.35), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+        }
+
+        .ghost.down {
+          border-color: rgb(115, 195, 195);
+          box-shadow: 0 0 0 1px rgba(115, 195, 195, 0.35), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+        }
+
+        .ghost.left {
+          border-color: rgb(195, 145, 220);
+          box-shadow: 0 0 0 1px rgba(195, 145, 220, 0.35), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+        }
+
+        .ghost.right {
+          border-color: rgb(150, 195, 125);
+          box-shadow: 0 0 0 1px rgba(150, 195, 125, 0.35), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+        }
+
+
         .box {
           position: fixed;
+          top: 0;
+          left: 0;
           box-sizing: border-box;
           border: 0;
           background: transparent;
           border-radius: 6px;
           opacity: 1;
           pointer-events: none;
-          transition: background-color 140ms ease;
-        }
-
-        .box.preview {
-          background: rgba(255, 255, 255, 0.055);
-          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
-        }
-
-        .box.root-preview {
-          background: rgba(255, 255, 255, 0.022);
-          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.035);
         }
 
         .box.selected {
           z-index: 2;
-          border: 2px solid #1297ff;
-          outline: 2px solid rgba(255, 255, 255, 0.92);
+          border: 3.5px solid #1297ff;
+          outline: 3px solid rgba(255, 255, 255, 0.96);
           outline-offset: 1px;
-          background: rgba(18, 151, 255, 0.13);
-          opacity: 1;
+          background: rgba(18, 151, 255, 0.16);
           box-shadow:
-            0 0 0 5px rgba(18, 151, 255, 0.22),
-            0 0 0 1px rgba(0, 48, 120, 0.4),
-            inset 0 0 0 1px rgba(255, 255, 255, 0.58),
-            0 8px 22px rgba(0, 74, 173, 0.18);
+            0 0 0 8px rgba(18, 151, 255, 0.32),
+            0 0 0 1px rgba(0, 32, 96, 0.55),
+            inset 0 0 0 1.5px rgba(255, 255, 255, 0.7),
+            0 14px 36px rgba(0, 74, 173, 0.4);
         }
 
         .box.selected::before {
@@ -263,51 +316,122 @@
             linear-gradient(#7cc7ff, #7cc7ff) bottom right / 3px 18px no-repeat;
         }
 
-        .label,
+        .chip {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 34px;
+          height: 34px;
+          box-sizing: border-box;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 8px;
+          background: rgba(20, 26, 36, 0.42);
+          -webkit-backdrop-filter: blur(22px) saturate(180%);
+          backdrop-filter: blur(22px) saturate(180%);
+          border: 1.5px solid rgba(255, 255, 255, 0.2);
+          border-bottom-width: 2.5px;
+          box-shadow:
+            0 8px 22px rgba(0, 0, 0, 0.4),
+            0 1px 3px rgba(0, 0, 0, 0.3),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          font-size: 17px;
+          font-weight: 700;
+          line-height: 1;
+          color: white;
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+          pointer-events: auto;
+          cursor: pointer;
+          transition: filter 110ms ease, transform 110ms ease;
+          z-index: 3;
+        }
+
+        .chip:hover {
+          filter: brightness(1.22);
+          transform: scale(1.08);
+        }
+
+        .chip.up {
+          background: rgba(232, 152, 128, 0.4);
+          border-color: rgba(232, 152, 128, 0.9);
+          border-bottom-color: rgba(120, 50, 30, 0.95);
+          color: rgb(60, 22, 12);
+          text-shadow: 0 1px 1px rgba(255, 255, 255, 0.25);
+        }
+
+        .chip.down {
+          background: rgba(115, 195, 195, 0.4);
+          border-color: rgba(115, 195, 195, 0.9);
+          border-bottom-color: rgba(20, 80, 80, 0.95);
+          color: rgb(12, 46, 46);
+          text-shadow: 0 1px 1px rgba(255, 255, 255, 0.25);
+        }
+
+        .chip.left {
+          background: rgba(195, 145, 220, 0.4);
+          border-color: rgba(195, 145, 220, 0.9);
+          border-bottom-color: rgba(80, 40, 110, 0.95);
+          color: rgb(50, 22, 70);
+          text-shadow: 0 1px 1px rgba(255, 255, 255, 0.25);
+        }
+
+        .chip.right {
+          background: rgba(150, 195, 125, 0.4);
+          border-color: rgba(150, 195, 125, 0.9);
+          border-bottom-color: rgba(50, 90, 30, 0.95);
+          color: rgb(24, 50, 12);
+          text-shadow: 0 1px 1px rgba(255, 255, 255, 0.25);
+        }
+
         .hint {
           position: fixed;
+          left: 50%;
+          top: 18px;
+          transform: translateX(-50%);
           max-width: min(520px, calc(100vw - 24px));
           box-sizing: border-box;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           font-size: 12px;
+          font-weight: 500;
+          letter-spacing: 0.02em;
           line-height: 16px;
-          color: white;
-          background: rgba(12, 20, 32, 0.88);
-          border: 1px solid rgba(255, 255, 255, 0.16);
-          border-radius: 7px;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
-          padding: 6px 8px;
+          color: rgba(226, 232, 240, 0.9);
+          background: rgba(16, 22, 32, 0.85);
+          -webkit-backdrop-filter: blur(14px) saturate(180%);
+          backdrop-filter: blur(14px) saturate(180%);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 999px;
+          box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+          padding: 6px 14px;
           pointer-events: none;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
 
-        .hint {
-          left: 12px;
-          bottom: 12px;
-        }
-
-        .selected-label {
-          background: rgba(5, 91, 168, 0.94);
-          border-color: rgba(180, 224, 255, 0.5);
-          box-shadow: 0 10px 30px rgba(0, 74, 173, 0.28);
-        }
       </style>
       <div class="shade"></div>
+      <div class="ghosts"></div>
       <div class="boxes"></div>
-      <div class="label" hidden></div>
+      <div class="chips"></div>
       <div class="hint" hidden></div>
     `;
 
     boxesLayer = shadowRoot.querySelector(".boxes");
-    labelElement = shadowRoot.querySelector(".label");
+    ghostsLayer = shadowRoot.querySelector(".ghosts");
+    chipsLayer = shadowRoot.querySelector(".chips");
     hintElement = shadowRoot.querySelector(".hint");
     document.documentElement.appendChild(overlayHost);
   }
 
   function handleMouseMove(event) {
     if (!active) {
+      return;
+    }
+
+    if (isOverlayEvent(event)) {
       return;
     }
 
@@ -366,13 +490,17 @@
   }
 
   function swallowPointerEvent(event) {
-    if (active) {
+    if (active && !isOverlayEvent(event)) {
       swallowEvent(event);
     }
   }
 
   function handleMouseUp(event) {
     if (!active) {
+      return;
+    }
+
+    if (isOverlayEvent(event)) {
       return;
     }
 
@@ -403,6 +531,7 @@
       candidates = [];
       selectedIndex = 0;
       render();
+      showHint("Move over page content   esc cancel");
       return;
     }
 
@@ -414,21 +543,30 @@
 
     selectPreviewCandidateAtPoint(x, y);
     render();
+
+    if (candidates.length) {
+      showHint("⏎ capture   esc cancel");
+    } else {
+      showHint("No component boxes here   esc cancel");
+    }
   }
 
   function findComponentRoot(x, y) {
     const stack = document
       .elementsFromPoint(x, y)
       .filter((element) => element instanceof Element)
-      .filter((element) => element !== overlayHost && !overlayHost?.contains(element))
+      .filter((element) => !isOverlayElement(element))
       .filter((element) => !SKIPPED_TAGS.has(element.tagName));
 
-    const leaf = stack[0];
+    const leaf = stack.find((element) => {
+      const rect = getVisibleRect(element);
+      return rect && pointInsideRect(x, y, rect);
+    });
     if (!leaf) {
-      return null;
+      return document.body;
     }
 
-    let bestElement = leaf;
+    let bestElement = null;
     let bestScore = Number.NEGATIVE_INFINITY;
     let element = leaf;
     let distanceFromLeaf = 0;
@@ -446,7 +584,7 @@
       distanceFromLeaf += 1;
     }
 
-    return bestElement;
+    return bestElement || leaf || document.body;
   }
 
   function componentRootScore(element, rect, distanceFromLeaf = 0) {
@@ -542,7 +680,6 @@
         area: rect.width * rect.height,
         captureScore,
         semanticScore: candidateSemanticScore(element),
-        label: labelForElement(element),
         preview: false
       });
     });
@@ -621,8 +758,7 @@
     if (
       style.display === "none" ||
       style.visibility === "hidden" ||
-      Number(style.opacity) === 0 ||
-      style.pointerEvents === "none"
+      Number(style.opacity) === 0
     ) {
       return null;
     }
@@ -850,55 +986,309 @@
   }
 
   function render() {
-    if (!boxesLayer || !labelElement) {
+    if (!boxesLayer || !ghostsLayer || !chipsLayer) {
       return;
     }
 
     boxesLayer.textContent = "";
-
-    const visibleBoxes = candidates
-      .map((candidate, index) => ({ candidate, index }))
-      .filter(({ candidate, index }) => index === selectedIndex || candidate.preview);
-    const previewBoxes = visibleBoxes.filter(({ index }) => index !== selectedIndex);
-    const selectedBox = visibleBoxes.find(({ index }) => index === selectedIndex);
-
-    previewBoxes.forEach(drawBox);
-    if (selectedBox) {
-      drawBox(selectedBox);
-    }
-
-    function drawBox({ candidate, index }) {
-      const box = document.createElement("div");
-      const classNames = ["box"];
-      if (index === selectedIndex) {
-        classNames.push("selected");
-      } else {
-        classNames.push("preview");
-        if (candidate.element === rootElement) {
-          classNames.push("root-preview");
-        }
-      }
-      box.className = classNames.join(" ");
-      box.style.transform = `translate(${candidate.rect.left}px, ${candidate.rect.top}px)`;
-      box.style.width = `${candidate.rect.width}px`;
-      box.style.height = `${candidate.rect.height}px`;
-      boxesLayer.appendChild(box);
-    }
+    ghostsLayer.textContent = "";
+    chipsLayer.textContent = "";
 
     const selected = candidates[selectedIndex];
     if (!selected) {
-      labelElement.hidden = true;
-      showHint("No DOM component here");
       return;
     }
 
-    labelElement.hidden = false;
-    labelElement.className = "label selected-label";
-    labelElement.textContent = `Selected ${selectedIndex + 1}/${candidates.length} - ${selected.label}`;
-    const labelLeft = clamp(selected.rect.left, 12, window.innerWidth - 240);
-    const labelTop = selected.rect.top > 36 ? selected.rect.top - 32 : selected.rect.bottom + 8;
-    labelElement.style.left = `${labelLeft}px`;
-    labelElement.style.top = `${clamp(labelTop, 12, window.innerHeight - 42)}px`;
+    const neighbors = getNeighbors(selectedIndex);
+
+    drawGhost(neighbors.parentIdx, "up");
+    drawGhost(neighbors.leftSiblingIdx, "left");
+    drawGhost(neighbors.rightSiblingIdx, "right");
+    drawGhost(neighbors.firstChildIdx, "down");
+
+    const box = document.createElement("div");
+    box.className = "box selected";
+    box.style.transform = `translate(${selected.rect.left}px, ${selected.rect.top}px)`;
+    box.style.width = `${selected.rect.width}px`;
+    box.style.height = `${selected.rect.height}px`;
+    boxesLayer.appendChild(box);
+
+    placedChipRects.length = 0;
+    drawDirectionChip("up", neighbors.parentIdx, selected.rect);
+    drawDirectionChip("down", neighbors.firstChildIdx, selected.rect);
+    drawDirectionChip("left", neighbors.leftSiblingIdx, selected.rect);
+    drawDirectionChip("right", neighbors.rightSiblingIdx, selected.rect);
+  }
+
+  function drawGhost(candidateIndex, kind) {
+    if (candidateIndex === -1) {
+      return;
+    }
+    const candidate = candidates[candidateIndex];
+    if (!candidate) {
+      return;
+    }
+    const rect = candidate.rect;
+    const el = document.createElement("div");
+    el.className = `ghost ${kind}`;
+    el.style.transform = `translate(${rect.left}px, ${rect.top}px)`;
+    el.style.width = `${rect.width}px`;
+    el.style.height = `${rect.height}px`;
+    ghostsLayer.appendChild(el);
+  }
+
+  function drawDirectionChip(direction, candidateIndex, selRect) {
+    if (candidateIndex === -1) {
+      return;
+    }
+    const candidate = candidates[candidateIndex];
+    if (!candidate) {
+      return;
+    }
+
+    const chip = document.createElement("div");
+    chip.className = `chip ${direction}`;
+    chip.textContent = DIRECTION_GLYPHS[direction];
+
+    chip.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      selectCandidate(candidateIndex);
+    });
+
+    chipsLayer.appendChild(chip);
+
+    const ghostRect = candidate.rect;
+    const chipRect = chip.getBoundingClientRect();
+    const chipW = chipRect.width;
+    const chipH = chipRect.height;
+    const margin = 6;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    const positions = chipPreferredPositions(direction, ghostRect, selRect, chipW, chipH);
+
+    let best = null;
+    for (const pos of positions) {
+      const left = clamp(pos.left, margin, vw - chipW - margin);
+      const top = clamp(pos.top, margin, vh - chipH - margin);
+      const rect = { left, top, width: chipW, height: chipH };
+      if (!rectCollidesAny(rect, placedChipRects)) {
+        best = rect;
+        break;
+      }
+    }
+
+    if (!best) {
+      const initial = positions[0];
+      let left = clamp(initial.left, margin, vw - chipW - margin);
+      let top = clamp(initial.top, margin, vh - chipH - margin);
+      const step = chipH + 4;
+      let safety = 0;
+      while (safety < 24) {
+        const rect = { left, top, width: chipW, height: chipH };
+        if (!rectCollidesAny(rect, placedChipRects)) {
+          best = rect;
+          break;
+        }
+        top += step;
+        if (top + chipH > vh - margin) {
+          top = margin;
+          left += chipW + 4;
+          if (left + chipW > vw - margin) {
+            break;
+          }
+        }
+        safety += 1;
+      }
+      if (!best) {
+        best = { left, top, width: chipW, height: chipH };
+      }
+    }
+
+    chip.style.left = `${best.left}px`;
+    chip.style.top = `${best.top}px`;
+    placedChipRects.push(best);
+  }
+
+  function chipPreferredPositions(direction, ghostRect, selRect, chipW, chipH) {
+    const gap = 4;
+    const half = 0.5;
+    const gx = ghostRect.left + ghostRect.width / 2;
+    const gy = ghostRect.top + ghostRect.height / 2;
+
+    if (direction === "up") {
+      if (ghostRect.bottom <= selRect.top + 4) {
+        return [
+          { left: gx - chipW / 2, top: ghostRect.bottom - chipH * half },
+          { left: gx - chipW / 2, top: ghostRect.bottom + gap },
+          { left: ghostRect.right - chipW - 4, top: ghostRect.bottom - chipH * half },
+          { left: ghostRect.left + 4, top: ghostRect.bottom - chipH * half }
+        ];
+      }
+      return [
+        { left: gx - chipW / 2, top: ghostRect.top + gap },
+        { left: ghostRect.left + 6, top: ghostRect.top + gap },
+        { left: ghostRect.right - chipW - 6, top: ghostRect.top + gap },
+        { left: ghostRect.left + 6, top: ghostRect.top - chipH - gap }
+      ];
+    }
+
+    if (direction === "down") {
+      if (ghostRect.top >= selRect.bottom - 4) {
+        return [
+          { left: gx - chipW / 2, top: ghostRect.top - chipH * half },
+          { left: gx - chipW / 2, top: ghostRect.top - chipH - gap },
+          { left: ghostRect.right - chipW - 4, top: ghostRect.top - chipH * half },
+          { left: ghostRect.left + 4, top: ghostRect.top - chipH * half }
+        ];
+      }
+      return [
+        { left: gx - chipW / 2, top: ghostRect.top - chipH - gap },
+        { left: gx - chipW / 2, top: ghostRect.top + gap },
+        { left: ghostRect.left + 6, top: ghostRect.top - chipH - gap },
+        { left: ghostRect.right - chipW - 6, top: ghostRect.top - chipH - gap }
+      ];
+    }
+
+    if (direction === "left") {
+      return [
+        { left: ghostRect.right - chipW * half, top: gy - chipH / 2 },
+        { left: ghostRect.right + gap, top: gy - chipH / 2 },
+        { left: ghostRect.right - chipW * half, top: ghostRect.top + 4 },
+        { left: ghostRect.right - chipW * half, top: ghostRect.bottom - chipH - 4 }
+      ];
+    }
+
+    return [
+      { left: ghostRect.left - chipW * half, top: gy - chipH / 2 },
+      { left: ghostRect.left - chipW - gap, top: gy - chipH / 2 },
+      { left: ghostRect.left - chipW * half, top: ghostRect.top + 4 },
+      { left: ghostRect.left - chipW * half, top: ghostRect.bottom - chipH - 4 }
+    ];
+  }
+
+  function rectCollidesAny(rect, others) {
+    for (const other of others) {
+      if (
+        rect.left < other.left + other.width &&
+        other.left < rect.left + rect.width &&
+        rect.top < other.top + other.height &&
+        other.top < rect.top + rect.height
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function selectCandidate(index) {
+    if (index < 0 || index >= candidates.length || index === selectedIndex) {
+      return;
+    }
+    selectedIndex = index;
+    render();
+  }
+
+  function getNeighbors(selectedIdx) {
+    const selected = candidates[selectedIdx];
+    if (!selected) {
+      return {
+        parentIdx: -1,
+        leftSiblingIdx: -1,
+        rightSiblingIdx: -1,
+        firstChildIdx: -1,
+        childEntries: [],
+        siblingEntries: []
+      };
+    }
+
+    const parentIdx = parentCandidateIndex(selected, selectedIdx);
+    const childEntries = sortedHierarchyEntries(childEntriesForParent(selectedIdx));
+    const firstChildIdx = childEntries.length ? childEntries[0].index : -1;
+
+    let leftSiblingIdx = -1;
+    let rightSiblingIdx = -1;
+    let siblingEntries = [];
+
+    if (parentIdx !== -1) {
+      siblingEntries = sortedHierarchyEntries(childEntriesForParent(parentIdx));
+      const position = siblingEntries.findIndex(({ index }) => index === selectedIdx);
+      if (position > 0) {
+        leftSiblingIdx = siblingEntries[position - 1].index;
+      } else if (siblingEntries.length > 1) {
+        leftSiblingIdx = siblingEntries[siblingEntries.length - 1].index;
+      }
+      if (position !== -1 && position < siblingEntries.length - 1) {
+        rightSiblingIdx = siblingEntries[position + 1].index;
+      } else if (siblingEntries.length > 1) {
+        rightSiblingIdx = siblingEntries[0].index;
+      }
+    }
+
+    return {
+      parentIdx,
+      leftSiblingIdx,
+      rightSiblingIdx,
+      firstChildIdx,
+      childEntries,
+      siblingEntries
+    };
+  }
+
+  function isOverlayEvent(event) {
+    if (!overlayHost) {
+      return false;
+    }
+    const path = typeof event.composedPath === "function" ? event.composedPath() : [];
+    return path.includes(overlayHost);
+  }
+
+  function isOverlayElement(element) {
+    if (!overlayHost) {
+      return false;
+    }
+
+    return (
+      element === overlayHost ||
+      overlayHost.contains(element) ||
+      element.getRootNode() === shadowRoot
+    );
+  }
+
+  function inspect() {
+    const selected = candidates[selectedIndex];
+    return {
+      active,
+      version: api.version,
+      root: rootElement ? describeElement(rootElement) : null,
+      candidateCount: candidates.length,
+      selectedIndex,
+      selected: selected
+        ? {
+            element: describeElement(selected.element),
+            rect: selected.rect,
+            preview: selected.preview
+          }
+        : null,
+      lastPointer
+    };
+  }
+
+  function describeElement(element) {
+    const role = roleOf(element);
+    const id = element.id ? `#${element.id}` : "";
+    const className =
+      typeof element.className === "string"
+        ? element.className
+            .split(/\s+/)
+            .filter(Boolean)
+            .slice(0, 3)
+            .map((name) => `.${name}`)
+            .join("")
+        : "";
+
+    return `${element.tagName.toLowerCase()}${id}${className}${role ? `[role=${role}]` : ""}`;
   }
 
   function cycleSelection(delta) {
@@ -933,9 +1323,7 @@
     }
 
     const childEntries = sortedHierarchyEntries(
-      candidates
-        .map((candidate, index) => ({ candidate, index }))
-        .filter(({ index }) => parentCandidateIndex(candidates[index], index) === selectedIndex)
+      childEntriesForParent(selectedIndex)
     );
 
     if (!childEntries.length) {
@@ -959,14 +1347,7 @@
     }
 
     const siblingEntries = sortedHierarchyEntries(
-      candidates
-        .map((candidate, index) => ({ candidate, index }))
-        .filter(({ index }) => {
-          return (
-            index !== parentIndex &&
-            parentCandidateIndex(candidates[index], index) === parentIndex
-          );
-        })
+      childEntriesForParent(parentIndex)
     );
 
     const currentSiblingPosition = siblingEntries.findIndex(({ index }) => index === selectedIndex);
@@ -996,6 +1377,14 @@
     });
 
     return parentIndex;
+  }
+
+  function childEntriesForParent(parentIndex) {
+    return candidates
+      .map((candidate, index) => ({ candidate, index }))
+      .filter(({ index }) => {
+        return index !== parentIndex && parentCandidateIndex(candidates[index], index) === parentIndex;
+      });
   }
 
   function sortedHierarchyEntries(entries) {
@@ -1121,7 +1510,8 @@
     ensureOverlay();
     overlayHost.style.display = "block";
     boxesLayer.textContent = "";
-    labelElement.hidden = true;
+    if (ghostsLayer) ghostsLayer.textContent = "";
+    if (chipsLayer) chipsLayer.textContent = "";
     showHint("Copied");
   }
 
@@ -1129,7 +1519,8 @@
     ensureOverlay();
     overlayHost.style.display = "block";
     boxesLayer.textContent = "";
-    labelElement.hidden = true;
+    if (ghostsLayer) ghostsLayer.textContent = "";
+    if (chipsLayer) chipsLayer.textContent = "";
     showHint(message || "Capture failed");
     window.setTimeout(stop, 1600);
   }
@@ -1223,19 +1614,6 @@
       score += 2;
     }
     return score;
-  }
-
-  function labelForElement(element) {
-    const role = roleOf(element);
-    const tag = element.tagName.toLowerCase();
-    const name = accessibleName(element);
-    if (name) {
-      return `${tag}${role ? `/${role}` : ""} - ${name}`;
-    }
-    if (role) {
-      return `${tag}/${role}`;
-    }
-    return tag;
   }
 
   function accessibleName(element) {
