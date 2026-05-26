@@ -268,9 +268,9 @@
         }
 
         .ghost.down {
-          color: rgb(115, 195, 195);
+          color: rgb(240, 178, 70);
           border-color: currentColor;
-          box-shadow: 0 0 0 1px rgba(115, 195, 195, 0.35), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+          box-shadow: 0 0 0 1px rgba(240, 178, 70, 0.35), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
         }
 
         .ghost.left {
@@ -374,10 +374,10 @@
         }
 
         .chip.down {
-          background: rgba(115, 195, 195, 0.4);
-          border-color: rgba(115, 195, 195, 0.9);
-          border-bottom-color: rgba(20, 80, 80, 0.95);
-          color: rgb(12, 46, 46);
+          background: rgba(240, 178, 70, 0.42);
+          border-color: rgba(240, 178, 70, 0.92);
+          border-bottom-color: rgba(112, 62, 10, 0.95);
+          color: rgb(58, 32, 6);
           text-shadow: 0 1px 1px rgba(255, 255, 255, 0.25);
         }
 
