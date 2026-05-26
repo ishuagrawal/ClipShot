@@ -15,6 +15,8 @@
   const MAX_SCAN_ELEMENTS = 1600;
   const MIN_BOX_WIDTH = 10;
   const MIN_BOX_HEIGHT = 10;
+  const MIN_USEFUL_BOX_WIDTH = 24;
+  const MIN_USEFUL_BOX_AREA = 360;
 
   const SKIPPED_TAGS = new Set([
     "AREA",
@@ -113,6 +115,7 @@
   let ghostsLayer = null;
   let hintElement = null;
   const placedChipRects = [];
+  const placedGhostRects = [];
 
   const messageListener = (message, _sender, sendResponse) => {
     if (message?.type !== "CLIPSHOT_VISIBLE_TAB_CAPTURED") {
@@ -253,23 +256,32 @@
           border-style: solid;
         }
 
+        .ghost.stacked {
+          outline: 2px solid currentColor;
+          outline-offset: var(--ghost-stack-offset, 5px);
+        }
+
         .ghost.up {
-          border-color: rgb(232, 152, 128);
+          color: rgb(232, 152, 128);
+          border-color: currentColor;
           box-shadow: 0 0 0 1px rgba(232, 152, 128, 0.35), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
         }
 
         .ghost.down {
-          border-color: rgb(115, 195, 195);
+          color: rgb(115, 195, 195);
+          border-color: currentColor;
           box-shadow: 0 0 0 1px rgba(115, 195, 195, 0.35), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
         }
 
         .ghost.left {
-          border-color: rgb(195, 145, 220);
+          color: rgb(195, 145, 220);
+          border-color: currentColor;
           box-shadow: 0 0 0 1px rgba(195, 145, 220, 0.35), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
         }
 
         .ghost.right {
-          border-color: rgb(150, 195, 125);
+          color: rgb(150, 195, 125);
+          border-color: currentColor;
           box-shadow: 0 0 0 1px rgba(150, 195, 125, 0.35), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
         }
 
@@ -781,7 +793,15 @@
       return null;
     }
 
+    if (isTooSmallSelectionRect(clipped)) {
+      return null;
+    }
+
     return clipped;
+  }
+
+  function isTooSmallSelectionRect(rect) {
+    return rect.width < MIN_USEFUL_BOX_WIDTH || rect.width * rect.height < MIN_USEFUL_BOX_AREA;
   }
 
   function shouldKeepCandidate(element, root, rect, rootRect) {
@@ -1001,6 +1021,7 @@
 
     const neighbors = getNeighbors(selectedIndex);
 
+    placedGhostRects.length = 0;
     drawGhost(neighbors.parentIdx, "up");
     drawGhost(neighbors.leftSiblingIdx, "left");
     drawGhost(neighbors.rightSiblingIdx, "right");
@@ -1030,11 +1051,46 @@
     }
     const rect = candidate.rect;
     const el = document.createElement("div");
-    el.className = `ghost ${kind}`;
+    const stackDepth = ghostStackDepth(rect);
+    el.className = stackDepth > 0 ? `ghost ${kind} stacked` : `ghost ${kind}`;
+    if (stackDepth > 0) {
+      el.style.setProperty("--ghost-stack-offset", `${stackDepth * 5}px`);
+    }
     el.style.transform = `translate(${rect.left}px, ${rect.top}px)`;
     el.style.width = `${rect.width}px`;
     el.style.height = `${rect.height}px`;
     ghostsLayer.appendChild(el);
+    placedGhostRects.push(rect);
+  }
+
+  function ghostStackDepth(rect) {
+    return placedGhostRects.filter((existingRect) => {
+      return nearSameRect(rect, existingRect) || rectsShareVisibleEdge(rect, existingRect);
+    }).length;
+  }
+
+  function rectsShareVisibleEdge(left, right) {
+    const edgeTolerance = 4;
+    const horizontalOverlap = Math.max(0, Math.min(left.right, right.right) - Math.max(left.left, right.left));
+    const verticalOverlap = Math.max(0, Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top));
+    const minHorizontalOverlap = Math.min(36, Math.max(12, Math.min(left.width, right.width) * 0.35));
+    const minVerticalOverlap = Math.min(36, Math.max(12, Math.min(left.height, right.height) * 0.35));
+
+    const sharesHorizontalEdge =
+      horizontalOverlap >= minHorizontalOverlap &&
+      (Math.abs(left.top - right.top) <= edgeTolerance ||
+        Math.abs(left.top - right.bottom) <= edgeTolerance ||
+        Math.abs(left.bottom - right.top) <= edgeTolerance ||
+        Math.abs(left.bottom - right.bottom) <= edgeTolerance);
+
+    const sharesVerticalEdge =
+      verticalOverlap >= minVerticalOverlap &&
+      (Math.abs(left.left - right.left) <= edgeTolerance ||
+        Math.abs(left.left - right.right) <= edgeTolerance ||
+        Math.abs(left.right - right.left) <= edgeTolerance ||
+        Math.abs(left.right - right.right) <= edgeTolerance);
+
+    return sharesHorizontalEdge || sharesVerticalEdge;
   }
 
   function drawDirectionChip(direction, candidateIndex, selRect) {
