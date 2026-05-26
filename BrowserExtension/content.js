@@ -107,6 +107,8 @@
   let rootElement = null;
   let candidates = [];
   let selectedIndex = 0;
+  let previewIndex = -1;
+  let previewDirection = null;
   let lastPointer = null;
   let overlayHost = null;
   let shadowRoot = null;
@@ -115,7 +117,6 @@
   let ghostsLayer = null;
   let hintElement = null;
   const placedChipRects = [];
-  const placedGhostRects = [];
 
   const messageListener = (message, _sender, sendResponse) => {
     if (message?.type !== "CLIPSHOT_VISIBLE_TAB_CAPTURED") {
@@ -154,12 +155,15 @@
     rootElement = null;
     candidates = [];
     selectedIndex = 0;
+    previewIndex = -1;
+    previewDirection = null;
     ensureOverlay();
     overlayHost.style.display = "block";
-    showHint("⏎ capture   esc cancel");
+    showDefaultHint();
 
     window.addEventListener("mousemove", handleMouseMove, true);
     window.addEventListener("keydown", handleKeyDown, true);
+    window.addEventListener("keyup", handleKeyUp, true);
     window.addEventListener("mousedown", swallowPointerEvent, true);
     window.addEventListener("mouseup", handleMouseUp, true);
     window.addEventListener("click", swallowPointerEvent, true);
@@ -180,11 +184,14 @@
     rootElement = null;
     candidates = [];
     selectedIndex = 0;
+    previewIndex = -1;
+    previewDirection = null;
     lastPointer = null;
     render();
 
     window.removeEventListener("mousemove", handleMouseMove, true);
     window.removeEventListener("keydown", handleKeyDown, true);
+    window.removeEventListener("keyup", handleKeyUp, true);
     window.removeEventListener("mousedown", swallowPointerEvent, true);
     window.removeEventListener("mouseup", handleMouseUp, true);
     window.removeEventListener("click", swallowPointerEvent, true);
@@ -236,6 +243,7 @@
           position: fixed;
           inset: 0;
           background: rgba(5, 10, 18, 0.14);
+          z-index: 0;
         }
 
         .ghosts,
@@ -243,6 +251,20 @@
         .chips {
           position: fixed;
           inset: 0;
+        }
+
+        .boxes {
+          z-index: 2;
+        }
+
+        .ghosts {
+          z-index: 3;
+          pointer-events: none;
+        }
+
+        .chips {
+          z-index: 5;
+          pointer-events: none;
         }
 
         .ghost {
@@ -254,11 +276,6 @@
           pointer-events: none;
           border-width: 2.5px;
           border-style: solid;
-        }
-
-        .ghost.stacked {
-          outline: 2px solid currentColor;
-          outline-offset: var(--ghost-stack-offset, 5px);
         }
 
         .ghost.up {
@@ -328,6 +345,45 @@
             linear-gradient(#7cc7ff, #7cc7ff) bottom right / 3px 18px no-repeat;
         }
 
+        .box.preview-selection {
+          z-index: 4;
+          --preview-color: rgba(255, 230, 128, 0.98);
+          --preview-fill: rgba(255, 230, 128, 0.18);
+          --preview-glow: rgba(255, 230, 128, 0.22);
+          border: 3px solid var(--preview-color);
+          outline: 3px solid rgba(16, 22, 32, 0.86);
+          outline-offset: 2px;
+          background: var(--preview-fill);
+          box-shadow:
+            0 0 0 8px var(--preview-glow),
+            0 16px 38px rgba(0, 0, 0, 0.32),
+            inset 0 0 0 1.5px rgba(255, 255, 255, 0.72);
+        }
+
+        .box.preview-selection.up {
+          --preview-color: rgb(232, 152, 128);
+          --preview-fill: rgba(232, 152, 128, 0.18);
+          --preview-glow: rgba(232, 152, 128, 0.24);
+        }
+
+        .box.preview-selection.down {
+          --preview-color: rgb(240, 178, 70);
+          --preview-fill: rgba(240, 178, 70, 0.18);
+          --preview-glow: rgba(240, 178, 70, 0.24);
+        }
+
+        .box.preview-selection.left {
+          --preview-color: rgb(195, 145, 220);
+          --preview-fill: rgba(195, 145, 220, 0.18);
+          --preview-glow: rgba(195, 145, 220, 0.24);
+        }
+
+        .box.preview-selection.right {
+          --preview-color: rgb(150, 195, 125);
+          --preview-fill: rgba(150, 195, 125, 0.18);
+          --preview-glow: rgba(150, 195, 125, 0.24);
+        }
+
         .chip {
           position: fixed;
           top: 0;
@@ -366,35 +422,43 @@
         }
 
         .chip.up {
-          background: rgba(232, 152, 128, 0.4);
+          background: rgb(232, 152, 128);
           border-color: rgba(232, 152, 128, 0.9);
           border-bottom-color: rgba(120, 50, 30, 0.95);
           color: rgb(60, 22, 12);
           text-shadow: 0 1px 1px rgba(255, 255, 255, 0.25);
+          -webkit-backdrop-filter: none;
+          backdrop-filter: none;
         }
 
         .chip.down {
-          background: rgba(240, 178, 70, 0.42);
+          background: rgb(240, 178, 70);
           border-color: rgba(240, 178, 70, 0.92);
           border-bottom-color: rgba(112, 62, 10, 0.95);
           color: rgb(58, 32, 6);
           text-shadow: 0 1px 1px rgba(255, 255, 255, 0.25);
+          -webkit-backdrop-filter: none;
+          backdrop-filter: none;
         }
 
         .chip.left {
-          background: rgba(195, 145, 220, 0.4);
+          background: rgb(195, 145, 220);
           border-color: rgba(195, 145, 220, 0.9);
           border-bottom-color: rgba(80, 40, 110, 0.95);
           color: rgb(50, 22, 70);
           text-shadow: 0 1px 1px rgba(255, 255, 255, 0.25);
+          -webkit-backdrop-filter: none;
+          backdrop-filter: none;
         }
 
         .chip.right {
-          background: rgba(150, 195, 125, 0.4);
+          background: rgb(150, 195, 125);
           border-color: rgba(150, 195, 125, 0.9);
           border-bottom-color: rgba(50, 90, 30, 0.95);
           color: rgb(24, 50, 12);
           text-shadow: 0 1px 1px rgba(255, 255, 255, 0.25);
+          -webkit-backdrop-filter: none;
+          backdrop-filter: none;
         }
 
         .hint {
@@ -463,41 +527,58 @@
 
     if (event.key === "Tab") {
       swallowEvent(event);
+      const hadPreview = clearPreview(false);
       if (event.shiftKey) {
         cycleSelection(-1);
       } else if (!selectChildCandidate()) {
         cycleSelection(1);
       }
+      if (hadPreview && candidates.length) {
+        showDefaultHint();
+      }
       return;
     }
 
-    if (event.key === "ArrowUp") {
+    const arrowDirection = arrowDirectionForKey(event.key);
+    if (arrowDirection) {
       swallowEvent(event);
-      selectParentCandidate();
-      return;
-    }
-
-    if (event.key === "ArrowDown") {
-      swallowEvent(event);
-      selectChildCandidate();
-      return;
-    }
-
-    if (event.key === "ArrowLeft") {
-      swallowEvent(event);
-      selectSiblingCandidate(-1);
-      return;
-    }
-
-    if (event.key === "ArrowRight") {
-      swallowEvent(event);
-      selectSiblingCandidate(1);
+      if (event.altKey) {
+        previewDirectionalCandidate(arrowDirection);
+      } else {
+        const hadPreview = clearPreview(false);
+        const moved = selectDirectionalCandidate(arrowDirection);
+        if (!moved && hadPreview) {
+          render();
+        }
+        if (hadPreview && candidates.length) {
+          showDefaultHint();
+        }
+      }
       return;
     }
 
     if (event.key === "Enter") {
       swallowEvent(event);
       confirmSelection();
+    }
+  }
+
+  function handleKeyUp(event) {
+    if (!active || event.altKey) {
+      return;
+    }
+
+    if (previewIndex !== -1) {
+      swallowEvent(event);
+      clearPreview();
+      return;
+    }
+
+    if (event.key === "Alt" || event.key === "Option") {
+      swallowEvent(event);
+      if (candidates.length) {
+        showDefaultHint();
+      }
     }
   }
 
@@ -536,12 +617,16 @@
 
   function updateSelectionAt(x, y, force) {
     lastPointer = { x, y };
+    previewIndex = -1;
+    previewDirection = null;
     const nextRoot = findComponentRoot(x, y);
 
     if (!nextRoot) {
       rootElement = null;
       candidates = [];
       selectedIndex = 0;
+      previewIndex = -1;
+      previewDirection = null;
       render();
       showHint("Move over page content   esc cancel");
       return;
@@ -551,13 +636,15 @@
       rootElement = nextRoot;
       candidates = collectCandidates(rootElement);
       selectedIndex = 0;
+      previewIndex = -1;
+      previewDirection = null;
     }
 
     selectPreviewCandidateAtPoint(x, y);
     render();
 
     if (candidates.length) {
-      showHint("⏎ capture   esc cancel");
+      showDefaultHint();
     } else {
       showHint("No component boxes here   esc cancel");
     }
@@ -1019,26 +1106,69 @@
       return;
     }
 
-    const neighbors = getNeighbors(selectedIndex);
+    const preview = candidates[previewIndex];
+    const isPreviewing = Boolean(preview && previewIndex !== selectedIndex && previewDirection);
+    const neighbors = isPreviewing ? null : getNeighbors(selectedIndex);
+    const targets = isPreviewing ? [] : navigationTargets(neighbors, selectedIndex);
 
-    placedGhostRects.length = 0;
-    drawGhost(neighbors.parentIdx, "up");
-    drawGhost(neighbors.leftSiblingIdx, "left");
-    drawGhost(neighbors.rightSiblingIdx, "right");
-    drawGhost(neighbors.firstChildIdx, "down");
+    if (!isPreviewing) {
+      targets.forEach(({ direction, index }) => drawGhost(index, direction));
+    }
 
-    const box = document.createElement("div");
-    box.className = "box selected";
-    box.style.transform = `translate(${selected.rect.left}px, ${selected.rect.top}px)`;
-    box.style.width = `${selected.rect.width}px`;
-    box.style.height = `${selected.rect.height}px`;
-    boxesLayer.appendChild(box);
+    drawSelectionBox(selected, "box selected");
+
+    if (isPreviewing) {
+      drawSelectionBox(preview, `box preview-selection ${previewDirection}`);
+    }
 
     placedChipRects.length = 0;
-    drawDirectionChip("up", neighbors.parentIdx, selected.rect);
-    drawDirectionChip("down", neighbors.firstChildIdx, selected.rect);
-    drawDirectionChip("left", neighbors.leftSiblingIdx, selected.rect);
-    drawDirectionChip("right", neighbors.rightSiblingIdx, selected.rect);
+    if (!isPreviewing) {
+      targets.forEach(({ direction, index }) => drawDirectionChip(direction, index, selected.rect));
+    }
+  }
+
+  function navigationTargets(neighbors, selectedCandidateIndex) {
+    const targets = [];
+    const usedIndexes = new Set();
+    const usedRects = [];
+
+    const addTarget = (direction, index) => {
+      if (index === -1 || usedIndexes.has(index)) {
+        return;
+      }
+      const candidate = candidates[index];
+      if (!candidate || usedRects.some((rect) => nearSameRect(rect, candidate.rect))) {
+        return;
+      }
+      targets.push({ direction, index });
+      usedIndexes.add(index);
+      usedRects.push(candidate.rect);
+    };
+
+    addTarget("up", neighbors.parentIdx);
+    addTarget("down", neighbors.firstChildIdx);
+
+    if (
+      neighbors.leftSiblingIdx !== -1 &&
+      neighbors.leftSiblingIdx === neighbors.rightSiblingIdx
+    ) {
+      const position = neighbors.siblingEntries.findIndex(({ index }) => index === selectedCandidateIndex);
+      addTarget(position === 0 ? "right" : "left", neighbors.leftSiblingIdx);
+      return targets;
+    }
+
+    addTarget("left", neighbors.leftSiblingIdx);
+    addTarget("right", neighbors.rightSiblingIdx);
+    return targets;
+  }
+
+  function drawSelectionBox(candidate, className) {
+    const box = document.createElement("div");
+    box.className = className;
+    box.style.transform = `translate(${candidate.rect.left}px, ${candidate.rect.top}px)`;
+    box.style.width = `${candidate.rect.width}px`;
+    box.style.height = `${candidate.rect.height}px`;
+    boxesLayer.appendChild(box);
   }
 
   function drawGhost(candidateIndex, kind) {
@@ -1051,46 +1181,11 @@
     }
     const rect = candidate.rect;
     const el = document.createElement("div");
-    const stackDepth = ghostStackDepth(rect);
-    el.className = stackDepth > 0 ? `ghost ${kind} stacked` : `ghost ${kind}`;
-    if (stackDepth > 0) {
-      el.style.setProperty("--ghost-stack-offset", `${stackDepth * 5}px`);
-    }
+    el.className = `ghost ${kind}`;
     el.style.transform = `translate(${rect.left}px, ${rect.top}px)`;
     el.style.width = `${rect.width}px`;
     el.style.height = `${rect.height}px`;
     ghostsLayer.appendChild(el);
-    placedGhostRects.push(rect);
-  }
-
-  function ghostStackDepth(rect) {
-    return placedGhostRects.filter((existingRect) => {
-      return nearSameRect(rect, existingRect) || rectsShareVisibleEdge(rect, existingRect);
-    }).length;
-  }
-
-  function rectsShareVisibleEdge(left, right) {
-    const edgeTolerance = 4;
-    const horizontalOverlap = Math.max(0, Math.min(left.right, right.right) - Math.max(left.left, right.left));
-    const verticalOverlap = Math.max(0, Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top));
-    const minHorizontalOverlap = Math.min(36, Math.max(12, Math.min(left.width, right.width) * 0.35));
-    const minVerticalOverlap = Math.min(36, Math.max(12, Math.min(left.height, right.height) * 0.35));
-
-    const sharesHorizontalEdge =
-      horizontalOverlap >= minHorizontalOverlap &&
-      (Math.abs(left.top - right.top) <= edgeTolerance ||
-        Math.abs(left.top - right.bottom) <= edgeTolerance ||
-        Math.abs(left.bottom - right.top) <= edgeTolerance ||
-        Math.abs(left.bottom - right.bottom) <= edgeTolerance);
-
-    const sharesVerticalEdge =
-      verticalOverlap >= minVerticalOverlap &&
-      (Math.abs(left.left - right.left) <= edgeTolerance ||
-        Math.abs(left.left - right.right) <= edgeTolerance ||
-        Math.abs(left.right - right.left) <= edgeTolerance ||
-        Math.abs(left.right - right.right) <= edgeTolerance);
-
-    return sharesHorizontalEdge || sharesVerticalEdge;
   }
 
   function drawDirectionChip(direction, candidateIndex, selRect) {
@@ -1137,29 +1232,12 @@
 
     if (!best) {
       const initial = positions[0];
-      let left = clamp(initial.left, margin, vw - chipW - margin);
-      let top = clamp(initial.top, margin, vh - chipH - margin);
-      const step = chipH + 4;
-      let safety = 0;
-      while (safety < 24) {
-        const rect = { left, top, width: chipW, height: chipH };
-        if (!rectCollidesAny(rect, placedChipRects)) {
-          best = rect;
-          break;
-        }
-        top += step;
-        if (top + chipH > vh - margin) {
-          top = margin;
-          left += chipW + 4;
-          if (left + chipW > vw - margin) {
-            break;
-          }
-        }
-        safety += 1;
-      }
-      if (!best) {
-        best = { left, top, width: chipW, height: chipH };
-      }
+      best = {
+        left: clamp(initial.left, margin, vw - chipW - margin),
+        top: clamp(initial.top, margin, vh - chipH - margin),
+        width: chipW,
+        height: chipH
+      };
     }
 
     chip.style.left = `${best.left}px`;
@@ -1168,60 +1246,67 @@
   }
 
   function chipPreferredPositions(direction, ghostRect, selRect, chipW, chipH) {
-    const gap = 4;
-    const half = 0.5;
-    const gx = ghostRect.left + ghostRect.width / 2;
-    const gy = ghostRect.top + ghostRect.height / 2;
+    const inset = 6;
+    const centerX = clampCenter(
+      selRect.left + selRect.width / 2,
+      ghostRect.left,
+      ghostRect.right,
+      chipW,
+      inset
+    );
+    const centerY = clampCenter(
+      selRect.top + selRect.height / 2,
+      ghostRect.top,
+      ghostRect.bottom,
+      chipH,
+      inset
+    );
+    const xOptions = edgeCenterOptions(ghostRect.left, ghostRect.right, chipW, centerX, inset);
+    const yOptions = edgeCenterOptions(ghostRect.top, ghostRect.bottom, chipH, centerY, inset);
 
     if (direction === "up") {
-      if (ghostRect.bottom <= selRect.top + 4) {
-        return [
-          { left: gx - chipW / 2, top: ghostRect.bottom - chipH * half },
-          { left: gx - chipW / 2, top: ghostRect.bottom + gap },
-          { left: ghostRect.right - chipW - 4, top: ghostRect.bottom - chipH * half },
-          { left: ghostRect.left + 4, top: ghostRect.bottom - chipH * half }
-        ];
-      }
-      return [
-        { left: gx - chipW / 2, top: ghostRect.top + gap },
-        { left: ghostRect.left + 6, top: ghostRect.top + gap },
-        { left: ghostRect.right - chipW - 6, top: ghostRect.top + gap },
-        { left: ghostRect.left + 6, top: ghostRect.top - chipH - gap }
-      ];
+      return xOptions.map((x) => ({ left: x - chipW / 2, top: ghostRect.top - chipH / 2 }));
     }
 
     if (direction === "down") {
-      if (ghostRect.top >= selRect.bottom - 4) {
-        return [
-          { left: gx - chipW / 2, top: ghostRect.top - chipH * half },
-          { left: gx - chipW / 2, top: ghostRect.top - chipH - gap },
-          { left: ghostRect.right - chipW - 4, top: ghostRect.top - chipH * half },
-          { left: ghostRect.left + 4, top: ghostRect.top - chipH * half }
-        ];
-      }
-      return [
-        { left: gx - chipW / 2, top: ghostRect.top - chipH - gap },
-        { left: gx - chipW / 2, top: ghostRect.top + gap },
-        { left: ghostRect.left + 6, top: ghostRect.top - chipH - gap },
-        { left: ghostRect.right - chipW - 6, top: ghostRect.top - chipH - gap }
-      ];
+      return xOptions.map((x) => ({ left: x - chipW / 2, top: ghostRect.top - chipH / 2 }));
     }
 
     if (direction === "left") {
-      return [
-        { left: ghostRect.right - chipW * half, top: gy - chipH / 2 },
-        { left: ghostRect.right + gap, top: gy - chipH / 2 },
-        { left: ghostRect.right - chipW * half, top: ghostRect.top + 4 },
-        { left: ghostRect.right - chipW * half, top: ghostRect.bottom - chipH - 4 }
-      ];
+      return yOptions.map((y) => ({ left: ghostRect.right - chipW / 2, top: y - chipH / 2 }));
     }
 
-    return [
-      { left: ghostRect.left - chipW * half, top: gy - chipH / 2 },
-      { left: ghostRect.left - chipW - gap, top: gy - chipH / 2 },
-      { left: ghostRect.left - chipW * half, top: ghostRect.top + 4 },
-      { left: ghostRect.left - chipW * half, top: ghostRect.bottom - chipH - 4 }
+    return yOptions.map((y) => ({ left: ghostRect.left - chipW / 2, top: y - chipH / 2 }));
+  }
+
+  function edgeCenterOptions(start, end, size, preferred, inset) {
+    const centers = [
+      preferred,
+      clampCenter(start + (end - start) * 0.33, start, end, size, inset),
+      clampCenter(start + (end - start) * 0.67, start, end, size, inset),
+      clampCenter(start + size / 2 + inset, start, end, size, inset),
+      clampCenter(end - size / 2 - inset, start, end, size, inset)
     ];
+    return dedupeNumbers(centers);
+  }
+
+  function clampCenter(value, start, end, size, inset) {
+    const min = start + size / 2 + inset;
+    const max = end - size / 2 - inset;
+    if (min > max) {
+      return start + (end - start) / 2;
+    }
+    return clamp(value, min, max);
+  }
+
+  function dedupeNumbers(values) {
+    const result = [];
+    values.forEach((value) => {
+      if (!result.some((existing) => Math.abs(existing - value) < 1)) {
+        result.push(value);
+      }
+    });
+    return result;
   }
 
   function rectCollidesAny(rect, others) {
@@ -1239,11 +1324,86 @@
   }
 
   function selectCandidate(index) {
-    if (index < 0 || index >= candidates.length || index === selectedIndex) {
+    if (index < 0 || index >= candidates.length) {
       return;
     }
+    const hadPreview = previewIndex !== -1;
+    const shouldRender = index !== selectedIndex || hadPreview;
     selectedIndex = index;
+    previewIndex = -1;
+    previewDirection = null;
+    if (shouldRender) {
+      render();
+    }
+    if (hadPreview) {
+      showDefaultHint();
+    }
+  }
+
+  function arrowDirectionForKey(key) {
+    if (key === "ArrowUp") return "up";
+    if (key === "ArrowDown") return "down";
+    if (key === "ArrowLeft") return "left";
+    if (key === "ArrowRight") return "right";
+    return null;
+  }
+
+  function selectDirectionalCandidate(direction) {
+    if (direction === "up") {
+      return selectParentCandidate();
+    }
+    if (direction === "down") {
+      return selectChildCandidate();
+    }
+    if (direction === "left") {
+      return selectSiblingCandidate(-1);
+    }
+    if (direction === "right") {
+      return selectSiblingCandidate(1);
+    }
+    return false;
+  }
+
+  function previewDirectionalCandidate(direction) {
+    const nextPreviewIndex = neighborIndexForDirection(direction);
+    if (nextPreviewIndex === -1) {
+      if (clearPreview(false)) {
+        render();
+      }
+      showHint("No target in that direction");
+      return false;
+    }
+
+    previewIndex = nextPreviewIndex;
+    previewDirection = direction;
     render();
+    showHint("⌥ preview   release Option to return");
+    return true;
+  }
+
+  function neighborIndexForDirection(direction) {
+    const neighbors = getNeighbors(selectedIndex);
+    if (direction === "up") return neighbors.parentIdx;
+    if (direction === "down") return neighbors.firstChildIdx;
+    if (direction === "left") return neighbors.leftSiblingIdx;
+    if (direction === "right") return neighbors.rightSiblingIdx;
+    return -1;
+  }
+
+  function clearPreview(shouldRender = true) {
+    if (previewIndex === -1) {
+      return false;
+    }
+
+    previewIndex = -1;
+    previewDirection = null;
+    if (shouldRender) {
+      render();
+      if (candidates.length) {
+        showDefaultHint();
+      }
+    }
+    return true;
   }
 
   function getNeighbors(selectedIdx) {
@@ -1314,17 +1474,27 @@
 
   function inspect() {
     const selected = candidates[selectedIndex];
+    const preview = candidates[previewIndex];
     return {
       active,
       version: api.version,
       root: rootElement ? describeElement(rootElement) : null,
       candidateCount: candidates.length,
       selectedIndex,
+      previewIndex,
+      previewDirection,
       selected: selected
         ? {
             element: describeElement(selected.element),
             rect: selected.rect,
             preview: selected.preview
+          }
+        : null,
+      preview: preview
+        ? {
+            element: describeElement(preview.element),
+            rect: preview.rect,
+            preview: preview.preview
           }
         : null,
       lastPointer
@@ -1560,6 +1730,10 @@
 
     hintElement.hidden = false;
     hintElement.textContent = text;
+  }
+
+  function showDefaultHint() {
+    showHint("⏎ capture   esc cancel");
   }
 
   function showCopiedToast() {

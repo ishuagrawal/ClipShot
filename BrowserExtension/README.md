@@ -20,8 +20,9 @@ ClipShot.
 6. Colored arrow chips show available navigation: up for parent, down for first child, and left/right for siblings.
 7. Matching colored outlines appear on those destination boxes so you can see where each arrow key will move before pressing it.
 8. Click any chip to jump to that destination, or use the arrow keys.
-9. Click or press `Enter` to copy the cropped PNG.
-10. Press `Escape` to cancel.
+9. Hold `Option` while pressing an arrow key to preview only that destination in the matching direction color; release `Option` to return.
+10. Click or press `Enter` to copy the cropped PNG.
+11. Press `Escape` to cancel.
 
 The extension crops the current tab image and sends the PNG to the native
 ClipShot app on `127.0.0.1:17272/clipboard`.
