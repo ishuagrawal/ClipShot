@@ -318,14 +318,10 @@
         .box.selected {
           z-index: 2;
           border: 3.5px solid #1297ff;
-          outline: 3px solid rgba(255, 255, 255, 0.96);
-          outline-offset: 1px;
-          background: rgba(18, 151, 255, 0.16);
+          background: rgba(18, 151, 255, 0.14);
           box-shadow:
-            0 0 0 8px rgba(18, 151, 255, 0.32),
-            0 0 0 1px rgba(0, 32, 96, 0.55),
-            inset 0 0 0 1.5px rgba(255, 255, 255, 0.7),
-            0 14px 36px rgba(0, 74, 173, 0.4);
+            0 0 0 3px rgba(18, 151, 255, 0.55),
+            0 0 0 4px rgba(0, 32, 96, 0.7);
         }
 
         .box.selected::before {
@@ -347,41 +343,43 @@
 
         .box.preview-selection {
           z-index: 4;
-          --preview-color: rgba(255, 230, 128, 0.98);
-          --preview-fill: rgba(255, 230, 128, 0.18);
-          --preview-glow: rgba(255, 230, 128, 0.22);
-          border: 3px solid var(--preview-color);
-          outline: 3px solid rgba(16, 22, 32, 0.86);
-          outline-offset: 2px;
+          --preview-color: rgb(255, 215, 90);
+          --preview-fill: rgba(255, 230, 128, 0.2);
+          --preview-glow: rgba(255, 215, 90, 0.4);
+          --preview-shadow: rgba(140, 100, 0, 0.55);
+          border: 3.5px solid var(--preview-color);
           background: var(--preview-fill);
           box-shadow:
-            0 0 0 8px var(--preview-glow),
-            0 16px 38px rgba(0, 0, 0, 0.32),
-            inset 0 0 0 1.5px rgba(255, 255, 255, 0.72);
+            0 0 0 3px var(--preview-glow),
+            0 0 0 4px var(--preview-shadow);
         }
 
         .box.preview-selection.up {
-          --preview-color: rgb(232, 152, 128);
-          --preview-fill: rgba(232, 152, 128, 0.18);
-          --preview-glow: rgba(232, 152, 128, 0.24);
+          --preview-color: rgb(228, 118, 86);
+          --preview-fill: rgba(232, 152, 128, 0.22);
+          --preview-glow: rgba(228, 118, 86, 0.42);
+          --preview-shadow: rgba(120, 50, 30, 0.6);
         }
 
         .box.preview-selection.down {
-          --preview-color: rgb(240, 178, 70);
-          --preview-fill: rgba(240, 178, 70, 0.18);
-          --preview-glow: rgba(240, 178, 70, 0.24);
+          --preview-color: rgb(238, 162, 40);
+          --preview-fill: rgba(240, 178, 70, 0.22);
+          --preview-glow: rgba(238, 162, 40, 0.42);
+          --preview-shadow: rgba(112, 62, 10, 0.6);
         }
 
         .box.preview-selection.left {
-          --preview-color: rgb(195, 145, 220);
-          --preview-fill: rgba(195, 145, 220, 0.18);
-          --preview-glow: rgba(195, 145, 220, 0.24);
+          --preview-color: rgb(180, 110, 215);
+          --preview-fill: rgba(195, 145, 220, 0.22);
+          --preview-glow: rgba(180, 110, 215, 0.42);
+          --preview-shadow: rgba(80, 40, 110, 0.6);
         }
 
         .box.preview-selection.right {
-          --preview-color: rgb(150, 195, 125);
-          --preview-fill: rgba(150, 195, 125, 0.18);
-          --preview-glow: rgba(150, 195, 125, 0.24);
+          --preview-color: rgb(120, 185, 90);
+          --preview-fill: rgba(150, 195, 125, 0.22);
+          --preview-glow: rgba(120, 185, 90, 0.42);
+          --preview-shadow: rgba(50, 90, 30, 0.6);
         }
 
         .chip {
