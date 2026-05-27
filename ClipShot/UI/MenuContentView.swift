@@ -13,7 +13,7 @@ struct MenuContentView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("ClipShot")
                         .font(.headline)
-                    Text("Web DOM bridge + native fallback")
+                    Text("Browser extension bridge")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -27,48 +27,26 @@ struct MenuContentView: View {
                 Text("Use the Arc/Chrome extension command: Control Shift 5.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            }
-
-            Divider()
-
-            PermissionStatusRow(
-                title: "Screen Recording",
-                isGranted: appState.hasScreenRecordingPermission,
-                hint: "Only needed for native fallback capture.",
-                requestAction: appState.requestScreenRecordingPermission,
-                settingsAction: appState.openScreenRecordingSettings
-            )
-
-            PermissionStatusRow(
-                title: "Accessibility",
-                isGranted: appState.hasAccessibilityPermission,
-                hint: "Only needed for native fallback capture.",
-                requestAction: appState.requestAccessibilityPermission,
-                settingsAction: appState.openAccessibilitySettings
-            )
-
-            if let status = appState.lastCaptureStatus {
-                Text(status)
+                Text("ClipShot copies the cropped PNG sent by the extension.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             Divider()
 
-            Button {
-                appState.startCapture()
-            } label: {
-                Label("Native Fallback Capture", systemImage: "viewfinder")
+            if let status = appState.lastCaptureStatus {
+                Label(status, systemImage: "circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Label("Starting DOM bridge", systemImage: "circle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-            .keyboardShortcut("5", modifiers: [.command, .option, .control])
+
+            Divider()
 
             HStack {
-                Button {
-                    appState.refreshPermissions()
-                } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
-                }
-
                 Spacer()
 
                 Button("Quit") {
@@ -78,8 +56,5 @@ struct MenuContentView: View {
         }
         .padding(16)
         .frame(width: 320)
-        .onAppear {
-            appState.refreshPermissions()
-        }
     }
 }

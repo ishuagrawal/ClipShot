@@ -10,17 +10,8 @@
 		01A000000000000000000001 /* ClipShotApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000001 /* ClipShotApp.swift */; };
 		01A000000000000000000002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000002 /* AppDelegate.swift */; };
 		01A000000000000000000003 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000003 /* AppState.swift */; };
-		01A000000000000000000004 /* PermissionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000004 /* PermissionManager.swift */; };
-		01A000000000000000000005 /* HotKeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000005 /* HotKeyManager.swift */; };
 		01A000000000000000000006 /* CaptureCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000006 /* CaptureCoordinator.swift */; };
-		01A000000000000000000007 /* AccessibilityDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000007 /* AccessibilityDetector.swift */; };
-		01A000000000000000000008 /* ScreenCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000008 /* ScreenCaptureService.swift */; };
-		01A000000000000000000009 /* OverlayWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000009 /* OverlayWindowController.swift */; };
-		01A00000000000000000000A /* OverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000000A /* OverlayView.swift */; };
-		01A00000000000000000000B /* CopiedToastWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000000B /* CopiedToastWindowController.swift */; };
 		01A00000000000000000000C /* MenuContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000000C /* MenuContentView.swift */; };
-		01A00000000000000000000D /* PermissionStatusRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000000D /* PermissionStatusRow.swift */; };
-		01A00000000000000000000E /* CoordinateSpace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000000E /* CoordinateSpace.swift */; };
 		01A00000000000000000000F /* DOMCaptureBridgeServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000010 /* DOMCaptureBridgeServer.swift */; };
 /* End PBXBuildFile section */
 
@@ -29,17 +20,8 @@
 		01B000000000000000000001 /* ClipShotApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipShotApp.swift; sourceTree = "<group>"; };
 		01B000000000000000000002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		01B000000000000000000003 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
-		01B000000000000000000004 /* PermissionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionManager.swift; sourceTree = "<group>"; };
-		01B000000000000000000005 /* HotKeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotKeyManager.swift; sourceTree = "<group>"; };
 		01B000000000000000000006 /* CaptureCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureCoordinator.swift; sourceTree = "<group>"; };
-		01B000000000000000000007 /* AccessibilityDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityDetector.swift; sourceTree = "<group>"; };
-		01B000000000000000000008 /* ScreenCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenCaptureService.swift; sourceTree = "<group>"; };
-		01B000000000000000000009 /* OverlayWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayWindowController.swift; sourceTree = "<group>"; };
-		01B00000000000000000000A /* OverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayView.swift; sourceTree = "<group>"; };
-		01B00000000000000000000B /* CopiedToastWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CopiedToastWindowController.swift; sourceTree = "<group>"; };
 		01B00000000000000000000C /* MenuContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuContentView.swift; sourceTree = "<group>"; };
-		01B00000000000000000000D /* PermissionStatusRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionStatusRow.swift; sourceTree = "<group>"; };
-		01B00000000000000000000E /* CoordinateSpace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoordinateSpace.swift; sourceTree = "<group>"; };
 		01B00000000000000000000F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		01B000000000000000000010 /* DOMCaptureBridgeServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DOMCaptureBridgeServer.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -78,33 +60,11 @@
 				01B000000000000000000001 /* ClipShotApp.swift */,
 				01B000000000000000000002 /* AppDelegate.swift */,
 				01B000000000000000000003 /* AppState.swift */,
-				01B000000000000000000004 /* PermissionManager.swift */,
-				01B000000000000000000005 /* HotKeyManager.swift */,
 				01B000000000000000000006 /* CaptureCoordinator.swift */,
-				01D000000000000000000004 /* Detection */,
-				01D000000000000000000005 /* Capture */,
 				01D000000000000000000009 /* DOM */,
-				01D000000000000000000006 /* Overlay */,
 				01D000000000000000000007 /* UI */,
-				01D000000000000000000008 /* Utilities */,
 			);
 			path = ClipShot;
-			sourceTree = "<group>";
-		};
-		01D000000000000000000004 /* Detection */ = {
-			isa = PBXGroup;
-			children = (
-				01B000000000000000000007 /* AccessibilityDetector.swift */,
-			);
-			path = Detection;
-			sourceTree = "<group>";
-		};
-		01D000000000000000000005 /* Capture */ = {
-			isa = PBXGroup;
-			children = (
-				01B000000000000000000008 /* ScreenCaptureService.swift */,
-			);
-			path = Capture;
 			sourceTree = "<group>";
 		};
 		01D000000000000000000009 /* DOM */ = {
@@ -115,31 +75,12 @@
 			path = DOM;
 			sourceTree = "<group>";
 		};
-		01D000000000000000000006 /* Overlay */ = {
-			isa = PBXGroup;
-			children = (
-				01B000000000000000000009 /* OverlayWindowController.swift */,
-				01B00000000000000000000A /* OverlayView.swift */,
-				01B00000000000000000000B /* CopiedToastWindowController.swift */,
-			);
-			path = Overlay;
-			sourceTree = "<group>";
-		};
 		01D000000000000000000007 /* UI */ = {
 			isa = PBXGroup;
 			children = (
 				01B00000000000000000000C /* MenuContentView.swift */,
-				01B00000000000000000000D /* PermissionStatusRow.swift */,
 			);
 			path = UI;
-			sourceTree = "<group>";
-		};
-		01D000000000000000000008 /* Utilities */ = {
-			isa = PBXGroup;
-			children = (
-				01B00000000000000000000E /* CoordinateSpace.swift */,
-			);
-			path = Utilities;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -213,17 +154,8 @@
 				01A000000000000000000001 /* ClipShotApp.swift in Sources */,
 				01A000000000000000000002 /* AppDelegate.swift in Sources */,
 				01A000000000000000000003 /* AppState.swift in Sources */,
-				01A000000000000000000004 /* PermissionManager.swift in Sources */,
-				01A000000000000000000005 /* HotKeyManager.swift in Sources */,
 				01A000000000000000000006 /* CaptureCoordinator.swift in Sources */,
-				01A000000000000000000007 /* AccessibilityDetector.swift in Sources */,
-				01A000000000000000000008 /* ScreenCaptureService.swift in Sources */,
-				01A000000000000000000009 /* OverlayWindowController.swift in Sources */,
-				01A00000000000000000000A /* OverlayView.swift in Sources */,
-				01A00000000000000000000B /* CopiedToastWindowController.swift in Sources */,
 				01A00000000000000000000C /* MenuContentView.swift in Sources */,
-				01A00000000000000000000D /* PermissionStatusRow.swift in Sources */,
-				01A00000000000000000000E /* CoordinateSpace.swift in Sources */,
 				01A00000000000000000000F /* DOMCaptureBridgeServer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

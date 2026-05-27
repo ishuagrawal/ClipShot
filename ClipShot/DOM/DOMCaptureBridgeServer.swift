@@ -1,4 +1,3 @@
-import CoreGraphics
 import Darwin
 import Foundation
 
@@ -10,7 +9,6 @@ final class DOMCaptureBridgeServer: @unchecked Sendable {
 
     private let queue = DispatchQueue(label: "com.ishu.ClipShot.DOMCaptureBridgeServer")
     private let clipboardHandler: @Sendable (Data) async -> Bool
-    private let screenCaptureHandler: @Sendable (CGRect) async -> Bool
     private let statusHandler: @Sendable (String) async -> Void
 
     private var socketFileDescriptor: Int32 = -1
@@ -18,11 +16,9 @@ final class DOMCaptureBridgeServer: @unchecked Sendable {
 
     init(
         clipboardHandler: @escaping @Sendable (Data) async -> Bool,
-        screenCaptureHandler: @escaping @Sendable (CGRect) async -> Bool,
         statusHandler: @escaping @Sendable (String) async -> Void
     ) {
         self.clipboardHandler = clipboardHandler
-        self.screenCaptureHandler = screenCaptureHandler
         self.statusHandler = statusHandler
     }
 
@@ -133,7 +129,6 @@ final class DOMCaptureBridgeServer: @unchecked Sendable {
         }
 
         let clipboardHandler = clipboardHandler
-        let screenCaptureHandler = screenCaptureHandler
 
         DispatchQueue.global(qos: .userInitiated).async {
             let request = Self.readHTTPRequest(from: descriptor)
@@ -141,8 +136,7 @@ final class DOMCaptureBridgeServer: @unchecked Sendable {
             Task {
                 let response = await Self.makeResponse(
                     for: request,
-                    clipboardHandler: clipboardHandler,
-                    screenCaptureHandler: screenCaptureHandler
+                    clipboardHandler: clipboardHandler
                 )
                 Self.writeAll(response, to: descriptor)
                 Darwin.close(descriptor)
@@ -236,8 +230,7 @@ final class DOMCaptureBridgeServer: @unchecked Sendable {
 
     private static func makeResponse(
         for request: HTTPRequest?,
-        clipboardHandler: @Sendable (Data) async -> Bool,
-        screenCaptureHandler: @Sendable (CGRect) async -> Bool
+        clipboardHandler: @Sendable (Data) async -> Bool
     ) async -> Data {
         guard let request else {
             return jsonResponse(statusCode: 400, ok: false, message: "Invalid request")
@@ -253,10 +246,6 @@ final class DOMCaptureBridgeServer: @unchecked Sendable {
 
         if request.method == "POST", request.path.hasPrefix("/clipboard") {
             return await handleClipboardRequest(request, clipboardHandler: clipboardHandler)
-        }
-
-        if request.method == "POST", request.path.hasPrefix("/capture") {
-            return await handleScreenCaptureRequest(request, screenCaptureHandler: screenCaptureHandler)
         }
 
         return jsonResponse(statusCode: 404, ok: false, message: "Unknown route")
@@ -281,38 +270,10 @@ final class DOMCaptureBridgeServer: @unchecked Sendable {
             return jsonResponse(
                 statusCode: didCopy ? 200 : 500,
                 ok: didCopy,
-                message: didCopy ? "Copied" : "Clipboard write failed"
+                message: didCopy ? "OK" : "Clipboard write failed"
             )
         } catch {
             return jsonResponse(statusCode: 400, ok: false, message: "Invalid clipboard JSON")
-        }
-    }
-
-    private static func handleScreenCaptureRequest(
-        _ request: HTTPRequest,
-        screenCaptureHandler: @Sendable (CGRect) async -> Bool
-    ) async -> Data {
-        do {
-            let payload = try JSONDecoder().decode(DOMScreenCaptureRequest.self, from: request.body)
-            let frame = CGRect(
-                x: payload.x,
-                y: payload.y,
-                width: payload.width,
-                height: payload.height
-            ).integral
-
-            guard frame.width > 0, frame.height > 0 else {
-                return jsonResponse(statusCode: 400, ok: false, message: "Invalid capture rectangle")
-            }
-
-            let didCopy = await screenCaptureHandler(frame)
-            return jsonResponse(
-                statusCode: didCopy ? 200 : 500,
-                ok: didCopy,
-                message: didCopy ? "Copied" : "Screen capture failed"
-            )
-        } catch {
-            return jsonResponse(statusCode: 400, ok: false, message: "Invalid capture JSON")
         }
     }
 
@@ -390,11 +351,4 @@ private struct HTTPRequest {
 
 private struct DOMClipboardRequest: Decodable {
     let pngBase64: String
-}
-
-private struct DOMScreenCaptureRequest: Decodable {
-    let x: CGFloat
-    let y: CGFloat
-    let width: CGFloat
-    let height: CGFloat
 }
