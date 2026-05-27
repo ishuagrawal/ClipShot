@@ -109,6 +109,7 @@
   let selectedIndex = 0;
   let previewIndex = -1;
   let previewDirection = null;
+  let soloMode = false;
   let lastPointer = null;
   let overlayHost = null;
   let shadowRoot = null;
@@ -134,7 +135,7 @@
   };
 
   const api = {
-    version: "overlay-navigation-v2",
+    version: "overlay-navigation-v3",
     start,
     stop,
     destroy,
@@ -157,6 +158,7 @@
     selectedIndex = 0;
     previewIndex = -1;
     previewDirection = null;
+    soloMode = false;
     ensureOverlay();
     overlayHost.style.display = "block";
     showDefaultHint();
@@ -186,6 +188,7 @@
     selectedIndex = 0;
     previewIndex = -1;
     previewDirection = null;
+    soloMode = false;
     lastPointer = null;
     render();
 
@@ -523,6 +526,17 @@
       return;
     }
 
+    if (isSoloKey(event)) {
+      swallowEvent(event);
+      if (!soloMode) {
+        soloMode = true;
+        clearPreview(false);
+        render();
+        showHint("Space isolate   release to restore");
+      }
+      return;
+    }
+
     if (event.key === "Tab") {
       swallowEvent(event);
       const hadPreview = clearPreview(false);
@@ -562,7 +576,23 @@
   }
 
   function handleKeyUp(event) {
-    if (!active || event.altKey) {
+    if (!active) {
+      return;
+    }
+
+    if (isSoloKey(event)) {
+      swallowEvent(event);
+      if (soloMode) {
+        soloMode = false;
+        render();
+        if (candidates.length) {
+          showDefaultHint();
+        }
+      }
+      return;
+    }
+
+    if (event.altKey) {
       return;
     }
 
@@ -578,6 +608,10 @@
         showDefaultHint();
       }
     }
+  }
+
+  function isSoloKey(event) {
+    return event.code === "Space" || event.key === " " || event.key === "Spacebar";
   }
 
   function swallowPointerEvent(event) {
@@ -1105,11 +1139,12 @@
     }
 
     const preview = candidates[previewIndex];
-    const isPreviewing = Boolean(preview && previewIndex !== selectedIndex && previewDirection);
-    const neighbors = isPreviewing ? null : getNeighbors(selectedIndex);
-    const targets = isPreviewing ? [] : navigationTargets(neighbors, selectedIndex);
+    const isPreviewing = !soloMode && Boolean(preview && previewIndex !== selectedIndex && previewDirection);
+    const shouldShowNavigation = !soloMode && !isPreviewing;
+    const neighbors = shouldShowNavigation ? getNeighbors(selectedIndex) : null;
+    const targets = shouldShowNavigation ? navigationTargets(neighbors, selectedIndex) : [];
 
-    if (!isPreviewing) {
+    if (shouldShowNavigation) {
       targets.forEach(({ direction, index }) => drawGhost(index, direction));
     }
 
@@ -1120,7 +1155,7 @@
     }
 
     placedChipRects.length = 0;
-    if (!isPreviewing) {
+    if (shouldShowNavigation) {
       targets.forEach(({ direction, index }) => drawDirectionChip(direction, index, selected.rect));
     }
   }
@@ -1481,6 +1516,7 @@
       selectedIndex,
       previewIndex,
       previewDirection,
+      soloMode,
       selected: selected
         ? {
             element: describeElement(selected.element),
