@@ -90,10 +90,10 @@
   ]);
 
   const COMPONENT_NAME_PATTERN =
-    /(article|body|card|caption|cell|comment|compose|content|container|description|dialog|entry|feed|figure|item|message|modal|panel|photo|post|product|renderer|result|section|story|table|thread|tile|timeline|tweet|video)/i;
+    /(article|body|card|caption|cell|comment|compose|content|container|description|dialog|embed|entry|feed|figure|frame|iframe|item|message|modal|output|panel|photo|post|preview|product|renderer|result|sandbox|section|story|table|thread|tile|timeline|tweet|video)/i;
 
   const CAPTURE_NAME_PATTERN =
-    /(article|body|card|caption|chart|code|comment|content|description|dialog|figure|image|img|media|message|modal|panel|photo|post|pre|product|quote|section|snippet|table|thread|tile|tweet|video)/i;
+    /(article|body|card|caption|chart|code|comment|content|description|dialog|embed|figure|frame|iframe|image|img|media|message|modal|output|panel|photo|post|pre|preview|product|quote|sandbox|section|snippet|table|thread|tile|tweet|video)/i;
 
   const UTILITY_NAME_PATTERN =
     /(action|avatar|badge|button|caret|chevron|control|dislike|dropdown|expand|handle|icon|like|menu|more|option|overflow|reaction|reply|share|subscribe|timestamp|toggle|tooltip)/i;
@@ -120,6 +120,7 @@
   let hudElement = null;
   let copiedToastElement = null;
   let confirmedRect = null;
+  let capturePending = false;
   const hudFlashTimers = new Map();
   const placedChipRects = [];
 
@@ -163,6 +164,7 @@
     previewIndex = -1;
     previewDirection = null;
     soloMode = false;
+    capturePending = false;
     ensureOverlay();
     overlayHost.style.display = "block";
     showDefaultHint();
@@ -195,6 +197,7 @@
     previewDirection = null;
     soloMode = false;
     lastPointer = null;
+    capturePending = false;
     render();
 
     window.removeEventListener("mousemove", handleMouseMove, true);
@@ -248,7 +251,7 @@
     overlayHost.style.position = "fixed";
     overlayHost.style.inset = "0";
     overlayHost.style.zIndex = "2147483647";
-    overlayHost.style.pointerEvents = "none";
+    overlayHost.style.pointerEvents = "auto";
     overlayHost.style.display = "none";
 
     shadowRoot = overlayHost.attachShadow({ mode: "open" });
@@ -263,6 +266,7 @@
           inset: 0;
           background: rgba(5, 10, 18, 0.14);
           z-index: 0;
+          pointer-events: none;
         }
 
         .ghosts,
@@ -740,7 +744,7 @@
       return;
     }
 
-    if (isOverlayEvent(event)) {
+    if (isNavigationChipEvent(event)) {
       return;
     }
 
@@ -856,7 +860,7 @@
   }
 
   function swallowPointerEvent(event) {
-    if (active && !isOverlayEvent(event)) {
+    if (active && !isNavigationChipEvent(event)) {
       swallowEvent(event);
     }
   }
@@ -866,7 +870,7 @@
       return;
     }
 
-    if (isOverlayEvent(event)) {
+    if (isNavigationChipEvent(event)) {
       return;
     }
 
@@ -924,8 +928,7 @@
   }
 
   function findComponentRoot(x, y) {
-    const stack = document
-      .elementsFromPoint(x, y)
+    const stack = pageElementsFromPoint(x, y)
       .filter((element) => element instanceof Element)
       .filter((element) => !isOverlayElement(element))
       .filter((element) => !SKIPPED_TAGS.has(element.tagName));
@@ -1261,7 +1264,7 @@
       score += 14;
     }
 
-    if (["BLOCKQUOTE", "CANVAS", "CODE", "FIGURE", "IMG", "PRE", "TABLE", "VIDEO"].includes(tagName)) {
+    if (["BLOCKQUOTE", "CANVAS", "CODE", "EMBED", "FIGURE", "IFRAME", "IMG", "OBJECT", "PRE", "TABLE", "VIDEO"].includes(tagName)) {
       score += 36;
     }
 
@@ -1728,12 +1731,25 @@
     };
   }
 
-  function isOverlayEvent(event) {
-    if (!overlayHost) {
-      return false;
-    }
+  function isNavigationChipEvent(event) {
     const path = typeof event.composedPath === "function" ? event.composedPath() : [];
-    return path.includes(overlayHost);
+    return path.some((target) => {
+      return target instanceof Element && target.classList?.contains("chip");
+    });
+  }
+
+  function pageElementsFromPoint(x, y) {
+    if (!overlayHost) {
+      return document.elementsFromPoint(x, y);
+    }
+
+    const previousPointerEvents = overlayHost.style.pointerEvents;
+    overlayHost.style.pointerEvents = "none";
+    try {
+      return document.elementsFromPoint(x, y);
+    } finally {
+      overlayHost.style.pointerEvents = previousPointerEvents;
+    }
   }
 
   function isOverlayElement(element) {
@@ -1910,25 +1926,36 @@
   }
 
   function confirmSelection() {
+    if (capturePending) {
+      return;
+    }
+
     const selected = candidates[selectedIndex];
     if (!selected) {
       showError("No DOM component selected.");
       return;
     }
 
-    confirmedRect = {
+    capturePending = true;
+    const rect = {
       left: selected.rect.left,
       top: selected.rect.top,
       width: selected.rect.width,
       height: selected.rect.height
     };
+    confirmedRect = rect;
 
     overlayHost.style.display = "none";
+    void overlayHost.offsetHeight;
 
+    afterOverlayHiddenPaint(() => requestCapture(rect));
+  }
+
+  function requestCapture(rect) {
     chrome.runtime.sendMessage(
       {
         type: "CLIPSHOT_DOM_CONFIRM",
-        rect: selected.rect
+        rect
       },
       (response) => {
         if (chrome.runtime.lastError) {
@@ -1943,6 +1970,22 @@
         }
       }
     );
+  }
+
+  function afterOverlayHiddenPaint(callback) {
+    let didRun = false;
+    const runOnce = () => {
+      if (didRun) {
+        return;
+      }
+      didRun = true;
+      callback();
+    };
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(runOnce);
+    });
+    window.setTimeout(runOnce, 120);
   }
 
   async function cropAndCopy(dataUrl, rect) {
