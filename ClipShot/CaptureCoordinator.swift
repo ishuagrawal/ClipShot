@@ -76,14 +76,23 @@ final class CaptureCoordinator {
 
     func copyDOMPNGToClipboard(pngData: Data) -> Bool {
         let didCopy = captureService.copyPNGDataToClipboard(pngData)
-        reportCopyResult(didCopy)
+        reportDOMCopyResult(didCopy)
         return didCopy
     }
 
     func copyDOMScreenFrameToClipboard(screenFrame: CGRect) -> Bool {
         let didCopy = captureService.copyPNGToClipboard(screenFrame: screenFrame)
-        reportCopyResult(didCopy)
+        reportDOMCopyResult(didCopy)
         return didCopy
+    }
+
+    private func reportDOMCopyResult(_ didCopy: Bool) {
+        if didCopy {
+            appState.setCaptureStatus("Copied")
+        } else {
+            appState.setCaptureStatus("Capture failed")
+            NSSound.beep()
+        }
     }
 
     private func cycleSelection() {

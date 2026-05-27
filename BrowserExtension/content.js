@@ -117,6 +117,10 @@
   let chipsLayer = null;
   let ghostsLayer = null;
   let hintElement = null;
+  let hudElement = null;
+  let copiedToastElement = null;
+  let confirmedRect = null;
+  const hudFlashTimers = new Map();
   const placedChipRects = [];
 
   const messageListener = (message, _sender, sendResponse) => {
@@ -162,6 +166,7 @@
     ensureOverlay();
     overlayHost.style.display = "block";
     showDefaultHint();
+    showHud();
 
     window.addEventListener("mousemove", handleMouseMove, true);
     window.addEventListener("keydown", handleKeyDown, true);
@@ -204,6 +209,12 @@
     if (overlayHost) {
       overlayHost.style.display = "none";
     }
+
+    hideHud();
+    if (copiedToastElement) {
+      copiedToastElement.hidden = true;
+    }
+    confirmedRect = null;
   }
 
   function destroy() {
@@ -216,6 +227,11 @@
     ghostsLayer = null;
     chipsLayer = null;
     hintElement = null;
+    hudElement = null;
+    copiedToastElement = null;
+    confirmedRect = null;
+    hudFlashTimers.forEach((id) => window.clearTimeout(id));
+    hudFlashTimers.clear();
 
     if (window.__clipshotDOMSelector === api) {
       delete window.__clipshotDOMSelector;
@@ -488,18 +504,234 @@
           text-overflow: ellipsis;
         }
 
+        .hud {
+          position: fixed;
+          left: 50%;
+          bottom: 28px;
+          transform: translateX(-50%);
+          display: grid;
+          grid-template-columns: repeat(6, max-content);
+          justify-content: center;
+          justify-items: start;
+          align-items: center;
+          column-gap: 22px;
+          row-gap: 12px;
+          padding: 12px 20px;
+          max-width: calc(100vw - 32px);
+          box-sizing: border-box;
+          font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+          font-size: 12px;
+          font-weight: 500;
+          letter-spacing: 0.01em;
+          line-height: 1;
+          color: rgba(228, 232, 240, 0.9);
+          background: rgba(14, 18, 26, 0.58);
+          -webkit-backdrop-filter: blur(22px) saturate(180%);
+          backdrop-filter: blur(22px) saturate(180%);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 14px;
+          box-shadow:
+            0 12px 40px rgba(0, 0, 0, 0.4),
+            0 1px 0 rgba(255, 255, 255, 0.05) inset;
+          pointer-events: none;
+          user-select: none;
+          z-index: 6;
+          opacity: 1;
+          transition: opacity 180ms ease;
+        }
+
+        @media (max-width: 760px) {
+          .hud {
+            grid-template-columns: repeat(3, max-content);
+          }
+        }
+
+        @media (max-width: 440px) {
+          .hud {
+            grid-template-columns: repeat(2, max-content);
+          }
+        }
+
+        .hud[hidden] {
+          display: none;
+        }
+
+        .hud-group {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          white-space: nowrap;
+          transition: opacity 160ms ease;
+        }
+
+        .hud-group[data-disabled="true"] {
+          opacity: 0.32;
+        }
+
+        .hud-divider {
+          width: 1px;
+          height: 16px;
+          background: rgba(255, 255, 255, 0.08);
+          flex-shrink: 0;
+        }
+
+        .hud-keys {
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+        }
+
+        .hud-sep {
+          color: rgba(200, 210, 226, 0.4);
+          font-size: 11px;
+          font-weight: 400;
+          margin: 0 2px;
+        }
+
+        .hud-label {
+          color: rgba(204, 212, 226, 0.78);
+          font-weight: 500;
+          font-size: 11.5px;
+        }
+
+        .hud-key {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          box-sizing: border-box;
+          width: 26px;
+          height: 26px;
+          padding: 0;
+          font-family: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
+          font-size: 11px;
+          font-weight: 600;
+          color: rgba(245, 247, 250, 0.95);
+          background: linear-gradient(180deg, rgba(62, 70, 84, 0.92), rgba(40, 46, 58, 0.92));
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          border-bottom-color: rgba(0, 0, 0, 0.5);
+          border-radius: 5px;
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.14),
+            0 1px 0 rgba(0, 0, 0, 0.4),
+            0 2px 4px rgba(0, 0, 0, 0.22);
+          transition: transform 90ms ease, box-shadow 90ms ease, background 90ms ease, border-color 90ms ease, color 90ms ease;
+        }
+
+        .hud-key.wide {
+          width: auto;
+          min-width: 40px;
+          padding: 0 9px;
+        }
+
+        .hud-key.glyph {
+          font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+          font-size: 12px;
+        }
+
+        .copied-toast {
+          position: fixed;
+          top: 0;
+          left: 0;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 16px;
+          transform: translate(-50%, -50%);
+          font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+          font-size: 13px;
+          font-weight: 600;
+          letter-spacing: 0.01em;
+          line-height: 1;
+          color: #fff;
+          background: rgba(14, 18, 26, 0.78);
+          -webkit-backdrop-filter: blur(22px) saturate(180%);
+          backdrop-filter: blur(22px) saturate(180%);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 12px;
+          box-shadow:
+            0 12px 40px rgba(0, 0, 0, 0.45),
+            0 1px 0 rgba(255, 255, 255, 0.06) inset;
+          pointer-events: none;
+          user-select: none;
+          z-index: 7;
+          white-space: nowrap;
+        }
+
+        .copied-toast[hidden] {
+          display: none;
+        }
+
+        .copied-toast svg {
+          width: 16px;
+          height: 16px;
+          flex-shrink: 0;
+          stroke: currentColor;
+          stroke-width: 2;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+          fill: none;
+        }
+
+        .hud-key[data-active="true"],
+        .hud-key[data-flash="true"] {
+          background: linear-gradient(180deg, rgba(40, 168, 255, 0.98), rgba(14, 118, 210, 0.98));
+          border-color: rgba(255, 255, 255, 0.28);
+          border-bottom-color: rgba(0, 32, 80, 0.55);
+          color: #fff;
+          transform: translateY(1px);
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.28),
+            0 0 0 1px rgba(40, 168, 255, 0.55),
+            0 4px 14px rgba(40, 168, 255, 0.35);
+        }
+
       </style>
       <div class="shade"></div>
       <div class="ghosts"></div>
       <div class="boxes"></div>
       <div class="chips"></div>
       <div class="hint" hidden></div>
+      <div class="hud" hidden>
+        <div class="hud-group" data-cmd="capture">
+          <span class="hud-keys"><span class="hud-key glyph" data-key="enter">⏎</span></span>
+          <span class="hud-label">capture</span>
+        </div>
+        <div class="hud-group" data-cmd="cancel">
+          <span class="hud-keys"><span class="hud-key glyph" data-key="escape">⎋</span></span>
+          <span class="hud-label">cancel</span>
+        </div>
+        <div class="hud-group" data-cmd="cycle">
+          <span class="hud-keys"><span class="hud-key wide" data-key="tab">tab</span><span class="hud-sep">/</span><span class="hud-key glyph" data-key="shift">⇧</span><span class="hud-key wide" data-key="shifttab">tab</span></span>
+          <span class="hud-label">cycle</span>
+        </div>
+        <div class="hud-group" data-cmd="move">
+          <span class="hud-keys"><span class="hud-key glyph" data-key="arrowleft">←</span><span class="hud-key glyph" data-key="arrowdown">↓</span><span class="hud-key glyph" data-key="arrowup">↑</span><span class="hud-key glyph" data-key="arrowright">→</span></span>
+          <span class="hud-label">move</span>
+        </div>
+        <div class="hud-group" data-cmd="preview">
+          <span class="hud-keys"><span class="hud-key glyph" data-key="alt">⌥</span></span>
+          <span class="hud-label">hold to preview</span>
+        </div>
+        <div class="hud-group" data-cmd="isolate">
+          <span class="hud-keys"><span class="hud-key wide" data-key="space">space</span></span>
+          <span class="hud-label">hold to isolate</span>
+        </div>
+      </div>
+      <div class="copied-toast" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="9" y="9" width="11" height="11" rx="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+        <span class="copied-toast-label">Copied</span>
+      </div>
     `;
 
     boxesLayer = shadowRoot.querySelector(".boxes");
     ghostsLayer = shadowRoot.querySelector(".ghosts");
     chipsLayer = shadowRoot.querySelector(".chips");
     hintElement = shadowRoot.querySelector(".hint");
+    hudElement = shadowRoot.querySelector(".hud");
+    copiedToastElement = shadowRoot.querySelector(".copied-toast");
     document.documentElement.appendChild(overlayHost);
   }
 
@@ -522,6 +754,7 @@
 
     if (event.key === "Escape") {
       swallowEvent(event);
+      flashHudKey("escape");
       stop();
       return;
     }
@@ -539,6 +772,12 @@
 
     if (event.key === "Tab") {
       swallowEvent(event);
+      if (event.shiftKey) {
+        flashHudKey("shift");
+        flashHudKey("shifttab");
+      } else {
+        flashHudKey("tab");
+      }
       const hadPreview = clearPreview(false);
       if (event.shiftKey) {
         cycleSelection(-1);
@@ -554,6 +793,7 @@
     const arrowDirection = arrowDirectionForKey(event.key);
     if (arrowDirection) {
       swallowEvent(event);
+      flashHudKey(event.key.toLowerCase());
       if (event.altKey) {
         previewDirectionalCandidate(arrowDirection);
       } else {
@@ -571,6 +811,7 @@
 
     if (event.key === "Enter") {
       swallowEvent(event);
+      flashHudKey("enter");
       confirmSelection();
     }
   }
@@ -1133,6 +1374,8 @@
     ghostsLayer.textContent = "";
     chipsLayer.textContent = "";
 
+    updateHudState();
+
     const selected = candidates[selectedIndex];
     if (!selected) {
       return;
@@ -1673,6 +1916,13 @@
       return;
     }
 
+    confirmedRect = {
+      left: selected.rect.left,
+      top: selected.rect.top,
+      width: selected.rect.width,
+      height: selected.rect.height
+    };
+
     overlayHost.style.display = "none";
 
     chrome.runtime.sendMessage(
@@ -1745,7 +1995,7 @@
     }
 
     showCopiedToast();
-    window.setTimeout(stop, 550);
+    window.setTimeout(stop, 1400);
   }
 
   function loadImage(dataUrl) {
@@ -1767,7 +2017,10 @@
   }
 
   function showDefaultHint() {
-    showHint("⏎ capture   esc cancel");
+    if (hintElement) {
+      hintElement.hidden = true;
+      hintElement.textContent = "";
+    }
   }
 
   function showCopiedToast() {
@@ -1776,7 +2029,22 @@
     boxesLayer.textContent = "";
     if (ghostsLayer) ghostsLayer.textContent = "";
     if (chipsLayer) chipsLayer.textContent = "";
-    showHint("Copied");
+    hideHud();
+    if (hintElement) {
+      hintElement.hidden = true;
+      hintElement.textContent = "";
+    }
+    if (copiedToastElement && confirmedRect) {
+      const cx = confirmedRect.left + confirmedRect.width / 2;
+      const cy = confirmedRect.top + confirmedRect.height / 2;
+      copiedToastElement.style.left = `${cx}px`;
+      copiedToastElement.style.top = `${cy}px`;
+      copiedToastElement.hidden = false;
+    } else if (copiedToastElement) {
+      copiedToastElement.style.left = "50%";
+      copiedToastElement.style.top = "50%";
+      copiedToastElement.hidden = false;
+    }
   }
 
   function showError(message) {
@@ -1785,8 +2053,104 @@
     boxesLayer.textContent = "";
     if (ghostsLayer) ghostsLayer.textContent = "";
     if (chipsLayer) chipsLayer.textContent = "";
+    hideHud();
+    if (copiedToastElement) {
+      copiedToastElement.hidden = true;
+    }
     showHint(message || "Capture failed");
     window.setTimeout(stop, 1600);
+  }
+
+  function showHud() {
+    if (!hudElement) return;
+    hudElement.hidden = false;
+    updateHudState();
+  }
+
+  function hideHud() {
+    if (!hudElement) return;
+    hudElement.hidden = true;
+    hudElement
+      .querySelectorAll(".hud-key[data-active], .hud-key[data-flash]")
+      .forEach((el) => {
+        el.removeAttribute("data-active");
+        el.removeAttribute("data-flash");
+      });
+    hudFlashTimers.forEach((id) => window.clearTimeout(id));
+    hudFlashTimers.clear();
+  }
+
+  function updateHudState() {
+    if (!hudElement || hudElement.hidden) return;
+
+    const hasCandidates = candidates.length > 0;
+    const previewing = previewIndex !== -1;
+    const neighbors = hasCandidates ? getNeighbors(selectedIndex) : null;
+
+    const arrowAvail = {
+      arrowup: !!neighbors && neighbors.parentIdx !== -1,
+      arrowdown: !!neighbors && neighbors.firstChildIdx !== -1,
+      arrowleft: !!neighbors && neighbors.leftSiblingIdx !== -1,
+      arrowright: !!neighbors && neighbors.rightSiblingIdx !== -1
+    };
+    const anyArrow =
+      arrowAvail.arrowup ||
+      arrowAvail.arrowdown ||
+      arrowAvail.arrowleft ||
+      arrowAvail.arrowright;
+
+    setHudGroupEnabled("capture", hasCandidates);
+    setHudGroupEnabled("cycle", hasCandidates && candidates.length > 1);
+    setHudGroupEnabled("move", anyArrow);
+    setHudGroupEnabled("preview", anyArrow);
+    setHudGroupEnabled("isolate", hasCandidates);
+
+    ["arrowup", "arrowdown", "arrowleft", "arrowright"].forEach((key) => {
+      const el = hudElement.querySelector(`.hud-key[data-key="${key}"]`);
+      if (!el) return;
+      el.style.opacity = arrowAvail[key] ? "" : "0.45";
+    });
+
+    setHudKeyActive("alt", previewing);
+    setHudKeyActive("space", soloMode);
+  }
+
+  function setHudGroupEnabled(cmd, enabled) {
+    if (!hudElement) return;
+    const group = hudElement.querySelector(`.hud-group[data-cmd="${cmd}"]`);
+    if (!group) return;
+    if (enabled) {
+      group.removeAttribute("data-disabled");
+    } else {
+      group.setAttribute("data-disabled", "true");
+    }
+  }
+
+  function setHudKeyActive(key, active) {
+    if (!hudElement) return;
+    const el = hudElement.querySelector(`.hud-key[data-key="${key}"]`);
+    if (!el) return;
+    if (active) {
+      el.setAttribute("data-active", "true");
+    } else {
+      el.removeAttribute("data-active");
+    }
+  }
+
+  function flashHudKey(key) {
+    if (!hudElement || hudElement.hidden) return;
+    const el = hudElement.querySelector(`.hud-key[data-key="${key}"]`);
+    if (!el) return;
+    el.setAttribute("data-flash", "true");
+    const existing = hudFlashTimers.get(key);
+    if (existing) {
+      window.clearTimeout(existing);
+    }
+    const timer = window.setTimeout(() => {
+      el.removeAttribute("data-flash");
+      hudFlashTimers.delete(key);
+    }, 180);
+    hudFlashTimers.set(key, timer);
   }
 
   function visibleChildCount(element) {
