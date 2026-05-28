@@ -37,6 +37,11 @@
 		01A00000000000000000020D /* CanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000020D /* CanvasView.swift */; };
 		01A00000000000000000020E /* BottomBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000020E /* BottomBarView.swift */; };
 		01A00000000000000000020F /* ToolSidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000020F /* ToolSidebarView.swift */; };
+		01A000000000000000000210 /* SetPaddingCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000210 /* SetPaddingCommand.swift */; };
+		01A000000000000000000211 /* SetBackgroundCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000211 /* SetBackgroundCommand.swift */; };
+		01A000000000000000000212 /* PaddingToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000212 /* PaddingToolView.swift */; };
+		01A000000000000000000213 /* BackgroundToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000213 /* BackgroundToolView.swift */; };
+		01A000000000000000000305 /* CommandTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000305 /* CommandTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -69,10 +74,15 @@
 		01B00000000000000000020D /* CanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasView.swift; sourceTree = "<group>"; };
 		01B00000000000000000020E /* BottomBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomBarView.swift; sourceTree = "<group>"; };
 		01B00000000000000000020F /* ToolSidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolSidebarView.swift; sourceTree = "<group>"; };
+		01B000000000000000000210 /* SetPaddingCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetPaddingCommand.swift; sourceTree = "<group>"; };
+		01B000000000000000000211 /* SetBackgroundCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetBackgroundCommand.swift; sourceTree = "<group>"; };
+		01B000000000000000000212 /* PaddingToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaddingToolView.swift; sourceTree = "<group>"; };
+		01B000000000000000000213 /* BackgroundToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundToolView.swift; sourceTree = "<group>"; };
 		01B000000000000000000301 /* EditorDocumentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorDocumentTests.swift; sourceTree = "<group>"; };
 		01B000000000000000000302 /* UndoStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UndoStackTests.swift; sourceTree = "<group>"; };
 		01B000000000000000000303 /* FixtureDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixtureDocument.swift; sourceTree = "<group>"; };
 		01B000000000000000000304 /* DocumentRendererTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentRendererTests.swift; sourceTree = "<group>"; };
+		01B000000000000000000305 /* CommandTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -112,6 +122,7 @@
 				01B000000000000000000301 /* EditorDocumentTests.swift */,
 				01B000000000000000000302 /* UndoStackTests.swift */,
 				01B000000000000000000304 /* DocumentRendererTests.swift */,
+				01B000000000000000000305 /* CommandTests.swift */,
 			);
 			path = ClipShotTests;
 			sourceTree = "<group>";
@@ -162,6 +173,8 @@
 				01B000000000000000000204 /* Annotation.swift */,
 				01B000000000000000000205 /* EditorCommand.swift */,
 				01B000000000000000000206 /* UndoStack.swift */,
+				01B000000000000000000210 /* SetPaddingCommand.swift */,
+				01B000000000000000000211 /* SetBackgroundCommand.swift */,
 			);
 			path = Document;
 			sourceTree = "<group>";
@@ -190,6 +203,8 @@
 			isa = PBXGroup;
 			children = (
 				01B00000000000000000020F /* ToolSidebarView.swift */,
+				01B000000000000000000212 /* PaddingToolView.swift */,
+				01B000000000000000000213 /* BackgroundToolView.swift */,
 			);
 			path = Tools;
 			sourceTree = "<group>";
@@ -334,6 +349,10 @@
 				01A00000000000000000020D /* CanvasView.swift in Sources */,
 				01A00000000000000000020E /* BottomBarView.swift in Sources */,
 				01A00000000000000000020F /* ToolSidebarView.swift in Sources */,
+				01A000000000000000000210 /* SetPaddingCommand.swift in Sources */,
+				01A000000000000000000211 /* SetBackgroundCommand.swift in Sources */,
+				01A000000000000000000212 /* PaddingToolView.swift in Sources */,
+				01A000000000000000000213 /* BackgroundToolView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -347,6 +366,7 @@
 				01A000000000000000000302 /* UndoStackTests.swift in Sources */,
 				01A000000000000000000303 /* FixtureDocument.swift in Sources */,
 				01A000000000000000000304 /* DocumentRendererTests.swift in Sources */,
+				01A000000000000000000305 /* CommandTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

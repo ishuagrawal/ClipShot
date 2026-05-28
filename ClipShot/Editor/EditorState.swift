@@ -12,8 +12,15 @@ enum EditorTool: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    /// P0: only Select is enabled. Others are scaffolded but inert.
-    var isEnabledInP0: Bool { self == .select }
+    /// Tools shipped so far: Select (P0), Padding + Background (P1).
+    var isEnabled: Bool {
+        switch self {
+        case .select, .padding, .background:
+            return true
+        case .arrow, .rectangle, .text, .blur:
+            return false
+        }
+    }
 
     var symbolName: String {
         switch self {
@@ -41,9 +48,8 @@ enum EditorTool: String, CaseIterable, Identifiable {
 
     var comingSoonNote: String {
         switch self {
-        case .select:     return ""
-        case .padding:    return "Coming in P1"
-        case .background: return "Coming in P1"
+        case .select, .padding, .background:
+            return ""
         case .arrow:      return "Coming in P2"
         case .rectangle:  return "Coming in P2"
         case .text:       return "Coming in P2"

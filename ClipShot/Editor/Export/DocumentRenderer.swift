@@ -1,26 +1,13 @@
 import CoreGraphics
+import CoreImage
 import Foundation
 
-/// Pure, deterministic flattener. Identical pipeline for canvas preview and Copy/Save.
-///
-/// Operates entirely in PIXEL SPACE: the bitmap dimensions equal
-/// `doc.effectiveCrop.integral.size` and NO scale factor is applied to the context
-/// (the browser extension already absorbed devicePixelRatio when capturing).
-///
-/// Document coordinate space is y-down (top-left origin) to match the CSS / extension
-/// convention that future annotation/text drawing (P2) will rely on.
-///
-/// P0 implements crop-only (no padding visuals, no background, no annotations).
+/// Pure, deterministic flattener of the export crop. The in-place canvas preview
+/// reuses this output so Copy/Save and preview stay identical.
 enum DocumentRenderer {
 
     static func render(_ doc: EditorDocument) -> CGImage? {
-        let selectionPx = doc.baseSelection.integral.intersection(doc.imageBounds)
-        let cropPx = CGRect(
-            x: 0,
-            y: 0,
-            width: selectionPx.width + doc.padding.left + doc.padding.right,
-            height: selectionPx.height + doc.padding.top + doc.padding.bottom
-        ).integral
+        let cropPx = doc.effectiveCrop.integral
         let width = Int(cropPx.width)
         let height = Int(cropPx.height)
         guard width > 0, height > 0 else { return nil }
@@ -41,27 +28,158 @@ enum DocumentRenderer {
         ctx.translateBy(x: 0, y: CGFloat(height))
         ctx.scaleBy(x: 1, y: -1)
 
-        // P0: background is .none (transparent) — nothing to fill.
-
-        // Draw the screenshot crop. dest is in documentPt (top-left origin).
+        let outputRect = CGRect(x: 0, y: 0, width: width, height: height)
+        let selectionPx = doc.baseSelection.integral.intersection(doc.imageBounds)
         let dest = CGRect(
-            x: doc.padding.left,
-            y: doc.padding.top,
+            x: selectionPx.minX - cropPx.minX,
+            y: selectionPx.minY - cropPx.minY,
             width: selectionPx.width,
             height: selectionPx.height
         )
-        if let cropped = doc.screenshot.cropping(to: selectionPx) {
-            // CGContextDrawImage renders upside-down in a y-flipped context. Locally
-            // re-flip around the destination rect so the screenshot stays upright.
-            ctx.saveGState()
-            ctx.translateBy(x: dest.minX, y: dest.maxY)
-            ctx.scaleBy(x: 1, y: -1)
-            ctx.draw(cropped, in: CGRect(origin: .zero, size: dest.size))
-            ctx.restoreGState()
-        }
+
+        drawBackground(doc.background, in: ctx, outputRect: outputRect, screenshot: doc.screenshot)
+        drawScreenshot(doc.screenshot, selectionPx: selectionPx, dest: dest, in: ctx)
 
         // P0: no annotations.
 
         return ctx.makeImage()
+    }
+
+    private static func drawBackground(
+        _ style: BackgroundStyle,
+        in ctx: CGContext,
+        outputRect: CGRect,
+        screenshot: CGImage
+    ) {
+        switch style {
+        case .none:
+            break
+        case .solidColor(let color):
+            ctx.saveGState()
+            ctx.setFillColor(color)
+            ctx.fill(outputRect)
+            ctx.restoreGState()
+        case .gradient(let start, let end, let angleDegrees):
+            drawGradient(start: start, end: end, angleDegrees: angleDegrees, in: ctx, rect: outputRect)
+        case .blurExtend(let radius):
+            drawBlurExtend(radius: radius, in: ctx, outputRect: outputRect, screenshot: screenshot)
+        }
+    }
+
+    private static func drawGradient(
+        start: CGColor,
+        end: CGColor,
+        angleDegrees: CGFloat,
+        in ctx: CGContext,
+        rect: CGRect
+    ) {
+        let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
+        guard let gradient = CGGradient(
+            colorsSpace: colorSpace,
+            colors: [start, end] as CFArray,
+            locations: [0, 1]
+        ) else { return }
+
+        let radians = angleDegrees * .pi / 180
+        let dx = cos(radians)
+        let dy = sin(radians)
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let half = max(rect.width, rect.height)
+        let startPoint = CGPoint(x: center.x - dx * half / 2, y: center.y - dy * half / 2)
+        let endPoint = CGPoint(x: center.x + dx * half / 2, y: center.y + dy * half / 2)
+
+        ctx.saveGState()
+        ctx.clip(to: rect)
+        ctx.drawLinearGradient(
+            gradient,
+            start: startPoint,
+            end: endPoint,
+            options: [.drawsBeforeStartLocation, .drawsAfterEndLocation]
+        )
+        ctx.restoreGState()
+    }
+
+    private static func drawBlurExtend(
+        radius: CGFloat,
+        in ctx: CGContext,
+        outputRect: CGRect,
+        screenshot: CGImage
+    ) {
+        let blurred = BlurExtendCache.shared.blurredImage(for: screenshot, radius: radius) ?? screenshot
+        let fill = aspectFillRect(
+            imageSize: CGSize(width: blurred.width, height: blurred.height),
+            into: outputRect
+        )
+        ctx.saveGState()
+        ctx.clip(to: outputRect)
+        ctx.draw(blurred, in: fill)
+        ctx.restoreGState()
+    }
+
+    private static func aspectFillRect(imageSize: CGSize, into rect: CGRect) -> CGRect {
+        guard imageSize.width > 0, imageSize.height > 0 else { return rect }
+        let scale = max(rect.width / imageSize.width, rect.height / imageSize.height)
+        let width = imageSize.width * scale
+        let height = imageSize.height * scale
+        return CGRect(
+            x: rect.midX - width / 2,
+            y: rect.midY - height / 2,
+            width: width,
+            height: height
+        )
+    }
+
+    private static func drawScreenshot(
+        _ screenshot: CGImage,
+        selectionPx: CGRect,
+        dest: CGRect,
+        in ctx: CGContext
+    ) {
+        guard !selectionPx.isNull, !selectionPx.isEmpty,
+              let cropped = screenshot.cropping(to: selectionPx) else { return }
+        // CGContextDrawImage renders upside-down in a y-flipped context. Locally
+        // re-flip around the destination rect so the screenshot stays upright.
+        ctx.saveGState()
+        ctx.translateBy(x: dest.minX, y: dest.maxY)
+        ctx.scaleBy(x: 1, y: -1)
+        ctx.draw(cropped, in: CGRect(origin: .zero, size: dest.size))
+        ctx.restoreGState()
+    }
+}
+
+private final class BlurExtendCache: @unchecked Sendable {
+    static let shared = BlurExtendCache()
+
+    private let lock = NSLock()
+    private var cachedImage: CGImage?
+    private var cachedRadius: CGFloat = -1
+    private var cachedWidth = -1
+    private var cachedHeight = -1
+    private let ciContext = CIContext(options: [.useSoftwareRenderer: false])
+
+    func blurredImage(for source: CGImage, radius: CGFloat) -> CGImage? {
+        lock.lock()
+        if let cachedImage,
+           cachedRadius == radius,
+           cachedWidth == source.width,
+           cachedHeight == source.height {
+            lock.unlock()
+            return cachedImage
+        }
+        lock.unlock()
+
+        let input = CIImage(cgImage: source)
+            .clampedToExtent()
+            .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: radius])
+        let rect = CGRect(x: 0, y: 0, width: source.width, height: source.height)
+        guard let result = ciContext.createCGImage(input, from: rect) else { return nil }
+
+        lock.lock()
+        cachedImage = result
+        cachedRadius = radius
+        cachedWidth = source.width
+        cachedHeight = source.height
+        lock.unlock()
+        return result
     }
 }
