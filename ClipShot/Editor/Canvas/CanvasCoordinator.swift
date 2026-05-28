@@ -31,28 +31,26 @@ final class CanvasCoordinator {
 
         if !didApplyInitialZoom {
             didApplyInitialZoom = true
-            applyInitialZoomToSelection(document: document)
+            let docSize = document.paddedDocumentSize
+            // Run the fit when the scroll view actually has a laid-out size, not on a
+            // deferred timer — fitting against a placeholder size over-zooms and clips.
+            scrollView.requestInitialFit { [weak scrollView] in
+                scrollView?.magnify(toFit: Self.fitRect(for: docSize))
+            }
         }
     }
 
-    /// Spec: open with the effective crop filling ~80% of the visible canvas.
-    /// Deferred to the next main-actor turn so the scroll view has a valid size to fit against.
-    private func applyInitialZoomToSelection(document: EditorDocument) {
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            // The documentView content lives in DOCUMENT space: origin (0,0), size
-            // paddedDocumentSize (the crop fills it, minus padding). effectiveCrop's
-            // origin is in IMAGE-pixel space and must NOT be used here, or the fit
-            // would frame an empty region for any selection not at the image origin.
-            let docSize = document.paddedDocumentSize
-            let inset: CGFloat = 0.10  // 10% margin each side ≈ 80% fill
-            let targetRect = CGRect(
-                x: -docSize.width * inset,
-                y: -docSize.height * inset,
-                width: docSize.width * (1 + inset * 2),
-                height: docSize.height * (1 + inset * 2)
-            )
-            self.scrollView.magnify(toFit: targetRect)
-        }
+    /// Spec: open with the document (the crop) filling ~80% of the visible canvas.
+    /// The documentView content lives in DOCUMENT space: origin (0,0), size docSize.
+    /// effectiveCrop's origin is in IMAGE-pixel space and must NOT be used here, or the
+    /// fit would frame an empty region for any selection not at the image origin.
+    private static func fitRect(for docSize: CGSize) -> CGRect {
+        let inset: CGFloat = 0.10  // 10% margin each side ≈ 80% fill
+        return CGRect(
+            x: -docSize.width * inset,
+            y: -docSize.height * inset,
+            width: docSize.width * (1 + inset * 2),
+            height: docSize.height * (1 + inset * 2)
+        )
     }
 }

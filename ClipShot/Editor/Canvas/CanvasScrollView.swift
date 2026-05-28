@@ -12,6 +12,11 @@ final class CanvasScrollView: NSScrollView {
         }
     }
 
+    /// Closure that fits the document into view. Held until the scroll view has a
+    /// real laid-out size, then run exactly once (see `layout()`). Avoids fitting
+    /// against a zero/placeholder size during the first render pass.
+    private var pendingInitialFit: (() -> Void)?
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         configure()
@@ -23,6 +28,9 @@ final class CanvasScrollView: NSScrollView {
     }
 
     private func configure() {
+        // Centering clip view so content smaller than the viewport is centered
+        // instead of pinned to a corner.
+        contentView = CenteringClipView()
         allowsMagnification = true
         minMagnification = 0.05
         maxMagnification = 16
@@ -34,6 +42,20 @@ final class CanvasScrollView: NSScrollView {
         backgroundColor = NSColor(white: 0.04, alpha: 1)
         horizontalScrollElasticity = .none
         verticalScrollElasticity = .none
+    }
+
+    /// Register a fit to run once the scroll view has a valid size. If a size is
+    /// already available the fit runs on the next layout pass immediately.
+    func requestInitialFit(_ fit: @escaping () -> Void) {
+        pendingInitialFit = fit
+        needsLayout = true
+    }
+
+    override func layout() {
+        super.layout()
+        guard bounds.width > 0, bounds.height > 0, let fit = pendingInitialFit else { return }
+        pendingInitialFit = nil
+        fit()
     }
 
     // MARK: - Cmd+scroll zoom
@@ -81,6 +103,23 @@ final class CanvasScrollView: NSScrollView {
     }
 
     override var acceptsFirstResponder: Bool { true }
+}
+
+/// Clip view that centers the document view when it is smaller than the visible
+/// area in either axis, instead of NSClipView's default corner pinning.
+private final class CenteringClipView: NSClipView {
+    override func constrainBoundsRect(_ proposedBounds: NSRect) -> NSRect {
+        var rect = super.constrainBoundsRect(proposedBounds)
+        guard let documentView else { return rect }
+        let docFrame = documentView.frame
+        if rect.width > docFrame.width {
+            rect.origin.x = (docFrame.width - rect.width) / 2.0
+        }
+        if rect.height > docFrame.height {
+            rect.origin.y = (docFrame.height - rect.height) / 2.0
+        }
+        return rect
+    }
 }
 
 private extension Comparable {
