@@ -1,170 +1,193 @@
 import AppKit
 import SwiftUI
 
-/// Background popover: presets plus custom solid, gradient, and blur-extend controls.
+/// Background detail panel with style tiles and per-style controls.
 struct BackgroundToolView: View {
     @ObservedObject var state: EditorState
 
-    @State private var solid = Color.black
-    @State private var gradientStart = Color(red: 0.13, green: 0.20, blue: 0.40)
-    @State private var gradientEnd = Color(red: 0.55, green: 0.20, blue: 0.50)
-    @State private var gradientAngle = 90.0
+    @State private var solid = Color.white
+    @State private var gradientStart = Color(red: 0.12, green: 0.36, blue: 0.72)
+    @State private var gradientEnd = Color(red: 0.20, green: 0.65, blue: 0.85)
+    @State private var gradientAngle = 135.0
     @State private var blurRadius = 24.0
+    @State private var isSyncingControls = false
 
-    private static let presets: [(name: String, style: BackgroundStyle)] = [
-        ("None", .none),
-        ("White", .solidColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))),
-        ("Slate", .solidColor(CGColor(red: 0.11, green: 0.13, blue: 0.17, alpha: 1))),
-        (
-            "Ocean",
-            .gradient(
-                start: CGColor(red: 0.12, green: 0.36, blue: 0.72, alpha: 1),
-                end: CGColor(red: 0.20, green: 0.65, blue: 0.85, alpha: 1),
-                angleDegrees: 135
-            )
-        ),
-        (
-            "Sunset",
-            .gradient(
-                start: CGColor(red: 0.95, green: 0.45, blue: 0.25, alpha: 1),
-                end: CGColor(red: 0.60, green: 0.15, blue: 0.45, alpha: 1),
-                angleDegrees: 135
-            )
-        )
-    ]
+    private var style: BackgroundStyle { state.document.background }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Background")
                 .font(.system(size: 13, weight: .semibold))
-            presetGrid
+            tiles
             Divider()
-            customSolid
-            customGradient
-            blurExtendRow
+            config
         }
         .padding(14)
-        .frame(width: 260)
+        .onAppear { syncControls(from: style) }
+        .onChange(of: style) { _, newStyle in
+            syncControls(from: newStyle)
+        }
     }
 
-    private var presetGrid: some View {
-        let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 5)
-        return LazyVGrid(columns: columns, spacing: 8) {
-            ForEach(Self.presets.indices, id: \.self) { index in
-                let preset = Self.presets[index]
+    private var tiles: some View {
+        HStack(spacing: 8) {
+            ForEach(BackgroundStyle.Kind.allCases, id: \.self) { kind in
                 Button {
-                    commit(preset.style)
+                    select(kind)
                 } label: {
-                    swatch(for: preset.style)
-                        .frame(width: 34, height: 34)
+                    tileSwatch(kind)
+                        .frame(width: 40, height: 40)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .stroke(Color.white.opacity(0.15))
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(
+                                    style.kind == kind ? Color.blue : Color.white.opacity(0.15),
+                                    lineWidth: style.kind == kind ? 2 : 1
+                                )
                         )
                 }
                 .buttonStyle(.plain)
-                .help(preset.name)
+                .help(tileName(kind))
             }
         }
     }
 
     @ViewBuilder
-    private func swatch(for style: BackgroundStyle) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 7, style: .continuous)
-        switch style {
+    private func tileSwatch(_ kind: BackgroundStyle.Kind) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+        switch kind {
         case .none:
             shape
                 .fill(.clear)
                 .overlay(
                     Image(systemName: "circle.slash")
-                        .font(.system(size: 12))
+                        .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                 )
-        case .solidColor(let color):
-            shape.fill(Color(cgColor: color))
-        case .gradient(let start, let end, _):
+        case .solid:
+            shape.fill(solid)
+        case .gradient:
             shape.fill(
                 LinearGradient(
-                    colors: [Color(cgColor: start), Color(cgColor: end)],
+                    colors: [gradientStart, gradientEnd],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
             )
         case .blurExtend:
-            shape.fill(.gray)
+            shape
+                .fill(.gray)
+                .overlay(
+                    Image(systemName: "drop.halffull")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.white.opacity(0.7))
+                )
         }
     }
 
-    private var customSolid: some View {
-        HStack {
-            Text("Solid")
-                .frame(width: 70, alignment: .leading)
+    private func tileName(_ kind: BackgroundStyle.Kind) -> String {
+        switch kind {
+        case .none:
+            return "None"
+        case .solid:
+            return "Solid"
+        case .gradient:
+            return "Gradient"
+        case .blurExtend:
+            return "Blur extend"
+        }
+    }
+
+    @ViewBuilder
+    private var config: some View {
+        switch style.kind {
+        case .none:
+            Text("No background")
+                .font(.system(size: 12))
                 .foregroundStyle(.secondary)
-            ColorPicker("", selection: $solid, supportsOpacity: false)
-                .labelsHidden()
-            Button("Apply") {
-                commit(.solidColor(NSColor(solid).cgColor))
-            }
-            .controlSize(.small)
-        }
-        .font(.system(size: 12))
-    }
-
-    private var customGradient: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        case .solid:
             HStack {
-                Text("Gradient")
-                    .frame(width: 70, alignment: .leading)
+                Text("Color")
+                    .frame(width: 60, alignment: .leading)
                     .foregroundStyle(.secondary)
-                ColorPicker("", selection: $gradientStart, supportsOpacity: false)
+                ColorPicker("", selection: $solid, supportsOpacity: false)
                     .labelsHidden()
-                ColorPicker("", selection: $gradientEnd, supportsOpacity: false)
-                    .labelsHidden()
-                Button("Apply") {
-                    applyGradient()
-                }
-                .controlSize(.small)
+                    .onChange(of: solid) { _, _ in
+                        guard !isSyncingControls else { return }
+                        commit(.solidColor(NSColor(solid).cgColor))
+                    }
             }
+            .font(.system(size: 12))
+        case .gradient:
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Colors")
+                        .frame(width: 60, alignment: .leading)
+                        .foregroundStyle(.secondary)
+                    ColorPicker("", selection: $gradientStart, supportsOpacity: false)
+                        .labelsHidden()
+                        .onChange(of: gradientStart) { _, _ in
+                            guard !isSyncingControls else { return }
+                            applyGradient()
+                        }
+                    ColorPicker("", selection: $gradientEnd, supportsOpacity: false)
+                        .labelsHidden()
+                        .onChange(of: gradientEnd) { _, _ in
+                            guard !isSyncingControls else { return }
+                            applyGradient()
+                        }
+                }
+                HStack {
+                    Text("Angle")
+                        .frame(width: 60, alignment: .leading)
+                        .foregroundStyle(.secondary)
+                    Slider(
+                        value: $gradientAngle,
+                        in: 0...360,
+                        onEditingChanged: { editing in
+                            if !editing {
+                                applyGradient()
+                            }
+                        }
+                    )
+                    Text("\(Int(gradientAngle))")
+                        .frame(width: 34, alignment: .trailing)
+                        .monospacedDigit()
+                }
+            }
+            .font(.system(size: 12))
+        case .blurExtend:
             HStack {
-                Text("Angle")
-                    .frame(width: 70, alignment: .leading)
+                Text("Radius")
+                    .frame(width: 60, alignment: .leading)
                     .foregroundStyle(.secondary)
                 Slider(
-                    value: $gradientAngle,
-                    in: 0...360,
+                    value: $blurRadius,
+                    in: 0...80,
                     onEditingChanged: { editing in
                         if !editing {
-                            applyGradient()
+                            commit(.blurExtend(radius: CGFloat(blurRadius)))
                         }
                     }
                 )
-                Text("\(Int(gradientAngle))")
-                    .frame(width: 28, alignment: .trailing)
+                Text("\(Int(blurRadius))")
+                    .frame(width: 30, alignment: .trailing)
                     .monospacedDigit()
             }
+            .font(.system(size: 12))
         }
-        .font(.system(size: 12))
     }
 
-    private var blurExtendRow: some View {
-        HStack {
-            Text("Blur extend")
-                .frame(width: 70, alignment: .leading)
-                .foregroundStyle(.secondary)
-            Slider(
-                value: $blurRadius,
-                in: 0...80,
-                onEditingChanged: { editing in
-                    if !editing {
-                        commit(.blurExtend(radius: CGFloat(blurRadius)))
-                    }
-                }
-            )
-            Text("\(Int(blurRadius))")
-                .frame(width: 30, alignment: .trailing)
-                .monospacedDigit()
+    private func select(_ kind: BackgroundStyle.Kind) {
+        switch kind {
+        case .none:
+            commit(.none)
+        case .solid:
+            commit(.solidColor(NSColor(solid).cgColor))
+        case .gradient:
+            applyGradient()
+        case .blurExtend:
+            commit(.blurExtend(radius: CGFloat(blurRadius)))
         }
-        .font(.system(size: 12))
     }
 
     private func applyGradient() {
@@ -177,7 +200,30 @@ struct BackgroundToolView: View {
         )
     }
 
-    private func commit(_ style: BackgroundStyle) {
-        state.performCommand(SetBackgroundCommand(from: state.document.background, to: style))
+    private func commit(_ next: BackgroundStyle) {
+        guard next != style else { return }
+        state.performCommand(SetBackgroundCommand(from: style, to: next))
+    }
+
+    private func syncControls(from style: BackgroundStyle) {
+        isSyncingControls = true
+        defer {
+            DispatchQueue.main.async {
+                isSyncingControls = false
+            }
+        }
+
+        switch style {
+        case .none:
+            break
+        case .solidColor(let color):
+            solid = Color(cgColor: color)
+        case .gradient(let start, let end, let angle):
+            gradientStart = Color(cgColor: start)
+            gradientEnd = Color(cgColor: end)
+            gradientAngle = Double(angle)
+        case .blurExtend(let radius):
+            blurRadius = Double(radius)
+        }
     }
 }

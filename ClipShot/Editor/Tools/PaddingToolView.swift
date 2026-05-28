@@ -1,149 +1,147 @@
 import SwiftUI
 
-/// Padding popover: whole-pixel uniform control plus per-side overrides.
+/// Padding detail panel with linked and per-side box-model controls.
 struct PaddingToolView: View {
     @ObservedObject var state: EditorState
-    @State private var showsPerSide = false
     @State private var editStart: PaddingConfig?
+    @State private var linked: Bool = true
 
     private let range: ClosedRange<Double> = 0...256
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Padding")
-                .font(.system(size: 13, weight: .semibold))
-            uniformRow
-            DisclosureGroup("Per side", isExpanded: $showsPerSide) {
-                VStack(spacing: 8) {
-                    sideRow("Top", get: { $0.top }, set: { $0.top = $1 })
-                    sideRow("Right", get: { $0.right }, set: { $0.right = $1 })
-                    sideRow("Bottom", get: { $0.bottom }, set: { $0.bottom = $1 })
-                    sideRow("Left", get: { $0.left }, set: { $0.left = $1 })
-                }
-                .padding(.top, 6)
-            }
-            .font(.system(size: 12))
+        VStack(alignment: .leading, spacing: 14) {
+            header
+            boxModel
+            uniformSlider
         }
         .padding(14)
-        .frame(width: 240)
+        .onAppear { linked = padding.isLinked }
     }
 
-    private var uniformValue: Double {
-        Double(state.document.padding.uniform ?? state.document.padding.top)
-    }
+    private var padding: PaddingConfig { state.document.padding }
 
-    private var uniformRow: some View {
-        HStack(spacing: 8) {
-            Slider(
-                value: Binding(
-                    get: { uniformValue },
-                    set: { setLiveUniform(CGFloat($0.rounded())) }
-                ),
-                in: range,
-                onEditingChanged: { onEditing($0) }
-            )
-            TextField(
-                "",
-                value: Binding(
-                    get: { Int(uniformValue) },
-                    set: { commitUniform(CGFloat($0)) }
-                ),
-                format: .number
-            )
-            .frame(width: 44)
-            .multilineTextAlignment(.trailing)
-            .textFieldStyle(.roundedBorder)
-        }
-    }
-
-    private func sideRow(
-        _ label: String,
-        get: @escaping (PaddingConfig) -> CGFloat,
-        set: @escaping (inout PaddingConfig, CGFloat) -> Void
-    ) -> some View {
+    private var header: some View {
         HStack {
-            Text(label)
-                .frame(width: 54, alignment: .leading)
-                .foregroundStyle(.secondary)
-            Slider(
-                value: Binding(
-                    get: { Double(get(state.document.padding)) },
-                    set: { value in
-                        var padding = state.document.padding
-                        set(&padding, CGFloat(value.rounded()))
-                        setLive(padding)
-                    }
-                ),
-                in: range,
-                onEditingChanged: { onEditing($0) }
-            )
-            TextField(
-                "",
-                value: Binding(
-                    get: { Int(get(state.document.padding)) },
-                    set: { value in
-                        var padding = state.document.padding
-                        set(&padding, CGFloat(value))
-                        commit(padding)
-                    }
-                ),
-                format: .number
-            )
-            .frame(width: 44)
-            .multilineTextAlignment(.trailing)
-            .textFieldStyle(.roundedBorder)
+            Text("Padding")
+                .font(.system(size: 13, weight: .semibold))
+            Spacer()
+            Button {
+                linked.toggle()
+                if linked {
+                    commit(.uniform(padding.top))
+                }
+            } label: {
+                Image(systemName: linked ? "link" : "link.slash")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(linked ? Color.blue : Color.white.opacity(0.5))
+            }
+            .buttonStyle(.plain)
+            .help(linked ? "Sides linked" : "Sides independent")
         }
     }
 
-    private func onEditing(_ editing: Bool) {
-        if editing {
-            editStart = state.document.padding
-        } else {
-            commitDrag()
+    private var boxModel: some View {
+        VStack(spacing: 6) {
+            field(.top)
+            HStack(spacing: 6) {
+                field(.left)
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Color.white.opacity(0.08))
+                    .overlay(
+                        Image(systemName: "photo")
+                            .font(.system(size: 16))
+                            .foregroundStyle(.secondary)
+                    )
+                    .frame(height: 56)
+                field(.right)
+            }
+            field(.bottom)
         }
     }
 
-    private func setLiveUniform(_ value: CGFloat) {
-        setLive(PaddingConfig(top: value, right: value, bottom: value, left: value))
+    private func field(_ side: PaddingSide) -> some View {
+        TextField(
+            "",
+            value: Binding(
+                get: { Int(value(of: side)) },
+                set: { setSide(side, to: CGFloat($0)) }
+            ),
+            format: .number
+        )
+        .frame(width: 52)
+        .multilineTextAlignment(.center)
+        .textFieldStyle(.roundedBorder)
+        .accessibilityLabel(label(side))
     }
 
-    private func setLive(_ padding: PaddingConfig) {
+    private var uniformSlider: some View {
+        Slider(
+            value: Binding(
+                get: { Double(padding.uniform ?? padding.top) },
+                set: { value in
+                    linked = true
+                    setLive(.uniform(CGFloat(value.rounded())))
+                }
+            ),
+            in: range,
+            onEditingChanged: { editing in
+                if editing {
+                    editStart = padding
+                } else {
+                    commitDrag()
+                }
+            }
+        )
+    }
+
+    private func value(of side: PaddingSide) -> CGFloat {
+        switch side {
+        case .top:
+            return padding.top
+        case .right:
+            return padding.right
+        case .bottom:
+            return padding.bottom
+        case .left:
+            return padding.left
+        }
+    }
+
+    private func label(_ side: PaddingSide) -> String {
+        switch side {
+        case .top:
+            return "Top padding"
+        case .right:
+            return "Right padding"
+        case .bottom:
+            return "Bottom padding"
+        case .left:
+            return "Left padding"
+        }
+    }
+
+    private func setSide(_ side: PaddingSide, to value: CGFloat) {
+        let next = linked ? PaddingConfig.uniform(value) : padding.setting(side, to: value)
+        commit(next)
+    }
+
+    private func setLive(_ next: PaddingConfig) {
         if editStart == nil {
-            editStart = state.document.padding
+            editStart = padding
         }
-        state.document.padding = padding.clamped()
+        state.document.padding = next.clamped()
     }
 
-    private func commit(_ padding: PaddingConfig) {
-        let from = editStart ?? state.document.padding
-        state.document.padding = from
-        state.performCommand(SetPaddingCommand(from: from, to: padding.clamped()))
-        editStart = nil
-    }
-
-    private func commitUniform(_ value: CGFloat) {
-        commit(PaddingConfig(top: value, right: value, bottom: value, left: value))
+    private func commit(_ next: PaddingConfig) {
+        let from = padding
+        state.performCommand(SetPaddingCommand(from: from, to: next.clamped()))
     }
 
     private func commitDrag() {
         guard let from = editStart else { return }
-        let to = state.document.padding
+        let to = padding
         state.document.padding = from
-        state.performCommand(SetPaddingCommand(from: from, to: to))
+        state.performCommand(SetPaddingCommand(from: from, to: to.clamped()))
         editStart = nil
-    }
-}
-
-private extension PaddingConfig {
-    func clamped() -> PaddingConfig {
-        func clamp(_ value: CGFloat) -> CGFloat {
-            min(max(value, 0), 256)
-        }
-        return PaddingConfig(
-            top: clamp(top),
-            right: clamp(right),
-            bottom: clamp(bottom),
-            left: clamp(left)
-        )
     }
 }

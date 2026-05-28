@@ -22,6 +22,16 @@ enum EditorTool: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Whether this tool exposes controls in the sidebar detail panel.
+    var hasDetailPanel: Bool {
+        switch self {
+        case .select:
+            return false
+        case .padding, .background, .arrow, .rectangle, .text, .blur:
+            return true
+        }
+    }
+
     var symbolName: String {
         switch self {
         case .select:     return "cursorarrow"
@@ -62,6 +72,7 @@ enum EditorTool: String, CaseIterable, Identifiable {
 final class EditorState: ObservableObject {
     @Published var document: EditorDocument
     @Published var activeTool: EditorTool = .select
+    @Published var isDetailPanelExpanded: Bool = true
     /// In-progress annotation being drawn. Unused in P0 (always nil).
     @Published var inProgressAnnotation: Annotation? = nil
     /// Selected annotation id. Unused in P0.
@@ -83,5 +94,27 @@ final class EditorState: ObservableObject {
 
     func performCommand(_ command: EditorCommand) {
         undoStack.push(command, apply: { $0.apply(to: &document) })
+    }
+
+    /// Selecting a new enabled tool activates it and expands its panel; re-selecting
+    /// the active tool toggles the panel. Disabled tools are ignored.
+    func selectTool(_ tool: EditorTool) {
+        guard tool.isEnabled else { return }
+        if activeTool == tool {
+            if tool.hasDetailPanel {
+                isDetailPanelExpanded.toggle()
+            }
+        } else {
+            activeTool = tool
+            isDetailPanelExpanded = true
+        }
+    }
+
+    func toggleDetailPanel() {
+        isDetailPanelExpanded.toggle()
+    }
+
+    var isDetailPanelVisible: Bool {
+        activeTool.hasDetailPanel && isDetailPanelExpanded
     }
 }
