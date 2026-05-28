@@ -14,7 +14,13 @@ import Foundation
 enum DocumentRenderer {
 
     static func render(_ doc: EditorDocument) -> CGImage? {
-        let cropPx = doc.effectiveCrop.integral
+        let selectionPx = doc.baseSelection.integral.intersection(doc.imageBounds)
+        let cropPx = CGRect(
+            x: 0,
+            y: 0,
+            width: selectionPx.width + doc.padding.left + doc.padding.right,
+            height: selectionPx.height + doc.padding.top + doc.padding.bottom
+        ).integral
         let width = Int(cropPx.width)
         let height = Int(cropPx.height)
         guard width > 0, height > 0 else { return nil }
@@ -41,10 +47,10 @@ enum DocumentRenderer {
         let dest = CGRect(
             x: doc.padding.left,
             y: doc.padding.top,
-            width: doc.baseSelection.width,
-            height: doc.baseSelection.height
+            width: selectionPx.width,
+            height: selectionPx.height
         )
-        if let cropped = doc.screenshot.cropping(to: doc.baseSelection.integral) {
+        if let cropped = doc.screenshot.cropping(to: selectionPx) {
             // CGContextDrawImage renders upside-down in a y-flipped context. Locally
             // re-flip around the destination rect so the screenshot stays upright.
             ctx.saveGState()

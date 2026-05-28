@@ -26,6 +26,37 @@ final class EditorDocumentTests: XCTestCase {
         XCTAssertEqual(doc.effectiveCrop, CGRect(x: 100, y: 100, width: 200, height: 150))
     }
 
+    func test_imageBounds_matchesFullScreenshotSize() {
+        let doc = makeDoc(screenshotSize: CGSize(width: 800, height: 600))
+        XCTAssertEqual(doc.imageBounds, CGRect(x: 0, y: 0, width: 800, height: 600))
+    }
+
+    func test_initialCanvasFit_centersSelectionWithEightyPercentFill() {
+        let selection = CGRect(x: 100, y: 120, width: 320, height: 160)
+        let fit = CanvasCoordinator.initialFitRect(
+            for: selection,
+            in: CGSize(width: 800, height: 600)
+        )
+
+        XCTAssertEqual(fit.midX, selection.midX, accuracy: 0.001)
+        XCTAssertEqual(fit.midY, selection.midY, accuracy: 0.001)
+        XCTAssertEqual(fit.width / fit.height, 800.0 / 600.0, accuracy: 0.001)
+        XCTAssertEqual(selection.width / fit.width, 0.8, accuracy: 0.001)
+        XCTAssertLessThanOrEqual(selection.height / fit.height, 0.8)
+
+        let tallSelection = CGRect(x: 120, y: 80, width: 120, height: 300)
+        let tallFit = CanvasCoordinator.initialFitRect(
+            for: tallSelection,
+            in: CGSize(width: 800, height: 600)
+        )
+
+        XCTAssertEqual(tallFit.midX, tallSelection.midX, accuracy: 0.001)
+        XCTAssertEqual(tallFit.midY, tallSelection.midY, accuracy: 0.001)
+        XCTAssertEqual(tallFit.width / tallFit.height, 800.0 / 600.0, accuracy: 0.001)
+        XCTAssertEqual(tallSelection.height / tallFit.height, 0.8, accuracy: 0.001)
+        XCTAssertLessThanOrEqual(tallSelection.width / tallFit.width, 0.8)
+    }
+
     func test_effectiveCrop_expandsByPaddingPerSide() {
         let doc = makeDoc(padding: PaddingConfig(top: 10, right: 20, bottom: 30, left: 40))
         XCTAssertEqual(doc.effectiveCrop, CGRect(x: 60, y: 90, width: 260, height: 190))

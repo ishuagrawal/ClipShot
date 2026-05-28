@@ -25,32 +25,54 @@ final class CanvasCoordinator {
 
     /// Push the latest document into the view tree. Called on every SwiftUI update.
     func update(document: EditorDocument) {
-        container.frame = CGRect(origin: .zero, size: document.paddedDocumentSize)
+        let imageBounds = document.imageBounds
+        container.frame = imageBounds
         contentView.document = document          // didSet sizes contentView's frame
-        overlayView.resizeToDocument(document)   // sizes overlay frame + halo
+        overlayView.resizeToDocument(document)   // sizes overlay frame
 
         if !didApplyInitialZoom {
             didApplyInitialZoom = true
-            let docSize = document.paddedDocumentSize
+            let selection = document.baseSelection.integral.intersection(imageBounds)
             // Run the fit when the scroll view actually has a laid-out size, not on a
             // deferred timer — fitting against a placeholder size over-zooms and clips.
             scrollView.requestInitialFit { [weak scrollView] in
-                scrollView?.magnify(toFit: Self.fitRect(for: docSize))
+                guard let scrollView else { return }
+                let fitRect = Self.initialFitRect(
+                    for: selection,
+                    in: scrollView.contentView.bounds.size
+                )
+                scrollView.magnify(toFit: fitRect.isNull || fitRect.isEmpty ? imageBounds : fitRect)
             }
         }
     }
 
-    /// Spec: open with the document (the crop) filling ~80% of the visible canvas.
-    /// The documentView content lives in DOCUMENT space: origin (0,0), size docSize.
-    /// effectiveCrop's origin is in IMAGE-pixel space and must NOT be used here, or the
-    /// fit would frame an empty region for any selection not at the image origin.
-    private static func fitRect(for docSize: CGSize) -> CGRect {
-        let inset: CGFloat = 0.10  // 10% margin each side ≈ 80% fill
+    /// Spec: open centered on the selected region, with the selection occupying
+    /// about 80% of the visible canvas and the rest showing faded page context.
+    /// Returns a document-space rect with the same aspect ratio as the viewport.
+    nonisolated static func initialFitRect(for selection: CGRect, in viewportSize: CGSize) -> CGRect {
+        guard !selection.isNull,
+              !selection.isEmpty,
+              viewportSize.width > 0,
+              viewportSize.height > 0 else {
+            return selection
+        }
+
+        let selectedFill: CGFloat = 0.80
+        let viewportAspect = viewportSize.width / viewportSize.height
+        let minWidth = selection.width / selectedFill
+        let minHeight = selection.height / selectedFill
+
+        var fitSize = CGSize(width: minWidth, height: minWidth / viewportAspect)
+        if fitSize.height < minHeight {
+            fitSize.height = minHeight
+            fitSize.width = minHeight * viewportAspect
+        }
+
         return CGRect(
-            x: -docSize.width * inset,
-            y: -docSize.height * inset,
-            width: docSize.width * (1 + inset * 2),
-            height: docSize.height * (1 + inset * 2)
+            x: selection.midX - fitSize.width / 2,
+            y: selection.midY - fitSize.height / 2,
+            width: fitSize.width,
+            height: fitSize.height
         )
     }
 }

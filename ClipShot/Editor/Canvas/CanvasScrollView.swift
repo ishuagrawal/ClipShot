@@ -73,8 +73,9 @@ final class CanvasScrollView: NSScrollView {
             : (event.scrollingDeltaY > 0 ? 0.1 : (event.scrollingDeltaY < 0 ? -0.1 : 0))
         let zoomFactor: CGFloat = 1.0 + delta
         let newMag = (magnification * zoomFactor).clamped(to: minMagnification...maxMagnification)
-        let pointInView = convert(event.locationInWindow, from: nil)
-        setMagnification(newMag, centeredAt: pointInView)
+        let pointInDocument = documentView?.convert(event.locationInWindow, from: nil)
+            ?? convert(event.locationInWindow, from: nil)
+        setMagnification(newMag, centeredAt: pointInDocument)
     }
 
     // MARK: - Space-hold pan

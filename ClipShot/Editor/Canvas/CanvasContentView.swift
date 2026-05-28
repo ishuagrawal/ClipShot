@@ -1,27 +1,34 @@
 import AppKit
 
-/// Hosts the screenshot at 1:1 pixel size. NSScrollView applies the magnification
-/// transform around this view; the view itself never scales its content.
-///
-/// P0: draws the screenshot crop at `effectiveCrop` origin offset. No background fill
-/// (P1) and no annotations (P2) are rendered here.
+/// Hosts the full screenshot at 1:1 pixel size. The page context is faded, while
+/// the selected region is drawn again at full opacity in the same document space.
 final class CanvasContentView: NSView {
 
     var document: EditorDocument? {
         didSet { updateFrameAndLayer() }
     }
 
-    private let imageLayer: CALayer
+    private let contextLayer: CALayer
+    private let selectionLayer: CALayer
 
     override init(frame frameRect: NSRect) {
-        self.imageLayer = CALayer()
+        self.contextLayer = CALayer()
+        self.selectionLayer = CALayer()
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.backgroundColor = NSColor(white: 0.06, alpha: 1).cgColor
-        imageLayer.contentsGravity = .resize
-        imageLayer.magnificationFilter = .trilinear
-        imageLayer.minificationFilter = .trilinear
-        layer?.addSublayer(imageLayer)
+
+        contextLayer.contentsGravity = .resize
+        contextLayer.magnificationFilter = .trilinear
+        contextLayer.minificationFilter = .trilinear
+        contextLayer.opacity = 0.06
+
+        selectionLayer.contentsGravity = .resize
+        selectionLayer.magnificationFilter = .trilinear
+        selectionLayer.minificationFilter = .trilinear
+
+        layer?.addSublayer(contextLayer)
+        layer?.addSublayer(selectionLayer)
     }
 
     required init?(coder: NSCoder) { fatalError("unused") }
@@ -32,22 +39,25 @@ final class CanvasContentView: NSView {
     private func updateFrameAndLayer() {
         guard let doc = document else {
             frame = .zero
-            imageLayer.contents = nil
+            contextLayer.contents = nil
+            selectionLayer.contents = nil
             return
         }
-        let size = doc.paddedDocumentSize
-        frame = CGRect(origin: .zero, size: size)
+        frame = doc.imageBounds
 
-        let screenshotFrame = CGRect(
-            x: doc.padding.left,
-            y: doc.padding.top,
-            width: doc.baseSelection.width,
-            height: doc.baseSelection.height
-        )
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        imageLayer.frame = screenshotFrame
-        imageLayer.contents = doc.screenshot.cropping(to: doc.baseSelection.integral)
+        contextLayer.frame = bounds
+        contextLayer.contents = doc.screenshot
+
+        let selection = doc.baseSelection.integral.intersection(doc.imageBounds)
+        if selection.isNull || selection.isEmpty {
+            selectionLayer.frame = .zero
+            selectionLayer.contents = nil
+        } else {
+            selectionLayer.frame = selection
+            selectionLayer.contents = doc.screenshot.cropping(to: selection)
+        }
         CATransaction.commit()
     }
 }

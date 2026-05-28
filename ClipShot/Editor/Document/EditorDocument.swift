@@ -53,6 +53,10 @@ struct EditorDocument {
         )
     }
 
+    var imageBounds: CGRect {
+        CGRect(x: 0, y: 0, width: CGFloat(screenshot.width), height: CGFloat(screenshot.height))
+    }
+
     var paddedDocumentSize: CGSize { effectiveCrop.size }
 }
 

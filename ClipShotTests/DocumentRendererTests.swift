@@ -46,4 +46,25 @@ final class DocumentRendererTests: XCTestCase {
             )
         }
     }
+
+    func test_render_v0_fractionalSelection_matchesIntegralCropWithoutResampling() throws {
+        let screenshot = FixtureDocument.makeStripedImage(size: CGSize(width: 40, height: 30))
+        let selection = CGRect(x: 5.25, y: 6.5, width: 12.2, height: 9.1)
+        let doc = EditorDocument(
+            screenshot: screenshot,
+            viewport: CGSize(width: 40, height: 30),
+            pageTitle: "Fractional",
+            pageURL: "https://example.com",
+            baseSelection: selection
+        )
+
+        let rendered = try XCTUnwrap(DocumentRenderer.render(doc))
+        let expectedCrop = try XCTUnwrap(screenshot.cropping(to: selection.integral))
+        let renderedBuf = try XCTUnwrap(PixelBuffer.decode(rendered))
+        let expectedBuf = try XCTUnwrap(PixelBuffer.decode(expectedCrop))
+
+        XCTAssertEqual(renderedBuf.width, expectedBuf.width)
+        XCTAssertEqual(renderedBuf.height, expectedBuf.height)
+        XCTAssertEqual(renderedBuf.pixels, expectedBuf.pixels)
+    }
 }
