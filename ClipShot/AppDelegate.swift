@@ -22,6 +22,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     coordinator.copyDOMPNGToClipboard(pngData: pngData)
                 }
             },
+            sessionHandler: { [coordinator] request in
+                await MainActor.run {
+                    coordinator.openDOMSession(request: request)
+                }
+            },
             statusHandler: { status in
                 await MainActor.run {
                     AppState.shared.setCaptureStatus(status)

@@ -9,7 +9,7 @@
   }
   document.getElementById("clipshot-dom-selector-host")?.remove();
 
-  const BRIDGE_URL = "http://127.0.0.1:17272/clipboard";
+  const SESSION_BRIDGE_URL = "http://127.0.0.1:17272/session";
   const MAX_CANDIDATES = 48;
   const MAX_PREVIEW_BOXES = 8;
   const MAX_SCAN_ELEMENTS = 1600;
@@ -118,8 +118,6 @@
   let ghostsLayer = null;
   let hintElement = null;
   let hudElement = null;
-  let copiedToastElement = null;
-  let confirmedRect = null;
   let capturePending = false;
   const hudFlashTimers = new Map();
   const placedChipRects = [];
@@ -129,7 +127,7 @@
       return false;
     }
 
-    void cropAndCopy(message.dataUrl, message.rect)
+    void openEditorSession(message.dataUrl, message.rect, message.session, message.tab)
       .then(() => sendResponse({ ok: true }))
       .catch((error) => {
         showError(error.message);
@@ -214,10 +212,6 @@
     }
 
     hideHud();
-    if (copiedToastElement) {
-      copiedToastElement.hidden = true;
-    }
-    confirmedRect = null;
   }
 
   function destroy() {
@@ -231,8 +225,6 @@
     chipsLayer = null;
     hintElement = null;
     hudElement = null;
-    copiedToastElement = null;
-    confirmedRect = null;
     hudFlashTimers.forEach((id) => window.clearTimeout(id));
     hudFlashTimers.clear();
 
@@ -632,50 +624,6 @@
           font-size: 12px;
         }
 
-        .copied-toast {
-          position: fixed;
-          top: 0;
-          left: 0;
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          padding: 10px 16px;
-          transform: translate(-50%, -50%);
-          font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
-          font-size: 13px;
-          font-weight: 600;
-          letter-spacing: 0.01em;
-          line-height: 1;
-          color: #fff;
-          background: rgba(14, 18, 26, 0.78);
-          -webkit-backdrop-filter: blur(22px) saturate(180%);
-          backdrop-filter: blur(22px) saturate(180%);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 12px;
-          box-shadow:
-            0 12px 40px rgba(0, 0, 0, 0.45),
-            0 1px 0 rgba(255, 255, 255, 0.06) inset;
-          pointer-events: none;
-          user-select: none;
-          z-index: 7;
-          white-space: nowrap;
-        }
-
-        .copied-toast[hidden] {
-          display: none;
-        }
-
-        .copied-toast svg {
-          width: 16px;
-          height: 16px;
-          flex-shrink: 0;
-          stroke: currentColor;
-          stroke-width: 2;
-          stroke-linecap: round;
-          stroke-linejoin: round;
-          fill: none;
-        }
-
         .hud-key[data-active="true"],
         .hud-key[data-flash="true"] {
           background: linear-gradient(180deg, rgba(40, 168, 255, 0.98), rgba(14, 118, 210, 0.98));
@@ -721,13 +669,6 @@
           <span class="hud-label">hold to isolate</span>
         </div>
       </div>
-      <div class="copied-toast" hidden>
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <rect x="9" y="9" width="11" height="11" rx="2"></rect>
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-        </svg>
-        <span class="copied-toast-label">Copied</span>
-      </div>
     `;
 
     boxesLayer = shadowRoot.querySelector(".boxes");
@@ -735,7 +676,6 @@
     chipsLayer = shadowRoot.querySelector(".chips");
     hintElement = shadowRoot.querySelector(".hint");
     hudElement = shadowRoot.querySelector(".hud");
-    copiedToastElement = shadowRoot.querySelector(".copied-toast");
     document.documentElement.appendChild(overlayHost);
   }
 
@@ -1943,19 +1883,19 @@
       width: selected.rect.width,
       height: selected.rect.height
     };
-    confirmedRect = rect;
 
     overlayHost.style.display = "none";
     void overlayHost.offsetHeight;
 
-    afterOverlayHiddenPaint(() => requestCapture(rect));
+    afterOverlayHiddenPaint(() => requestCapture(rect, buildSessionSnapshot(rect)));
   }
 
-  function requestCapture(rect) {
+  function requestCapture(rect, session) {
     chrome.runtime.sendMessage(
       {
         type: "CLIPSHOT_DOM_CONFIRM",
-        rect
+        rect,
+        session
       },
       (response) => {
         if (chrome.runtime.lastError) {
@@ -1970,6 +1910,47 @@
         }
       }
     );
+  }
+
+  function buildSessionSnapshot(selectedRect) {
+    return {
+      selectedIndex,
+      selectedRect,
+      viewport: {
+        width: window.innerWidth,
+        height: window.innerHeight,
+        devicePixelRatio: window.devicePixelRatio || 1,
+        scrollX: window.scrollX || window.pageXOffset || 0,
+        scrollY: window.scrollY || window.pageYOffset || 0
+      },
+      page: {
+        title: document.title || "",
+        url: window.location.href
+      },
+      candidates: candidates.map((candidate, index) => serializeCandidate(candidate, index))
+    };
+  }
+
+  function serializeCandidate(candidate, index) {
+    return {
+      id: index,
+      rect: {
+        left: candidate.rect.left,
+        top: candidate.rect.top,
+        width: candidate.rect.width,
+        height: candidate.rect.height
+      },
+      depth: candidate.depth,
+      label: candidateLabel(candidate.element),
+      tagName: candidate.element.tagName.toLowerCase(),
+      role: roleOf(candidate.element) || null,
+      preview: Boolean(candidate.preview),
+      selected: index === selectedIndex
+    };
+  }
+
+  function candidateLabel(element) {
+    return accessibleName(element) || describeElement(element);
   }
 
   function afterOverlayHiddenPaint(callback) {
@@ -1988,57 +1969,37 @@
     window.setTimeout(runOnce, 120);
   }
 
-  async function cropAndCopy(dataUrl, rect) {
+  async function openEditorSession(dataUrl, rect, sessionSnapshot = {}, tab = {}) {
     const image = await loadImage(dataUrl);
-    const scaleX = image.naturalWidth / Math.max(1, window.innerWidth);
-    const scaleY = image.naturalHeight / Math.max(1, window.innerHeight);
-    const sourceX = Math.max(0, Math.round(rect.left * scaleX));
-    const sourceY = Math.max(0, Math.round(rect.top * scaleY));
-    const sourceWidth = Math.min(
-      image.naturalWidth - sourceX,
-      Math.max(1, Math.round(rect.width * scaleX))
-    );
-    const sourceHeight = Math.min(
-      image.naturalHeight - sourceY,
-      Math.max(1, Math.round(rect.height * scaleY))
-    );
-
-    const canvas = document.createElement("canvas");
-    canvas.width = sourceWidth;
-    canvas.height = sourceHeight;
-
-    const context = canvas.getContext("2d");
-    if (!context) {
-      throw new Error("Could not create crop canvas.");
-    }
-
-    context.drawImage(
-      image,
-      sourceX,
-      sourceY,
-      sourceWidth,
-      sourceHeight,
-      0,
-      0,
-      sourceWidth,
-      sourceHeight
-    );
-
-    const pngBase64 = canvas.toDataURL("image/png").replace("data:image/png;base64,", "");
-    const response = await fetch(BRIDGE_URL, {
+    const response = await fetch(SESSION_BRIDGE_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ pngBase64 })
+      body: JSON.stringify({
+        screenshotBase64: dataUrl.replace("data:image/png;base64,", ""),
+        selectedRect: rect,
+        viewport: sessionSnapshot.viewport || {
+          width: window.innerWidth,
+          height: window.innerHeight,
+          devicePixelRatio: window.devicePixelRatio || 1,
+          scrollX: window.scrollX || window.pageXOffset || 0,
+          scrollY: window.scrollY || window.pageYOffset || 0
+        },
+        candidates: sessionSnapshot.candidates || [],
+        selectedIndex: sessionSnapshot.selectedIndex ?? selectedIndex,
+        pageTitle: tab.title || sessionSnapshot.page?.title || document.title || "",
+        pageURL: tab.url || sessionSnapshot.page?.url || window.location.href,
+        imageWidth: image.naturalWidth,
+        imageHeight: image.naturalHeight
+      })
     });
 
     if (!response.ok) {
-      throw new Error("ClipShot app is not accepting DOM captures.");
+      throw new Error("ClipShot app is not accepting editor sessions.");
     }
 
-    showCopiedToast();
-    window.setTimeout(stop, 1400);
+    stop();
   }
 
   function loadImage(dataUrl) {
@@ -2066,30 +2027,6 @@
     }
   }
 
-  function showCopiedToast() {
-    ensureOverlay();
-    overlayHost.style.display = "block";
-    boxesLayer.textContent = "";
-    if (ghostsLayer) ghostsLayer.textContent = "";
-    if (chipsLayer) chipsLayer.textContent = "";
-    hideHud();
-    if (hintElement) {
-      hintElement.hidden = true;
-      hintElement.textContent = "";
-    }
-    if (copiedToastElement && confirmedRect) {
-      const cx = confirmedRect.left + confirmedRect.width / 2;
-      const cy = confirmedRect.top + confirmedRect.height / 2;
-      copiedToastElement.style.left = `${cx}px`;
-      copiedToastElement.style.top = `${cy}px`;
-      copiedToastElement.hidden = false;
-    } else if (copiedToastElement) {
-      copiedToastElement.style.left = "50%";
-      copiedToastElement.style.top = "50%";
-      copiedToastElement.hidden = false;
-    }
-  }
-
   function showError(message) {
     ensureOverlay();
     overlayHost.style.display = "block";
@@ -2097,9 +2034,6 @@
     if (ghostsLayer) ghostsLayer.textContent = "";
     if (chipsLayer) chipsLayer.textContent = "";
     hideHud();
-    if (copiedToastElement) {
-      copiedToastElement.hidden = true;
-    }
     showHint(message || "Capture failed");
     window.setTimeout(stop, 1600);
   }

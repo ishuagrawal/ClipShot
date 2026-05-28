@@ -13,12 +13,12 @@ The current MVP is DOM-only:
    extension action.
 4. Hover a web component.
 5. Select the DOM box you want to capture.
-6. Click or press `Enter` to crop that box and copy it as PNG.
+6. Click or press `Enter` to open that box in the desktop editor.
 
-The extension captures the visible tab, crops the selected DOM rectangle in the
-page, and posts the PNG to the local ClipShot app at
-`127.0.0.1:17272/clipboard`. The macOS app only writes that PNG to
-`NSPasteboard`.
+The extension captures the visible tab and posts the full viewport PNG plus the
+selected DOM rectangle to the local ClipShot app at `127.0.0.1:17272/session`.
+The macOS app displays the page image with the selected region overlaid, then
+can crop/copy or export from that full screenshot.
 
 No Accessibility or Screen Recording permissions are required for this flow.
 
