@@ -18,6 +18,11 @@
 		01A000000000000000000013 /* EditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000013 /* EditorView.swift */; };
 		01A000000000000000000101 /* PixelBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000101 /* PixelBuffer.swift */; };
 		01A000000000000000000102 /* SanityTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000102 /* SanityTest.swift */; };
+		01A000000000000000000201 /* EditorDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000201 /* EditorDocument.swift */; };
+		01A000000000000000000202 /* PaddingConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000202 /* PaddingConfig.swift */; };
+		01A000000000000000000203 /* BackgroundStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000203 /* BackgroundStyle.swift */; };
+		01A000000000000000000204 /* Annotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000204 /* Annotation.swift */; };
+		01A000000000000000000301 /* EditorDocumentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000301 /* EditorDocumentTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -300,6 +305,10 @@
 				01A000000000000000000011 /* DOMCaptureModels.swift in Sources */,
 				01A000000000000000000012 /* EditorWindowController.swift in Sources */,
 				01A000000000000000000013 /* EditorView.swift in Sources */,
+				01A000000000000000000201 /* EditorDocument.swift in Sources */,
+				01A000000000000000000202 /* PaddingConfig.swift in Sources */,
+				01A000000000000000000203 /* BackgroundStyle.swift in Sources */,
+				01A000000000000000000204 /* Annotation.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -309,6 +318,7 @@
 			files = (
 				01A000000000000000000101 /* PixelBuffer.swift in Sources */,
 				01A000000000000000000102 /* SanityTest.swift in Sources */,
+				01A000000000000000000301 /* EditorDocumentTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
