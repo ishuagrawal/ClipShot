@@ -11,11 +11,13 @@ struct BottomBarView: View {
                 Button(action: { state.performUndo() }) {
                     Image(systemName: "arrow.uturn.backward")
                 }
+                .accessibilityLabel("Undo")
                 .disabled(!state.undoStack.canUndo)
 
                 Button(action: { state.performRedo() }) {
                     Image(systemName: "arrow.uturn.forward")
                 }
+                .accessibilityLabel("Redo")
                 .disabled(!state.undoStack.canRedo)
             }
             .buttonStyle(.plain)

@@ -46,6 +46,7 @@ private struct ToolButton: View {
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled)
+        .accessibilityLabel(tool.displayName)
         .help(isEnabled ? tool.displayName : "\(tool.displayName) — \(tool.comingSoonNote)")
     }
 }
