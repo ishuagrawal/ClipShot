@@ -36,6 +36,7 @@
 		01A00000000000000000020C /* CanvasCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000020C /* CanvasCoordinator.swift */; };
 		01A00000000000000000020D /* CanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000020D /* CanvasView.swift */; };
 		01A00000000000000000020E /* BottomBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000020E /* BottomBarView.swift */; };
+		01A00000000000000000020F /* ToolSidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000020F /* ToolSidebarView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -332,6 +333,7 @@
 				01A00000000000000000020C /* CanvasCoordinator.swift in Sources */,
 				01A00000000000000000020D /* CanvasView.swift in Sources */,
 				01A00000000000000000020E /* BottomBarView.swift in Sources */,
+				01A00000000000000000020F /* ToolSidebarView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
