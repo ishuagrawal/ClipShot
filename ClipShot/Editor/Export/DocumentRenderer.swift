@@ -40,7 +40,7 @@ enum DocumentRenderer {
         drawBackground(doc.background, in: ctx, outputRect: outputRect, screenshot: doc.screenshot)
         drawScreenshot(doc.screenshot, selectionPx: selectionPx, dest: dest, in: ctx)
 
-        // P0: no annotations.
+        // Annotations land here in P2.
 
         return ctx.makeImage()
     }
