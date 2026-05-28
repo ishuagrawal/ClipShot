@@ -33,9 +33,11 @@ final class CanvasOverlayView: NSView {
     override var isFlipped: Bool { true }
 
     /// Overlay covers the entire padded document, same frame as CanvasContentView.
+    /// Self-contained: sets the frame first, then assigns `document` so the halo is
+    /// always drawn against the correct bounds regardless of prior call order.
     func resizeToDocument(_ doc: EditorDocument) {
         frame = CGRect(origin: .zero, size: doc.paddedDocumentSize)
-        updateHalo()
+        document = doc   // didSet -> updateHalo() with the now-correct bounds
     }
 
     private func updateHalo() {

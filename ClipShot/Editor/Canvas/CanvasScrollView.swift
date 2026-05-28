@@ -43,7 +43,13 @@ final class CanvasScrollView: NSScrollView {
             super.scrollWheel(with: event)
             return
         }
-        let zoomFactor: CGFloat = 1.0 + (event.scrollingDeltaY * 0.01)
+        // Trackpad precise deltas are small/continuous; a physical mouse wheel sends
+        // large line-based steps, so scale those down to a fixed notch to avoid
+        // runaway zoom jumps.
+        let delta: CGFloat = event.hasPreciseScrollingDeltas
+            ? event.scrollingDeltaY * 0.01
+            : (event.scrollingDeltaY > 0 ? 0.1 : (event.scrollingDeltaY < 0 ? -0.1 : 0))
+        let zoomFactor: CGFloat = 1.0 + delta
         let newMag = (magnification * zoomFactor).clamped(to: minMagnification...maxMagnification)
         let pointInView = convert(event.locationInWindow, from: nil)
         setMagnification(newMag, centeredAt: pointInView)
