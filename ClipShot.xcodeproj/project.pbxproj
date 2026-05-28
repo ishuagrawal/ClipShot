@@ -16,6 +16,8 @@
 		01A000000000000000000011 /* DOMCaptureModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000011 /* DOMCaptureModels.swift */; };
 		01A000000000000000000012 /* EditorWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000012 /* EditorWindowController.swift */; };
 		01A000000000000000000013 /* EditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000013 /* EditorView.swift */; };
+		01A000000000000000000101 /* PixelBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000101 /* PixelBuffer.swift */; };
+		01A000000000000000000102 /* SanityTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000102 /* SanityTest.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,6 +32,9 @@
 		01B000000000000000000011 /* DOMCaptureModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DOMCaptureModels.swift; sourceTree = "<group>"; };
 		01B000000000000000000012 /* EditorWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorWindowController.swift; sourceTree = "<group>"; };
 		01B000000000000000000013 /* EditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorView.swift; sourceTree = "<group>"; };
+		01B000000000000000000100 /* ClipShotTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClipShotTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		01B000000000000000000101 /* PixelBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelBuffer.swift; sourceTree = "<group>"; };
+		01B000000000000000000102 /* SanityTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SanityTest.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -47,6 +52,7 @@
 			isa = PBXGroup;
 			children = (
 				01D000000000000000000003 /* ClipShot */,
+				01D000000000000000000100 /* ClipShotTests */,
 				01D000000000000000000002 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -55,8 +61,26 @@
 			isa = PBXGroup;
 			children = (
 				01B000000000000000000000 /* ClipShot.app */,
+				01B000000000000000000100 /* ClipShotTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		01D000000000000000000100 /* ClipShotTests */ = {
+			isa = PBXGroup;
+			children = (
+				01D000000000000000000101 /* Helpers */,
+				01B000000000000000000102 /* SanityTest.swift */,
+			);
+			path = ClipShotTests;
+			sourceTree = "<group>";
+		};
+		01D000000000000000000101 /* Helpers */ = {
+			isa = PBXGroup;
+			children = (
+				01B000000000000000000101 /* PixelBuffer.swift */,
+			);
+			path = Helpers;
 			sourceTree = "<group>";
 		};
 		01D000000000000000000003 /* ClipShot */ = {
@@ -112,6 +136,22 @@
 			productReference = 01B000000000000000000000 /* ClipShot.app */;
 			productType = "com.apple.product-type.application";
 		};
+		01E000000000000000000100 /* ClipShotTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 01I000000000000000000100 /* Build configuration list for PBXNativeTarget "ClipShotTests" */;
+			buildPhases = (
+				01G000000000000000000100 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				01K000000000000000000100 /* PBXTargetDependency */,
+			);
+			name = ClipShotTests;
+			productName = ClipShotTests;
+			productReference = 01B000000000000000000100 /* ClipShotTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -124,6 +164,10 @@
 				TargetAttributes = {
 					01E000000000000000000001 = {
 						CreatedOnToolsVersion = 26.5;
+					};
+					01E000000000000000000100 = {
+						CreatedOnToolsVersion = 26.5;
+						TestTargetID = 01E000000000000000000001;
 					};
 				};
 			};
@@ -141,6 +185,7 @@
 			projectRoot = "";
 			targets = (
 				01E000000000000000000001 /* ClipShot */,
+				01E000000000000000000100 /* ClipShotTests */,
 			);
 		};
 /* End PBXProject section */
@@ -172,7 +217,34 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		01G000000000000000000100 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				01A000000000000000000101 /* PixelBuffer.swift in Sources */,
+				01A000000000000000000102 /* SanityTest.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXContainerItemProxy section */
+		01L000000000000000000100 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 01F000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 01E000000000000000000001;
+			remoteInfo = ClipShot;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		01K000000000000000000100 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 01E000000000000000000001 /* ClipShot */;
+			targetProxy = 01L000000000000000000100 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		01J000000000000000000001 /* Debug */ = {
@@ -336,6 +408,40 @@
 			};
 			name = Release;
 		};
+		01J000000000000000000100 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ishu.ClipShotTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ClipShot.app/Contents/MacOS/ClipShot";
+			};
+			name = Debug;
+		};
+		01J000000000000000000101 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ishu.ClipShotTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ClipShot.app/Contents/MacOS/ClipShot";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -353,6 +459,15 @@
 			buildConfigurations = (
 				01J000000000000000000003 /* Debug */,
 				01J000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		01I000000000000000000100 /* Build configuration list for PBXNativeTarget "ClipShotTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				01J000000000000000000100 /* Debug */,
+				01J000000000000000000101 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
