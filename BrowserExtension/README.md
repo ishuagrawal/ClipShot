@@ -22,8 +22,8 @@ ClipShot.
 8. Click any chip to jump to that destination, or use the arrow keys.
 9. Hold `Space` to isolate the selected area and temporarily hide neighboring boxes; release `Space` to return.
 10. Hold `Option` while pressing an arrow key to preview only that destination in the matching direction color; release `Option` to return.
-11. Click or press `Enter` to copy the cropped PNG.
+11. Click or press `Enter` to open the selected region in the ClipShot editor.
 12. Press `Escape` to cancel.
 
-The extension crops the current tab image and sends the PNG to the native
-ClipShot app on `127.0.0.1:17272/clipboard`.
+The extension captures the current visible tab and sends the viewport image plus
+the selected DOM bounds to the native ClipShot app on `127.0.0.1:17272/session`.

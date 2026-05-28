@@ -4,11 +4,12 @@ import Foundation
 final class DOMCaptureBridgeServer: @unchecked Sendable {
     static let port: UInt16 = 17272
 
-    private static let maxRequestBytes = 40 * 1024 * 1024
+    private static let maxRequestBytes = 80 * 1024 * 1024
     private static let headerSeparator = Data("\r\n\r\n".utf8)
 
     private let queue = DispatchQueue(label: "com.ishu.ClipShot.DOMCaptureBridgeServer")
     private let clipboardHandler: @Sendable (Data) async -> Bool
+    private let sessionHandler: @Sendable (DOMCaptureSessionRequest) async -> Bool
     private let statusHandler: @Sendable (String) async -> Void
 
     private var socketFileDescriptor: Int32 = -1
@@ -16,9 +17,11 @@ final class DOMCaptureBridgeServer: @unchecked Sendable {
 
     init(
         clipboardHandler: @escaping @Sendable (Data) async -> Bool,
+        sessionHandler: @escaping @Sendable (DOMCaptureSessionRequest) async -> Bool,
         statusHandler: @escaping @Sendable (String) async -> Void
     ) {
         self.clipboardHandler = clipboardHandler
+        self.sessionHandler = sessionHandler
         self.statusHandler = statusHandler
     }
 
@@ -129,6 +132,7 @@ final class DOMCaptureBridgeServer: @unchecked Sendable {
         }
 
         let clipboardHandler = clipboardHandler
+        let sessionHandler = sessionHandler
 
         DispatchQueue.global(qos: .userInitiated).async {
             let request = Self.readHTTPRequest(from: descriptor)
@@ -136,7 +140,8 @@ final class DOMCaptureBridgeServer: @unchecked Sendable {
             Task {
                 let response = await Self.makeResponse(
                     for: request,
-                    clipboardHandler: clipboardHandler
+                    clipboardHandler: clipboardHandler,
+                    sessionHandler: sessionHandler
                 )
                 Self.writeAll(response, to: descriptor)
                 Darwin.close(descriptor)
@@ -230,7 +235,8 @@ final class DOMCaptureBridgeServer: @unchecked Sendable {
 
     private static func makeResponse(
         for request: HTTPRequest?,
-        clipboardHandler: @Sendable (Data) async -> Bool
+        clipboardHandler: @Sendable (Data) async -> Bool,
+        sessionHandler: @Sendable (DOMCaptureSessionRequest) async -> Bool
     ) async -> Data {
         guard let request else {
             return jsonResponse(statusCode: 400, ok: false, message: "Invalid request")
@@ -246,6 +252,10 @@ final class DOMCaptureBridgeServer: @unchecked Sendable {
 
         if request.method == "POST", request.path.hasPrefix("/clipboard") {
             return await handleClipboardRequest(request, clipboardHandler: clipboardHandler)
+        }
+
+        if request.method == "POST", request.path.hasPrefix("/session") {
+            return await handleSessionRequest(request, sessionHandler: sessionHandler)
         }
 
         return jsonResponse(statusCode: 404, ok: false, message: "Unknown route")
@@ -274,6 +284,23 @@ final class DOMCaptureBridgeServer: @unchecked Sendable {
             )
         } catch {
             return jsonResponse(statusCode: 400, ok: false, message: "Invalid clipboard JSON")
+        }
+    }
+
+    private static func handleSessionRequest(
+        _ request: HTTPRequest,
+        sessionHandler: @Sendable (DOMCaptureSessionRequest) async -> Bool
+    ) async -> Data {
+        do {
+            let payload = try JSONDecoder().decode(DOMCaptureSessionRequest.self, from: request.body)
+            let didOpen = await sessionHandler(payload)
+            return jsonResponse(
+                statusCode: didOpen ? 200 : 500,
+                ok: didOpen,
+                message: didOpen ? "OK" : "Editor session failed"
+            )
+        } catch {
+            return jsonResponse(statusCode: 400, ok: false, message: "Invalid session JSON")
         }
     }
 

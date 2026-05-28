@@ -1,0 +1,88 @@
+import AppKit
+import Foundation
+@testable import ClipShot
+
+enum FixtureDocument {
+    /// Builds a `DOMCaptureSession` AND a matching `EditorDocument` from a recognizable
+    /// programmatic screenshot. Selection covers a contrasting inner region so cropping
+    /// behavior is visually verifiable from pixel buffers alone.
+    static func basicPair() -> (session: DOMCaptureSession, document: EditorDocument) {
+        let viewport = CGSize(width: 400, height: 300)
+        let cgImage = makeStripedImage(size: viewport)
+        let pngData = NSBitmapImageRep(cgImage: cgImage)
+            .representation(using: .png, properties: [:])!
+
+        // DOMCaptureSessionRequest is Decodable-only; construct via JSON decoding.
+        let selectedRect = DOMCaptureRect(left: 80, top: 60, width: 120, height: 90)
+        let viewportObj = DOMCaptureViewport(
+            width: Double(viewport.width),
+            height: Double(viewport.height),
+            devicePixelRatio: 1,
+            scrollX: 0,
+            scrollY: 0
+        )
+
+        // Build JSON to decode into DOMCaptureSessionRequest.
+        let json: [String: Any] = [
+            "screenshotBase64": pngData.base64EncodedString(),
+            "selectedRect": [
+                "left": selectedRect.left,
+                "top": selectedRect.top,
+                "width": selectedRect.width,
+                "height": selectedRect.height
+            ],
+            "viewport": [
+                "width": viewportObj.width,
+                "height": viewportObj.height,
+                "devicePixelRatio": viewportObj.devicePixelRatio,
+                "scrollX": viewportObj.scrollX,
+                "scrollY": viewportObj.scrollY
+            ],
+            "candidates": [],
+            "selectedIndex": 0,
+            "pageTitle": "Fixture",
+            "pageURL": "https://example.com",
+            "imageWidth": Double(viewport.width),
+            "imageHeight": Double(viewport.height)
+        ]
+        let jsonData = try! JSONSerialization.data(withJSONObject: json)
+        let request = try! JSONDecoder().decode(DOMCaptureSessionRequest.self, from: jsonData)
+        let session = try! DOMCaptureSession(request: request)
+
+        let pixelSelection = session.pixelRect(for: request.selectedRect)
+        let document = EditorDocument(
+            screenshot: cgImage,
+            viewport: viewport,
+            pageTitle: "Fixture",
+            pageURL: "https://example.com",
+            baseSelection: pixelSelection
+        )
+        return (session, document)
+    }
+
+    /// Diagonal red/blue stripes — every pixel deterministic from coordinates, so any
+    /// offset/scale/flip bug is immediately visible in a pixel comparison.
+    static func makeStripedImage(size: CGSize) -> CGImage {
+        let w = Int(size.width)
+        let h = Int(size.height)
+        let cs = CGColorSpace(name: CGColorSpace.sRGB)!
+        let ctx = CGContext(
+            data: nil, width: w, height: h, bitsPerComponent: 8,
+            bytesPerRow: w * 4, space: cs,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                | CGBitmapInfo.byteOrder32Big.rawValue
+        )!
+        for y in 0..<h {
+            for x in 0..<w {
+                let isRed = ((x + y) / 8) % 2 == 0
+                ctx.setFillColor(
+                    isRed
+                    ? CGColor(red: 1, green: 0, blue: 0, alpha: 1)
+                    : CGColor(red: 0, green: 0, blue: 1, alpha: 1)
+                )
+                ctx.fill(CGRect(x: x, y: y, width: 1, height: 1))
+            }
+        }
+        return ctx.makeImage()!
+    }
+}

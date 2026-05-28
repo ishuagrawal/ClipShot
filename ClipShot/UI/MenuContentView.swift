@@ -27,7 +27,7 @@ struct MenuContentView: View {
                 Text("Use the Arc/Chrome extension command: Control Shift 5.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text("ClipShot copies the cropped PNG sent by the extension.")
+                Text("ClipShot opens the selected page region in the desktop editor.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

@@ -13,6 +13,30 @@
 		01A000000000000000000006 /* CaptureCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000006 /* CaptureCoordinator.swift */; };
 		01A00000000000000000000C /* MenuContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000000C /* MenuContentView.swift */; };
 		01A00000000000000000000F /* DOMCaptureBridgeServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000010 /* DOMCaptureBridgeServer.swift */; };
+		01A000000000000000000011 /* DOMCaptureModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000011 /* DOMCaptureModels.swift */; };
+		01A000000000000000000012 /* EditorWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000012 /* EditorWindowController.swift */; };
+		01A000000000000000000013 /* EditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000013 /* EditorView.swift */; };
+		01A000000000000000000101 /* PixelBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000101 /* PixelBuffer.swift */; };
+		01A000000000000000000102 /* SanityTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000102 /* SanityTest.swift */; };
+		01A000000000000000000201 /* EditorDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000201 /* EditorDocument.swift */; };
+		01A000000000000000000202 /* PaddingConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000202 /* PaddingConfig.swift */; };
+		01A000000000000000000203 /* BackgroundStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000203 /* BackgroundStyle.swift */; };
+		01A000000000000000000204 /* Annotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000204 /* Annotation.swift */; };
+		01A000000000000000000301 /* EditorDocumentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000301 /* EditorDocumentTests.swift */; };
+		01A000000000000000000205 /* EditorCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000205 /* EditorCommand.swift */; };
+		01A000000000000000000206 /* UndoStack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000206 /* UndoStack.swift */; };
+		01A000000000000000000302 /* UndoStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000302 /* UndoStackTests.swift */; };
+		01A000000000000000000207 /* EditorState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000207 /* EditorState.swift */; };
+		01A000000000000000000208 /* DocumentRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000208 /* DocumentRenderer.swift */; };
+		01A000000000000000000303 /* FixtureDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000303 /* FixtureDocument.swift */; };
+		01A000000000000000000304 /* DocumentRendererTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000304 /* DocumentRendererTests.swift */; };
+		01A000000000000000000209 /* CanvasContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000209 /* CanvasContentView.swift */; };
+		01A00000000000000000020A /* CanvasOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000020A /* CanvasOverlayView.swift */; };
+		01A00000000000000000020B /* CanvasScrollView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000020B /* CanvasScrollView.swift */; };
+		01A00000000000000000020C /* CanvasCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000020C /* CanvasCoordinator.swift */; };
+		01A00000000000000000020D /* CanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000020D /* CanvasView.swift */; };
+		01A00000000000000000020E /* BottomBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000020E /* BottomBarView.swift */; };
+		01A00000000000000000020F /* ToolSidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000020F /* ToolSidebarView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -24,6 +48,31 @@
 		01B00000000000000000000C /* MenuContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuContentView.swift; sourceTree = "<group>"; };
 		01B00000000000000000000F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		01B000000000000000000010 /* DOMCaptureBridgeServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DOMCaptureBridgeServer.swift; sourceTree = "<group>"; };
+		01B000000000000000000011 /* DOMCaptureModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DOMCaptureModels.swift; sourceTree = "<group>"; };
+		01B000000000000000000012 /* EditorWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorWindowController.swift; sourceTree = "<group>"; };
+		01B000000000000000000013 /* EditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorView.swift; sourceTree = "<group>"; };
+		01B000000000000000000100 /* ClipShotTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClipShotTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		01B000000000000000000101 /* PixelBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelBuffer.swift; sourceTree = "<group>"; };
+		01B000000000000000000102 /* SanityTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SanityTest.swift; sourceTree = "<group>"; };
+		01B000000000000000000201 /* EditorDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorDocument.swift; sourceTree = "<group>"; };
+		01B000000000000000000202 /* PaddingConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaddingConfig.swift; sourceTree = "<group>"; };
+		01B000000000000000000203 /* BackgroundStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundStyle.swift; sourceTree = "<group>"; };
+		01B000000000000000000204 /* Annotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Annotation.swift; sourceTree = "<group>"; };
+		01B000000000000000000205 /* EditorCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorCommand.swift; sourceTree = "<group>"; };
+		01B000000000000000000206 /* UndoStack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UndoStack.swift; sourceTree = "<group>"; };
+		01B000000000000000000207 /* EditorState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorState.swift; sourceTree = "<group>"; };
+		01B000000000000000000208 /* DocumentRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentRenderer.swift; sourceTree = "<group>"; };
+		01B000000000000000000209 /* CanvasContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasContentView.swift; sourceTree = "<group>"; };
+		01B00000000000000000020A /* CanvasOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasOverlayView.swift; sourceTree = "<group>"; };
+		01B00000000000000000020B /* CanvasScrollView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasScrollView.swift; sourceTree = "<group>"; };
+		01B00000000000000000020C /* CanvasCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasCoordinator.swift; sourceTree = "<group>"; };
+		01B00000000000000000020D /* CanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasView.swift; sourceTree = "<group>"; };
+		01B00000000000000000020E /* BottomBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomBarView.swift; sourceTree = "<group>"; };
+		01B00000000000000000020F /* ToolSidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolSidebarView.swift; sourceTree = "<group>"; };
+		01B000000000000000000301 /* EditorDocumentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorDocumentTests.swift; sourceTree = "<group>"; };
+		01B000000000000000000302 /* UndoStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UndoStackTests.swift; sourceTree = "<group>"; };
+		01B000000000000000000303 /* FixtureDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixtureDocument.swift; sourceTree = "<group>"; };
+		01B000000000000000000304 /* DocumentRendererTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentRendererTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -41,6 +90,7 @@
 			isa = PBXGroup;
 			children = (
 				01D000000000000000000003 /* ClipShot */,
+				01D000000000000000000100 /* ClipShotTests */,
 				01D000000000000000000002 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -49,8 +99,30 @@
 			isa = PBXGroup;
 			children = (
 				01B000000000000000000000 /* ClipShot.app */,
+				01B000000000000000000100 /* ClipShotTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		01D000000000000000000100 /* ClipShotTests */ = {
+			isa = PBXGroup;
+			children = (
+				01D000000000000000000101 /* Helpers */,
+				01B000000000000000000102 /* SanityTest.swift */,
+				01B000000000000000000301 /* EditorDocumentTests.swift */,
+				01B000000000000000000302 /* UndoStackTests.swift */,
+				01B000000000000000000304 /* DocumentRendererTests.swift */,
+			);
+			path = ClipShotTests;
+			sourceTree = "<group>";
+		};
+		01D000000000000000000101 /* Helpers */ = {
+			isa = PBXGroup;
+			children = (
+				01B000000000000000000101 /* PixelBuffer.swift */,
+				01B000000000000000000303 /* FixtureDocument.swift */,
+			);
+			path = Helpers;
 			sourceTree = "<group>";
 		};
 		01D000000000000000000003 /* ClipShot */ = {
@@ -61,16 +133,80 @@
 				01B000000000000000000002 /* AppDelegate.swift */,
 				01B000000000000000000003 /* AppState.swift */,
 				01B000000000000000000006 /* CaptureCoordinator.swift */,
+				01D000000000000000000200 /* Editor */,
 				01D000000000000000000009 /* DOM */,
 				01D000000000000000000007 /* UI */,
 			);
 			path = ClipShot;
 			sourceTree = "<group>";
 		};
+		01D000000000000000000200 /* Editor */ = {
+			isa = PBXGroup;
+			children = (
+				01D000000000000000000201 /* Document */,
+				01D000000000000000000202 /* Canvas */,
+				01D000000000000000000203 /* Toolbar */,
+				01D000000000000000000204 /* Tools */,
+				01D000000000000000000205 /* Export */,
+				01B000000000000000000207 /* EditorState.swift */,
+			);
+			path = Editor;
+			sourceTree = "<group>";
+		};
+		01D000000000000000000201 /* Document */ = {
+			isa = PBXGroup;
+			children = (
+				01B000000000000000000201 /* EditorDocument.swift */,
+				01B000000000000000000202 /* PaddingConfig.swift */,
+				01B000000000000000000203 /* BackgroundStyle.swift */,
+				01B000000000000000000204 /* Annotation.swift */,
+				01B000000000000000000205 /* EditorCommand.swift */,
+				01B000000000000000000206 /* UndoStack.swift */,
+			);
+			path = Document;
+			sourceTree = "<group>";
+		};
+		01D000000000000000000202 /* Canvas */ = {
+			isa = PBXGroup;
+			children = (
+				01B000000000000000000209 /* CanvasContentView.swift */,
+				01B00000000000000000020A /* CanvasOverlayView.swift */,
+				01B00000000000000000020B /* CanvasScrollView.swift */,
+				01B00000000000000000020C /* CanvasCoordinator.swift */,
+				01B00000000000000000020D /* CanvasView.swift */,
+			);
+			path = Canvas;
+			sourceTree = "<group>";
+		};
+		01D000000000000000000203 /* Toolbar */ = {
+			isa = PBXGroup;
+			children = (
+				01B00000000000000000020E /* BottomBarView.swift */,
+			);
+			path = Toolbar;
+			sourceTree = "<group>";
+		};
+		01D000000000000000000204 /* Tools */ = {
+			isa = PBXGroup;
+			children = (
+				01B00000000000000000020F /* ToolSidebarView.swift */,
+			);
+			path = Tools;
+			sourceTree = "<group>";
+		};
+		01D000000000000000000205 /* Export */ = {
+			isa = PBXGroup;
+			children = (
+				01B000000000000000000208 /* DocumentRenderer.swift */,
+			);
+			path = Export;
+			sourceTree = "<group>";
+		};
 		01D000000000000000000009 /* DOM */ = {
 			isa = PBXGroup;
 			children = (
 				01B000000000000000000010 /* DOMCaptureBridgeServer.swift */,
+				01B000000000000000000011 /* DOMCaptureModels.swift */,
 			);
 			path = DOM;
 			sourceTree = "<group>";
@@ -79,6 +215,8 @@
 			isa = PBXGroup;
 			children = (
 				01B00000000000000000000C /* MenuContentView.swift */,
+				01B000000000000000000012 /* EditorWindowController.swift */,
+				01B000000000000000000013 /* EditorView.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -103,6 +241,22 @@
 			productReference = 01B000000000000000000000 /* ClipShot.app */;
 			productType = "com.apple.product-type.application";
 		};
+		01E000000000000000000100 /* ClipShotTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 01I000000000000000000100 /* Build configuration list for PBXNativeTarget "ClipShotTests" */;
+			buildPhases = (
+				01G000000000000000000100 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				01K000000000000000000100 /* PBXTargetDependency */,
+			);
+			name = ClipShotTests;
+			productName = ClipShotTests;
+			productReference = 01B000000000000000000100 /* ClipShotTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -115,6 +269,10 @@
 				TargetAttributes = {
 					01E000000000000000000001 = {
 						CreatedOnToolsVersion = 26.5;
+					};
+					01E000000000000000000100 = {
+						CreatedOnToolsVersion = 26.5;
+						TestTargetID = 01E000000000000000000001;
 					};
 				};
 			};
@@ -132,6 +290,7 @@
 			projectRoot = "";
 			targets = (
 				01E000000000000000000001 /* ClipShot */,
+				01E000000000000000000100 /* ClipShotTests */,
 			);
 		};
 /* End PBXProject section */
@@ -157,10 +316,59 @@
 				01A000000000000000000006 /* CaptureCoordinator.swift in Sources */,
 				01A00000000000000000000C /* MenuContentView.swift in Sources */,
 				01A00000000000000000000F /* DOMCaptureBridgeServer.swift in Sources */,
+				01A000000000000000000011 /* DOMCaptureModels.swift in Sources */,
+				01A000000000000000000012 /* EditorWindowController.swift in Sources */,
+				01A000000000000000000013 /* EditorView.swift in Sources */,
+				01A000000000000000000201 /* EditorDocument.swift in Sources */,
+				01A000000000000000000202 /* PaddingConfig.swift in Sources */,
+				01A000000000000000000203 /* BackgroundStyle.swift in Sources */,
+				01A000000000000000000204 /* Annotation.swift in Sources */,
+				01A000000000000000000205 /* EditorCommand.swift in Sources */,
+				01A000000000000000000206 /* UndoStack.swift in Sources */,
+				01A000000000000000000207 /* EditorState.swift in Sources */,
+				01A000000000000000000208 /* DocumentRenderer.swift in Sources */,
+				01A000000000000000000209 /* CanvasContentView.swift in Sources */,
+				01A00000000000000000020A /* CanvasOverlayView.swift in Sources */,
+				01A00000000000000000020B /* CanvasScrollView.swift in Sources */,
+				01A00000000000000000020C /* CanvasCoordinator.swift in Sources */,
+				01A00000000000000000020D /* CanvasView.swift in Sources */,
+				01A00000000000000000020E /* BottomBarView.swift in Sources */,
+				01A00000000000000000020F /* ToolSidebarView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		01G000000000000000000100 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				01A000000000000000000101 /* PixelBuffer.swift in Sources */,
+				01A000000000000000000102 /* SanityTest.swift in Sources */,
+				01A000000000000000000301 /* EditorDocumentTests.swift in Sources */,
+				01A000000000000000000302 /* UndoStackTests.swift in Sources */,
+				01A000000000000000000303 /* FixtureDocument.swift in Sources */,
+				01A000000000000000000304 /* DocumentRendererTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXContainerItemProxy section */
+		01L000000000000000000100 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 01F000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 01E000000000000000000001;
+			remoteInfo = ClipShot;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		01K000000000000000000100 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 01E000000000000000000001 /* ClipShot */;
+			targetProxy = 01L000000000000000000100 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		01J000000000000000000001 /* Debug */ = {
@@ -324,6 +532,40 @@
 			};
 			name = Release;
 		};
+		01J000000000000000000100 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ishu.ClipShotTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ClipShot.app/Contents/MacOS/ClipShot";
+			};
+			name = Debug;
+		};
+		01J000000000000000000101 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ishu.ClipShotTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ClipShot.app/Contents/MacOS/ClipShot";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -341,6 +583,15 @@
 			buildConfigurations = (
 				01J000000000000000000003 /* Debug */,
 				01J000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		01I000000000000000000100 /* Build configuration list for PBXNativeTarget "ClipShotTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				01J000000000000000000100 /* Debug */,
+				01J000000000000000000101 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

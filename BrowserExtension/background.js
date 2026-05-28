@@ -32,7 +32,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return chrome.tabs.sendMessage(sender.tab.id, {
         type: "CLIPSHOT_VISIBLE_TAB_CAPTURED",
         dataUrl,
-        rect: message.rect
+        rect: message.rect,
+        session: message.session,
+        tab: {
+          title: sender.tab.title || "",
+          url: sender.tab.url || ""
+        }
       });
     })
     .then((response) => {
