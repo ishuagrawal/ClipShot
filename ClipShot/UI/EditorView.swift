@@ -7,7 +7,7 @@ struct EditorView: View {
     var body: some View {
         Group {
             if let session = store.session {
-                EditorShell(state: EditorState(document: EditorDocument(session: session)))
+                EditorShell(document: EditorDocument(session: session))
                     // A new capture produces a new session id; .id() forces a fresh
                     // EditorShell (and fresh EditorState) so a second capture replaces
                     // the document instead of being ignored by @StateObject.
@@ -21,13 +21,19 @@ struct EditorView: View {
 }
 
 private struct EditorShell: View {
-    @StateObject var state: EditorState
+    @StateObject private var state: EditorState
+
+    init(document: EditorDocument) {
+        _state = StateObject(wrappedValue: EditorState(document: document))
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
             HStack(spacing: 0) {
                 ToolSidebarView(state: state)
-                Divider().background(Color.white.opacity(0.06))
+                Rectangle()
+                    .fill(Color.white.opacity(0.06))
+                    .frame(width: 1)
                 CanvasView(state: state)
                     .background(Color(red: 0.025, green: 0.027, blue: 0.032))
             }
@@ -55,7 +61,7 @@ private struct EmptyEditorView: View {
     }
 }
 
-extension EditorDocument {
+fileprivate extension EditorDocument {
     /// Bridge from the existing DOMCaptureSession into the new value-type document.
     init(session: DOMCaptureSession) {
         let pixelSelection = session.pixelRect(for: session.selectedRect)
