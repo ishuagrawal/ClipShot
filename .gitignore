@@ -1,6 +1,45 @@
+# macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+
+# Xcode
 DerivedData/
 build/
+*.hmap
+*.ipa
+*.dSYM
+*.dSYM.zip
 *.xcuserstate
 xcuserdata/
+timeline.xctimeline
+playground.xcworkspace
 
+# Swift Package Manager
+.build/
+
+# Dependency managers
+Carthage/Build/
+
+# fastlane generated output
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Local secrets and signing material
+.env
+.env.*
+*.pem
+*.p12
+*.cer
+*.key
+*.mobileprovision
+*.provisionprofile
+id_rsa
+id_ed25519
+
+# Local planning and agent workspace files
+.superpowers/
+docs/superpowers/
+plan.html

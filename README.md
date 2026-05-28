@@ -1,5 +1,7 @@
 # ClipShot
 
+Native macOS screenshot utility for clipping and editing precise web-page components.
+
 ClipShot is a native macOS menu bar companion for the ClipShot browser
 extension.
 
