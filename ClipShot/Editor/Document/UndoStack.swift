@@ -34,6 +34,9 @@ final class UndoStack {
         if let top = undoEntries.last,
            now - top.timestamp <= coalesceWindow,
            let merged = top.command.coalesce(with: command) {
+            // Rolling window (anchored to the previous command, not the first): a
+            // continuous interaction like a slider drag collapses into ONE undo entry.
+            // Discrete commands opt out via coalesce -> nil. Do not change to anchor on first.
             undoEntries[undoEntries.count - 1] = Entry(command: merged, timestamp: now)
             return
         }
