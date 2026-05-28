@@ -3,11 +3,12 @@ import XCTest
 
 final class DocumentRendererTests: XCTestCase {
 
-    func test_render_v0_outputSize_matchesBaseSelectionInPixels() throws {
+    func test_render_v0_outputSize_matchesEffectiveCropInPixels() throws {
         let (_, doc) = FixtureDocument.basicPair()
         let rendered = try XCTUnwrap(DocumentRenderer.render(doc))
-        XCTAssertEqual(rendered.width, Int(doc.baseSelection.width))
-        XCTAssertEqual(rendered.height, Int(doc.baseSelection.height))
+        let crop = doc.effectiveCrop.integral
+        XCTAssertEqual(rendered.width, Int(crop.width), "output width must equal effectiveCrop")
+        XCTAssertEqual(rendered.height, Int(crop.height), "output height must equal effectiveCrop")
     }
 
     func test_render_v0_pixelEqualToLegacyDOMCaptureCrop() throws {
