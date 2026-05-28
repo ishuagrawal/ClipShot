@@ -40,13 +40,17 @@ final class CanvasCoordinator {
     private func applyInitialZoomToSelection(document: EditorDocument) {
         Task { @MainActor [weak self] in
             guard let self else { return }
-            let crop = document.effectiveCrop
+            // The documentView content lives in DOCUMENT space: origin (0,0), size
+            // paddedDocumentSize (the crop fills it, minus padding). effectiveCrop's
+            // origin is in IMAGE-pixel space and must NOT be used here, or the fit
+            // would frame an empty region for any selection not at the image origin.
+            let docSize = document.paddedDocumentSize
             let inset: CGFloat = 0.10  // 10% margin each side ≈ 80% fill
             let targetRect = CGRect(
-                x: crop.minX - crop.width * inset,
-                y: crop.minY - crop.height * inset,
-                width: crop.width * (1 + inset * 2),
-                height: crop.height * (1 + inset * 2)
+                x: -docSize.width * inset,
+                y: -docSize.height * inset,
+                width: docSize.width * (1 + inset * 2),
+                height: docSize.height * (1 + inset * 2)
             )
             self.scrollView.magnify(toFit: targetRect)
         }
