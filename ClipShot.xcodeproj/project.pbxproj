@@ -33,6 +33,8 @@
 		01A000000000000000000209 /* CanvasContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000209 /* CanvasContentView.swift */; };
 		01A00000000000000000020A /* CanvasOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000020A /* CanvasOverlayView.swift */; };
 		01A00000000000000000020B /* CanvasScrollView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000020B /* CanvasScrollView.swift */; };
+		01A00000000000000000020C /* CanvasCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000020C /* CanvasCoordinator.swift */; };
+		01A00000000000000000020D /* CanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000020D /* CanvasView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -326,6 +328,8 @@
 				01A000000000000000000209 /* CanvasContentView.swift in Sources */,
 				01A00000000000000000020A /* CanvasOverlayView.swift in Sources */,
 				01A00000000000000000020B /* CanvasScrollView.swift in Sources */,
+				01A00000000000000000020C /* CanvasCoordinator.swift in Sources */,
+				01A00000000000000000020D /* CanvasView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
