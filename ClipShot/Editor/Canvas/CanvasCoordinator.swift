@@ -36,9 +36,9 @@ final class CanvasCoordinator {
     }
 
     /// Spec: open with the effective crop filling ~80% of the visible canvas.
-    /// Deferred one runloop tick so the scroll view has a valid size to fit against.
+    /// Deferred to the next main-actor turn so the scroll view has a valid size to fit against.
     private func applyInitialZoomToSelection(document: EditorDocument) {
-        DispatchQueue.main.async { [weak self] in
+        Task { @MainActor [weak self] in
             guard let self else { return }
             let crop = document.effectiveCrop
             let inset: CGFloat = 0.10  // 10% margin each side ≈ 80% fill
