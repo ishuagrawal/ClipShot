@@ -3,11 +3,13 @@ import Foundation
 
 struct EditorDocument {
     let screenshot: CGImage
-    let viewport: CGSize
+    let viewport: CGSize            // CSS px, informational only — rendering uses baseSelection (imagePx)
     let pageTitle: String
     let pageURL: String
 
     let baseSelection: CGRect       // imagePx coords, clamped to ≥ 8×8 on init
+    // Mutations bump version unconditionally (even no-op writes) so the canvas can
+    // treat version as a cheap change token without value-diffing.
     var padding: PaddingConfig      { didSet { bumpVersion() } }
     var background: BackgroundStyle { didSet { bumpVersion() } }
     var annotations: [Annotation]   { didSet { bumpVersion() } }
@@ -54,7 +56,10 @@ struct EditorDocument {
     var paddedDocumentSize: CGSize { effectiveCrop.size }
 }
 
-// CGImage is not Equatable by default; compare by identity for our purposes.
+// Equal only when ALL fields AND `version` match (screenshot compared by identity).
+// This means two independently-built documents with identical content are NOT equal
+// unless their version counters also match — use `==` to detect a specific snapshot,
+// not for content equivalence.
 extension EditorDocument: Equatable {
     static func == (lhs: EditorDocument, rhs: EditorDocument) -> Bool {
         lhs.screenshot === rhs.screenshot
