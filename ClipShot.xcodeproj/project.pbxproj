@@ -27,6 +27,9 @@
 		01A000000000000000000206 /* UndoStack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000206 /* UndoStack.swift */; };
 		01A000000000000000000302 /* UndoStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000302 /* UndoStackTests.swift */; };
 		01A000000000000000000207 /* EditorState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000207 /* EditorState.swift */; };
+		01A000000000000000000208 /* DocumentRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000208 /* DocumentRenderer.swift */; };
+		01A000000000000000000303 /* FixtureDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000303 /* FixtureDocument.swift */; };
+		01A000000000000000000304 /* DocumentRendererTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000304 /* DocumentRendererTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -316,6 +319,7 @@
 				01A000000000000000000205 /* EditorCommand.swift in Sources */,
 				01A000000000000000000206 /* UndoStack.swift in Sources */,
 				01A000000000000000000207 /* EditorState.swift in Sources */,
+				01A000000000000000000208 /* DocumentRenderer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -327,6 +331,8 @@
 				01A000000000000000000102 /* SanityTest.swift in Sources */,
 				01A000000000000000000301 /* EditorDocumentTests.swift in Sources */,
 				01A000000000000000000302 /* UndoStackTests.swift in Sources */,
+				01A000000000000000000303 /* FixtureDocument.swift in Sources */,
+				01A000000000000000000304 /* DocumentRendererTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
