@@ -31,30 +31,55 @@ final class EditorDocumentTests: XCTestCase {
         XCTAssertEqual(doc.imageBounds, CGRect(x: 0, y: 0, width: 800, height: 600))
     }
 
-    func test_initialCanvasFit_centersSelectionWithEightyPercentFill() {
+    func test_initialCanvasFit_centersSelectionWithViewportMargin() {
+        let viewport = CGSize(width: 800, height: 600)
+        let margin = CanvasCoordinator.initialViewportMargin(for: viewport)
         let selection = CGRect(x: 100, y: 120, width: 320, height: 160)
         let fit = CanvasCoordinator.initialFitRect(
             for: selection,
-            in: CGSize(width: 800, height: 600)
+            in: viewport
         )
+        let zoom = CanvasScrollView.fitMagnification(for: fit, in: viewport, limits: 0.05...16)
+        let horizontalMargin = (viewport.width - selection.width * zoom) / 2
+        let verticalMargin = (viewport.height - selection.height * zoom) / 2
 
         XCTAssertEqual(fit.midX, selection.midX, accuracy: 0.001)
         XCTAssertEqual(fit.midY, selection.midY, accuracy: 0.001)
         XCTAssertEqual(fit.width / fit.height, 800.0 / 600.0, accuracy: 0.001)
-        XCTAssertEqual(selection.width / fit.width, 0.8, accuracy: 0.001)
-        XCTAssertLessThanOrEqual(selection.height / fit.height, 0.8)
+        XCTAssertGreaterThanOrEqual(horizontalMargin, margin - 0.001)
+        XCTAssertGreaterThanOrEqual(verticalMargin, margin - 0.001)
+        XCTAssertEqual(min(horizontalMargin, verticalMargin), margin, accuracy: 0.001)
 
         let tallSelection = CGRect(x: 120, y: 80, width: 120, height: 300)
         let tallFit = CanvasCoordinator.initialFitRect(
             for: tallSelection,
-            in: CGSize(width: 800, height: 600)
+            in: viewport
         )
+        let tallZoom = CanvasScrollView.fitMagnification(for: tallFit, in: viewport, limits: 0.05...16)
+        let tallHorizontalMargin = (viewport.width - tallSelection.width * tallZoom) / 2
+        let tallVerticalMargin = (viewport.height - tallSelection.height * tallZoom) / 2
 
         XCTAssertEqual(tallFit.midX, tallSelection.midX, accuracy: 0.001)
         XCTAssertEqual(tallFit.midY, tallSelection.midY, accuracy: 0.001)
         XCTAssertEqual(tallFit.width / tallFit.height, 800.0 / 600.0, accuracy: 0.001)
-        XCTAssertEqual(tallSelection.height / tallFit.height, 0.8, accuracy: 0.001)
-        XCTAssertLessThanOrEqual(tallSelection.width / tallFit.width, 0.8)
+        XCTAssertGreaterThanOrEqual(tallHorizontalMargin, margin - 0.001)
+        XCTAssertGreaterThanOrEqual(tallVerticalMargin, margin - 0.001)
+        XCTAssertEqual(min(tallHorizontalMargin, tallVerticalMargin), margin, accuracy: 0.001)
+    }
+
+    func test_initialCanvasFit_adaptsMarginForCompactViewport() {
+        let viewport = CGSize(width: 240, height: 160)
+        let margin = CanvasCoordinator.initialViewportMargin(for: viewport)
+        let selection = CGRect(x: 100, y: 120, width: 80, height: 80)
+        let fit = CanvasCoordinator.initialFitRect(for: selection, in: viewport)
+        let zoom = CanvasScrollView.fitMagnification(for: fit, in: viewport, limits: 0.05...16)
+        let horizontalMargin = (viewport.width - selection.width * zoom) / 2
+        let verticalMargin = (viewport.height - selection.height * zoom) / 2
+
+        XCTAssertLessThan(margin, 96)
+        XCTAssertLessThan(margin * 2, min(viewport.width, viewport.height))
+        XCTAssertGreaterThanOrEqual(horizontalMargin, margin - 0.001)
+        XCTAssertGreaterThanOrEqual(verticalMargin, margin - 0.001)
     }
 
     func test_initialCanvasPlacement_expandsCanvasToCenterEdgeSelection() {
@@ -140,6 +165,14 @@ final class EditorDocumentTests: XCTestCase {
 
         XCTAssertEqual(pointInContainer.x, 120, accuracy: 0.001)
         XCTAssertEqual(pointInContainer.y, 150, accuracy: 0.001)
+    }
+
+    @MainActor
+    func test_canvasScrollViewKeepsScrollerChromeOutOfTheCanvasCenteringMath() {
+        let scrollView = CanvasScrollView(frame: CGRect(x: 0, y: 0, width: 800, height: 600))
+
+        XCTAssertFalse(scrollView.hasHorizontalScroller)
+        XCTAssertFalse(scrollView.hasVerticalScroller)
     }
 
     func test_effectiveCrop_expandsByPaddingPerSide() {

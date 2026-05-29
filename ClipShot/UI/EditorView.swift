@@ -53,6 +53,7 @@ private struct EditorShell: View {
     private var canvasArea: some View {
         ZStack(alignment: .bottom) {
             CanvasView(state: state)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Theme.canvasBack)
             BottomBarView(state: state)
                 .padding(.bottom, 20)

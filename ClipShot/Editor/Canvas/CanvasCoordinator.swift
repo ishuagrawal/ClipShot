@@ -5,12 +5,17 @@ import AppKit
 /// so no Combine subscription is needed.
 @MainActor
 final class CanvasCoordinator {
+    private nonisolated static let preferredInitialViewportMargin: CGFloat = 96
+    private nonisolated static let minimumInitialViewportMargin: CGFloat = 32
+
     let scrollView: CanvasScrollView
     let contentView: CanvasContentView
     let overlayView: CanvasOverlayView
     private let container: CanvasDocumentView
     private var didApplyInitialZoom = false
     private var initialPlacement: CanvasInitialPlacement?
+    private var latestDocument: EditorDocument?
+    private var isTrackingInitialSelectionFit = false
 
     init() {
         scrollView = CanvasScrollView()
@@ -22,33 +27,32 @@ final class CanvasCoordinator {
         container.addSubview(contentView)
         container.addSubview(overlayView)
         scrollView.documentView = container
+        scrollView.viewportSizeDidChange = { [weak self] viewportSize in
+            self?.refitInitialSelectionIfNeeded(viewportSize: viewportSize)
+        }
+        scrollView.userInteractionDidStart = { [weak self] in
+            self?.isTrackingInitialSelectionFit = false
+        }
     }
 
     /// Push the latest document into the view tree. Called on every SwiftUI update.
     func update(document: EditorDocument) {
+        latestDocument = document
         let imageBounds = document.imageBounds
         let placement = initialPlacement ?? CanvasInitialPlacement.default(imageBounds: imageBounds)
         apply(document: document, placement: placement)
 
         if !didApplyInitialZoom {
             didApplyInitialZoom = true
-            let selection = document.baseSelection.integral.intersection(imageBounds)
+            isTrackingInitialSelectionFit = true
             // Run the fit when the scroll view actually has a laid-out size, not on a
             // deferred timer — fitting against a placeholder size over-zooms and clips.
             scrollView.requestInitialFit { [weak self, weak scrollView] in
                 guard let self, let scrollView else { return }
-                let fitRect = Self.initialFitRect(
-                    for: selection,
-                    in: scrollView.contentView.bounds.size
+                self.refitInitialSelectionIfNeeded(
+                    viewportSize: scrollView.viewportSizeForFitting,
+                    force: true
                 )
-                let targetRect = fitRect.isNull || fitRect.isEmpty ? imageBounds : fitRect
-                let placement = CanvasInitialPlacement(
-                    imageBounds: imageBounds,
-                    targetRect: targetRect
-                )
-                self.initialPlacement = placement
-                self.apply(document: document, placement: placement)
-                scrollView.magnify(toFitCenteredOn: placement.targetRect)
             }
         }
     }
@@ -61,8 +65,33 @@ final class CanvasCoordinator {
         overlayView.frame = placement.imageFrame
     }
 
-    /// Spec: open centered on the selected region, with the selection occupying
-    /// about 80% of the visible canvas and the rest showing faded page context.
+    private func refitInitialSelectionIfNeeded(viewportSize: CGSize, force: Bool = false) {
+        guard (force || isTrackingInitialSelectionFit),
+              let document = latestDocument else {
+            return
+        }
+
+        let imageBounds = document.imageBounds
+        let selection = document.baseSelection.integral.intersection(imageBounds)
+        guard viewportSize.width > 0, viewportSize.height > 0 else { return }
+
+        let fitRect = Self.initialFitRect(
+            for: selection,
+            in: viewportSize
+        )
+        let targetRect = fitRect.isNull || fitRect.isEmpty ? imageBounds : fitRect
+        let placement = CanvasInitialPlacement(
+            imageBounds: imageBounds,
+            targetRect: targetRect
+        )
+        initialPlacement = placement
+        apply(document: document, placement: placement)
+        scrollView.magnify(toFitCenteredOn: placement.targetRect)
+    }
+
+    /// Spec: open centered on the selected region, with a comfortable viewport
+    /// margin around the selected pixels. The surrounding page context may extend
+    /// beyond the visible canvas.
     /// Returns a document-space rect with the same aspect ratio as the viewport.
     nonisolated static func initialFitRect(for selection: CGRect, in viewportSize: CGSize) -> CGRect {
         guard !selection.isNull,
@@ -72,15 +101,18 @@ final class CanvasCoordinator {
             return selection
         }
 
-        let selectedFill: CGFloat = 0.80
+        let margin = initialViewportMargin(for: viewportSize)
+        let innerWidth = max(1, viewportSize.width - margin * 2)
+        let innerHeight = max(1, viewportSize.height - margin * 2)
         let viewportAspect = viewportSize.width / viewportSize.height
-        let minWidth = selection.width / selectedFill
-        let minHeight = selection.height / selectedFill
+        let selectedScale = min(innerWidth / selection.width, innerHeight / selection.height)
+        let targetWidth = viewportSize.width / selectedScale
+        let targetHeight = viewportSize.height / selectedScale
 
-        var fitSize = CGSize(width: minWidth, height: minWidth / viewportAspect)
-        if fitSize.height < minHeight {
-            fitSize.height = minHeight
-            fitSize.width = minHeight * viewportAspect
+        var fitSize = CGSize(width: targetWidth, height: targetWidth / viewportAspect)
+        if fitSize.height < targetHeight {
+            fitSize.height = targetHeight
+            fitSize.width = targetHeight * viewportAspect
         }
 
         return CGRect(
@@ -89,6 +121,18 @@ final class CanvasCoordinator {
             width: fitSize.width,
             height: fitSize.height
         )
+    }
+
+    nonisolated static func initialViewportMargin(for viewportSize: CGSize) -> CGFloat {
+        let shortestSide = min(viewportSize.width, viewportSize.height)
+        guard shortestSide > 0 else { return 0 }
+
+        let adaptiveMargin = min(
+            preferredInitialViewportMargin,
+            max(minimumInitialViewportMargin, shortestSide * 0.16)
+        )
+        let maximumUsableMargin = max(0, (shortestSide - 1) / 2)
+        return min(adaptiveMargin, maximumUsableMargin)
     }
 }
 
