@@ -28,7 +28,7 @@ private struct EditorShell: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack {
             VStack(spacing: 0) {
                 TopToolBarView(state: state)
                 Rectangle()
@@ -39,13 +39,9 @@ private struct EditorShell: View {
                         ToolSidebarView(state: state)
                             .transition(.move(edge: .leading).combined(with: .opacity))
                     }
-                    CanvasView(state: state)
-                        .background(Theme.canvasBack)
+                    canvasArea
                 }
             }
-
-            BottomBarView(state: state)
-                .padding(.bottom, 20)
 
             panelToggleShortcut
         }
@@ -58,6 +54,16 @@ private struct EditorShell: View {
             }
         }
         .animation(.spring(response: 0.32, dampingFraction: 0.86), value: state.isDetailPanelVisible)
+    }
+
+    private var canvasArea: some View {
+        ZStack(alignment: .bottom) {
+            CanvasView(state: state)
+                .background(Theme.canvasBack)
+            BottomBarView(state: state)
+                .padding(.bottom, 20)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var panelToggleShortcut: some View {
