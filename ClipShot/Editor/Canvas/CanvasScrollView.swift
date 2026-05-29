@@ -53,8 +53,35 @@ final class CanvasScrollView: NSScrollView {
 
     func magnify(toFitCenteredOn rect: CGRect) {
         guard !rect.isNull, !rect.isEmpty else { return }
-        magnify(toFit: rect)
-        centerDocumentPoint(CGPoint(x: rect.midX, y: rect.midY))
+        let viewportSize = viewportSizeForFitting
+        guard viewportSize.width > 0, viewportSize.height > 0 else { return }
+
+        let targetMagnification = Self.fitMagnification(
+            for: rect,
+            in: viewportSize,
+            limits: minMagnification...maxMagnification
+        )
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+
+        setMagnification(targetMagnification, centeredAt: center)
+        layoutSubtreeIfNeeded()
+        centerDocumentPoint(center)
+    }
+
+    static func fitMagnification(
+        for rect: CGRect,
+        in viewportSize: CGSize,
+        limits: ClosedRange<CGFloat>
+    ) -> CGFloat {
+        guard !rect.isNull,
+              !rect.isEmpty,
+              viewportSize.width > 0,
+              viewportSize.height > 0 else {
+            return limits.lowerBound
+        }
+
+        let fit = min(viewportSize.width / rect.width, viewportSize.height / rect.height)
+        return fit.clamped(to: limits)
     }
 
     override func layout() {
@@ -93,6 +120,14 @@ final class CanvasScrollView: NSScrollView {
         let constrainedBounds = contentView.constrainBoundsRect(proposedBounds)
         contentView.setBoundsOrigin(constrainedBounds.origin)
         reflectScrolledClipView(contentView)
+    }
+
+    private var viewportSizeForFitting: CGSize {
+        let frameSize = contentView.frame.size
+        if frameSize.width > 0, frameSize.height > 0 {
+            return frameSize
+        }
+        return bounds.size
     }
 
     // MARK: - Space-hold pan

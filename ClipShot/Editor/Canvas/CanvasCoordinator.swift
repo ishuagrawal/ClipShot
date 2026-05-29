@@ -8,13 +8,13 @@ final class CanvasCoordinator {
     let scrollView: CanvasScrollView
     let contentView: CanvasContentView
     let overlayView: CanvasOverlayView
-    private let container: NSView
+    private let container: CanvasDocumentView
     private var didApplyInitialZoom = false
     private var initialPlacement: CanvasInitialPlacement?
 
     init() {
         scrollView = CanvasScrollView()
-        container = NSView(frame: .zero)
+        container = CanvasDocumentView(frame: .zero)
         container.wantsLayer = true
         container.layer?.backgroundColor = .clear
         contentView = CanvasContentView(frame: .zero)
@@ -90,6 +90,12 @@ final class CanvasCoordinator {
             height: fitSize.height
         )
     }
+}
+
+final class CanvasDocumentView: NSView {
+    /// Match the DOM/screenshot coordinate system used by CanvasContentView:
+    /// origin at the top-left, y increasing downward.
+    override var isFlipped: Bool { true }
 }
 
 struct CanvasInitialPlacement: Equatable {

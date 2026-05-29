@@ -80,6 +80,68 @@ final class EditorDocumentTests: XCTestCase {
         )
     }
 
+    func test_initialCanvasPlacement_keepsSelectionCenterInCanvasCoordinatesForEveryEdge() {
+        let imageBounds = CGRect(x: 0, y: 0, width: 1000, height: 800)
+        let selections = [
+            CGRect(x: 0, y: 0, width: 100, height: 80),
+            CGRect(x: 900, y: 0, width: 100, height: 80),
+            CGRect(x: 0, y: 720, width: 100, height: 80),
+            CGRect(x: 900, y: 720, width: 100, height: 80)
+        ]
+
+        for selection in selections {
+            let fit = CanvasCoordinator.initialFitRect(
+                for: selection,
+                in: CGSize(width: 800, height: 600)
+            )
+            let placement = CanvasInitialPlacement(imageBounds: imageBounds, targetRect: fit)
+
+            XCTAssertEqual(
+                placement.targetRect.midX,
+                placement.imageFrame.minX + selection.midX,
+                accuracy: 0.001
+            )
+            XCTAssertEqual(
+                placement.targetRect.midY,
+                placement.imageFrame.minY + selection.midY,
+                accuracy: 0.001
+            )
+        }
+    }
+
+    func test_canvasScrollViewFitMagnificationUsesLimitingAxis() {
+        XCTAssertEqual(
+            CanvasScrollView.fitMagnification(
+                for: CGRect(x: 0, y: 0, width: 400, height: 100),
+                in: CGSize(width: 800, height: 600),
+                limits: 0.05...16
+            ),
+            2,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(
+            CanvasScrollView.fitMagnification(
+                for: CGRect(x: 0, y: 0, width: 100, height: 400),
+                in: CGSize(width: 800, height: 600),
+                limits: 0.05...16
+            ),
+            1.5,
+            accuracy: 0.001
+        )
+    }
+
+    @MainActor
+    func test_canvasDocumentCoordinatesMatchCanvasContentCoordinates() {
+        let container = CanvasDocumentView(frame: CGRect(x: 0, y: 0, width: 1000, height: 800))
+        let content = CanvasContentView(frame: CGRect(x: 20, y: 30, width: 400, height: 300))
+        container.addSubview(content)
+
+        let pointInContainer = content.convert(CGPoint(x: 100, y: 120), to: container)
+
+        XCTAssertEqual(pointInContainer.x, 120, accuracy: 0.001)
+        XCTAssertEqual(pointInContainer.y, 150, accuracy: 0.001)
+    }
+
     func test_effectiveCrop_expandsByPaddingPerSide() {
         let doc = makeDoc(padding: PaddingConfig(top: 10, right: 20, bottom: 30, left: 40))
         XCTAssertEqual(doc.effectiveCrop, CGRect(x: 60, y: 90, width: 260, height: 190))
