@@ -15,14 +15,15 @@ struct BackgroundToolView: View {
     private var style: BackgroundStyle { state.document.background }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Background")
-                .font(.system(size: 13, weight: .semibold))
-            tiles
-            Divider()
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 9) {
+                PanelTitle(text: "Style")
+                tiles
+            }
+            Rectangle().fill(Theme.hairline).frame(height: 1)
             config
         }
-        .padding(14)
+        .padding(16)
         .onAppear { syncControls(from: style) }
         .onChange(of: style) { _, newStyle in
             syncControls(from: newStyle)
@@ -30,20 +31,31 @@ struct BackgroundToolView: View {
     }
 
     private var tiles: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 9) {
             ForEach(BackgroundStyle.Kind.allCases, id: \.self) { kind in
+                let selected = style.kind == kind
                 Button {
                     select(kind)
                 } label: {
                     tileSwatch(kind)
-                        .frame(width: 40, height: 40)
+                        .frame(width: 42, height: 42)
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
+                        // Top specular highlight → reads as a raised cap.
                         .overlay(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            RoundedRectangle(cornerRadius: Theme.radius, style: .continuous)
+                                .stroke(Theme.topHighlight, lineWidth: 1)
+                                .mask(LinearGradient(colors: [.white, .clear], startPoint: .top, endPoint: .center))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Theme.radius, style: .continuous)
                                 .stroke(
-                                    style.kind == kind ? Color.blue : Color.white.opacity(0.15),
-                                    lineWidth: style.kind == kind ? 2 : 1
+                                    selected ? Theme.accent : Color.black.opacity(0.45),
+                                    lineWidth: selected ? 2 : 1
                                 )
                         )
+                        .shadow(color: selected ? Theme.accentGlow : .black.opacity(0.4),
+                                radius: selected ? 7 : 3, y: selected ? 0 : 2)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .help(tileName(kind))
@@ -53,15 +65,20 @@ struct BackgroundToolView: View {
 
     @ViewBuilder
     private func tileSwatch(_ kind: BackgroundStyle.Kind) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: Theme.radius, style: .continuous)
         switch kind {
         case .none:
             shape
-                .fill(.clear)
+                .fill(
+                    LinearGradient(
+                        colors: [Theme.raisedTop, Theme.raisedBottom],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                )
                 .overlay(
                     Image(systemName: "circle.slash")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 14))
+                        .foregroundStyle(Theme.textTertiary)
                 )
         case .solid:
             shape.fill(solid)
@@ -75,11 +92,16 @@ struct BackgroundToolView: View {
             )
         case .blurExtend:
             shape
-                .fill(.gray)
+                .fill(
+                    LinearGradient(
+                        colors: [Color(white: 0.4), Color(white: 0.22)],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                )
                 .overlay(
                     Image(systemName: "drop.halffull")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.white.opacity(0.7))
+                        .font(.system(size: 14))
+                        .foregroundStyle(.white.opacity(0.75))
                 )
         }
     }
@@ -102,13 +124,11 @@ struct BackgroundToolView: View {
         switch style.kind {
         case .none:
             Text("No background")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+                .font(Theme.label(12))
+                .foregroundStyle(Theme.textTertiary)
         case .solid:
             HStack {
-                Text("Color")
-                    .frame(width: 60, alignment: .leading)
-                    .foregroundStyle(.secondary)
+                rowLabel("Color")
                 ColorPicker("", selection: $solid, supportsOpacity: false)
                     .labelsHidden()
                     .onChange(of: solid) { _, _ in
@@ -116,13 +136,10 @@ struct BackgroundToolView: View {
                         commit(.solidColor(NSColor(solid).cgColor))
                     }
             }
-            .font(.system(size: 12))
         case .gradient:
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text("Colors")
-                        .frame(width: 60, alignment: .leading)
-                        .foregroundStyle(.secondary)
+                    rowLabel("Colors")
                     ColorPicker("", selection: $gradientStart, supportsOpacity: false)
                         .labelsHidden()
                         .onChange(of: gradientStart) { _, _ in
@@ -136,45 +153,45 @@ struct BackgroundToolView: View {
                             applyGradient()
                         }
                 }
-                HStack {
-                    Text("Angle")
-                        .frame(width: 60, alignment: .leading)
-                        .foregroundStyle(.secondary)
-                    Slider(
+                HStack(spacing: 10) {
+                    rowLabel("Angle")
+                    GraphiteSlider(
                         value: $gradientAngle,
-                        in: 0...360,
-                        onEditingChanged: { editing in
-                            if !editing {
-                                applyGradient()
-                            }
-                        }
+                        range: 0...360,
+                        accessibilityLabel: "Gradient angle",
+                        accessibilityValue: { "\(Int($0.rounded())) degrees" },
+                        onEditingChanged: { if !$0 { applyGradient() } }
                     )
-                    Text("\(Int(gradientAngle))")
-                        .frame(width: 34, alignment: .trailing)
-                        .monospacedDigit()
+                    valueLabel("\(Int(gradientAngle))°")
                 }
             }
-            .font(.system(size: 12))
         case .blurExtend:
-            HStack {
-                Text("Radius")
-                    .frame(width: 60, alignment: .leading)
-                    .foregroundStyle(.secondary)
-                Slider(
+            HStack(spacing: 10) {
+                rowLabel("Radius")
+                GraphiteSlider(
                     value: $blurRadius,
-                    in: 0...80,
-                    onEditingChanged: { editing in
-                        if !editing {
-                            commit(.blurExtend(radius: CGFloat(blurRadius)))
-                        }
-                    }
+                    range: 0...80,
+                    accessibilityLabel: "Blur radius",
+                    accessibilityValue: { "\(Int($0.rounded())) pixels" },
+                    onEditingChanged: { if !$0 { commit(.blurExtend(radius: CGFloat(blurRadius))) } }
                 )
-                Text("\(Int(blurRadius))")
-                    .frame(width: 30, alignment: .trailing)
-                    .monospacedDigit()
+                valueLabel("\(Int(blurRadius))")
             }
-            .font(.system(size: 12))
         }
+    }
+
+    private func rowLabel(_ text: String) -> some View {
+        Text(text)
+            .font(Theme.label(12))
+            .foregroundStyle(Theme.textSecondary)
+            .frame(width: 52, alignment: .leading)
+    }
+
+    private func valueLabel(_ text: String) -> some View {
+        Text(text)
+            .font(Theme.mono(12, .semibold))
+            .foregroundStyle(Theme.textPrimary)
+            .frame(width: 38, alignment: .trailing)
     }
 
     private func select(_ kind: BackgroundStyle.Kind) {

@@ -16,6 +16,7 @@
 		01A000000000000000000011 /* DOMCaptureModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000011 /* DOMCaptureModels.swift */; };
 		01A000000000000000000012 /* EditorWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000012 /* EditorWindowController.swift */; };
 		01A000000000000000000013 /* EditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000013 /* EditorView.swift */; };
+		01A000000000000000000214 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000214 /* Theme.swift */; };
 		01A000000000000000000101 /* PixelBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000101 /* PixelBuffer.swift */; };
 		01A000000000000000000102 /* SanityTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000102 /* SanityTest.swift */; };
 		01A000000000000000000201 /* EditorDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000201 /* EditorDocument.swift */; };
@@ -37,6 +38,7 @@
 		01A00000000000000000020D /* CanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000020D /* CanvasView.swift */; };
 		01A00000000000000000020E /* BottomBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000020E /* BottomBarView.swift */; };
 		01A00000000000000000020F /* ToolSidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000020F /* ToolSidebarView.swift */; };
+		01A000000000000000000215 /* TopToolBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000215 /* TopToolBarView.swift */; };
 		01A000000000000000000210 /* SetPaddingCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000210 /* SetPaddingCommand.swift */; };
 		01A000000000000000000211 /* SetBackgroundCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000211 /* SetBackgroundCommand.swift */; };
 		01A000000000000000000212 /* PaddingToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000212 /* PaddingToolView.swift */; };
@@ -57,6 +59,7 @@
 		01B000000000000000000011 /* DOMCaptureModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DOMCaptureModels.swift; sourceTree = "<group>"; };
 		01B000000000000000000012 /* EditorWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorWindowController.swift; sourceTree = "<group>"; };
 		01B000000000000000000013 /* EditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorView.swift; sourceTree = "<group>"; };
+		01B000000000000000000214 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		01B000000000000000000100 /* ClipShotTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClipShotTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		01B000000000000000000101 /* PixelBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelBuffer.swift; sourceTree = "<group>"; };
 		01B000000000000000000102 /* SanityTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SanityTest.swift; sourceTree = "<group>"; };
@@ -75,6 +78,7 @@
 		01B00000000000000000020D /* CanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasView.swift; sourceTree = "<group>"; };
 		01B00000000000000000020E /* BottomBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomBarView.swift; sourceTree = "<group>"; };
 		01B00000000000000000020F /* ToolSidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolSidebarView.swift; sourceTree = "<group>"; };
+		01B000000000000000000215 /* TopToolBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopToolBarView.swift; sourceTree = "<group>"; };
 		01B000000000000000000210 /* SetPaddingCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetPaddingCommand.swift; sourceTree = "<group>"; };
 		01B000000000000000000211 /* SetBackgroundCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetBackgroundCommand.swift; sourceTree = "<group>"; };
 		01B000000000000000000212 /* PaddingToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaddingToolView.swift; sourceTree = "<group>"; };
@@ -206,6 +210,7 @@
 			isa = PBXGroup;
 			children = (
 				01B00000000000000000020F /* ToolSidebarView.swift */,
+				01B000000000000000000215 /* TopToolBarView.swift */,
 				01B000000000000000000212 /* PaddingToolView.swift */,
 				01B000000000000000000213 /* BackgroundToolView.swift */,
 			);
@@ -235,6 +240,7 @@
 				01B00000000000000000000C /* MenuContentView.swift */,
 				01B000000000000000000012 /* EditorWindowController.swift */,
 				01B000000000000000000013 /* EditorView.swift */,
+				01B000000000000000000214 /* Theme.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -337,6 +343,7 @@
 				01A000000000000000000011 /* DOMCaptureModels.swift in Sources */,
 				01A000000000000000000012 /* EditorWindowController.swift in Sources */,
 				01A000000000000000000013 /* EditorView.swift in Sources */,
+				01A000000000000000000214 /* Theme.swift in Sources */,
 				01A000000000000000000201 /* EditorDocument.swift in Sources */,
 				01A000000000000000000202 /* PaddingConfig.swift in Sources */,
 				01A000000000000000000203 /* BackgroundStyle.swift in Sources */,
@@ -352,6 +359,7 @@
 				01A00000000000000000020D /* CanvasView.swift in Sources */,
 				01A00000000000000000020E /* BottomBarView.swift in Sources */,
 				01A00000000000000000020F /* ToolSidebarView.swift in Sources */,
+				01A000000000000000000215 /* TopToolBarView.swift in Sources */,
 				01A000000000000000000210 /* SetPaddingCommand.swift in Sources */,
 				01A000000000000000000211 /* SetBackgroundCommand.swift in Sources */,
 				01A000000000000000000212 /* PaddingToolView.swift in Sources */,

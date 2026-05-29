@@ -9,12 +9,12 @@ struct PaddingToolView: View {
     private let range: ClosedRange<Double> = 0...256
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 16) {
             header
             boxModel
-            uniformSlider
+            uniformRow
         }
-        .padding(14)
+        .padding(16)
         .onAppear { linked = padding.isLinked }
     }
 
@@ -22,8 +22,7 @@ struct PaddingToolView: View {
 
     private var header: some View {
         HStack {
-            Text("Padding")
-                .font(.system(size: 13, weight: .semibold))
+            PanelTitle(text: "Padding")
             Spacer()
             Button {
                 linked.toggle()
@@ -32,8 +31,21 @@ struct PaddingToolView: View {
                 }
             } label: {
                 Image(systemName: linked ? "link" : "link.slash")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(linked ? Color.blue : Color.white.opacity(0.5))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(linked ? Theme.accent : Theme.textTertiary)
+                    .frame(width: 26, height: 24)
+                    .background {
+                        if linked {
+                            RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous)
+                                .fill(Color.clear)
+                                .raised(cornerRadius: Theme.radiusSmall)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous)
+                                        .fill(Theme.accentDim)
+                                )
+                        }
+                    }
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help(linked ? "Sides linked" : "Sides independent")
@@ -41,18 +53,18 @@ struct PaddingToolView: View {
     }
 
     private var boxModel: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 7) {
             field(.top)
-            HStack(spacing: 6) {
+            HStack(spacing: 7) {
                 field(.left)
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(Color.white.opacity(0.08))
+                Color.clear
+                    .frame(height: 54)
+                    .recessed(cornerRadius: Theme.radiusSmall)
                     .overlay(
                         Image(systemName: "photo")
-                            .font(.system(size: 16))
-                            .foregroundStyle(.secondary)
+                            .font(.system(size: 15))
+                            .foregroundStyle(Theme.textTertiary)
                     )
-                    .frame(height: 56)
                 field(.right)
             }
             field(.bottom)
@@ -68,30 +80,45 @@ struct PaddingToolView: View {
             ),
             format: .number
         )
-        .frame(width: 52)
+        .textFieldStyle(.plain)
+        .font(Theme.mono(12, .semibold))
+        .foregroundStyle(Theme.textPrimary)
         .multilineTextAlignment(.center)
-        .textFieldStyle(.roundedBorder)
+        .frame(width: 54)
+        .padding(.vertical, 6)
+        .recessed(cornerRadius: Theme.radiusSmall)
         .accessibilityLabel(label(side))
     }
 
-    private var uniformSlider: some View {
-        Slider(
-            value: Binding(
-                get: { Double(padding.uniform ?? padding.top) },
-                set: { value in
-                    linked = true
-                    setLive(.uniform(CGFloat(value.rounded())))
+    private var uniformRow: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            PanelTitle(text: "Uniform")
+            HStack(spacing: 10) {
+                GraphiteSlider(
+                value: Binding(
+                    get: { Double(padding.uniform ?? padding.top) },
+                    set: { value in
+                        linked = true
+                        setLive(.uniform(CGFloat(value.rounded())))
+                    }
+                ),
+                range: range,
+                accessibilityLabel: "Uniform padding",
+                accessibilityValue: { "\(Int($0.rounded())) pixels" },
+                onEditingChanged: { editing in
+                    if editing {
+                        editStart = padding
+                    } else {
+                        commitDrag()
+                    }
                 }
-            ),
-            in: range,
-            onEditingChanged: { editing in
-                if editing {
-                    editStart = padding
-                } else {
-                    commitDrag()
-                }
+            )
+                Text("\(Int(padding.uniform ?? padding.top))")
+                    .font(Theme.mono(12, .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .frame(width: 30, alignment: .trailing)
             }
-        )
+        }
     }
 
     private func value(of side: PaddingSide) -> CGFloat {

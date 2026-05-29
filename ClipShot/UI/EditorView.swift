@@ -29,20 +29,49 @@ private struct EditorShell: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            HStack(spacing: 0) {
-                ToolSidebarView(state: state)
+            VStack(spacing: 0) {
+                TopToolBarView(state: state)
                 Rectangle()
-                    .fill(Color.white.opacity(0.06))
-                    .frame(width: 1)
-                CanvasView(state: state)
-                    .background(Color(red: 0.025, green: 0.027, blue: 0.032))
+                    .fill(Theme.hairline)
+                    .frame(height: 1)
+                HStack(spacing: 0) {
+                    if state.isDetailPanelVisible {
+                        ToolSidebarView(state: state)
+                            .transition(.move(edge: .leading).combined(with: .opacity))
+                    }
+                    CanvasView(state: state)
+                        .background(Theme.canvasBack)
+                }
             }
 
             BottomBarView(state: state)
                 .padding(.bottom, 20)
+
+            panelToggleShortcut
         }
         .frame(minWidth: 900, minHeight: 600)
-        .background(Color(red: 0.055, green: 0.057, blue: 0.06))
+        .background(Theme.surface)
+        // Land on the Layout tool so the sidebar is populated on first open.
+        .onAppear {
+            if state.activeTool == .select {
+                state.selectTool(.padding)
+            }
+        }
+        .animation(.spring(response: 0.32, dampingFraction: 0.86), value: state.isDetailPanelVisible)
+    }
+
+    private var panelToggleShortcut: some View {
+        Button {
+            if state.activeTool.hasDetailPanel {
+                state.toggleDetailPanel()
+            }
+        } label: {
+            Color.clear
+                .frame(width: 0, height: 0)
+        }
+        .buttonStyle(.plain)
+        .keyboardShortcut("i", modifiers: [.command])
+        .accessibilityHidden(true)
     }
 }
 
