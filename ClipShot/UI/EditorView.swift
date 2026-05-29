@@ -24,7 +24,7 @@ private struct EditorShell: View {
     @StateObject private var state: EditorState
 
     init(document: EditorDocument) {
-        _state = StateObject(wrappedValue: EditorState(document: document))
+        _state = StateObject(wrappedValue: EditorState(document: document, initialTool: .padding))
     }
 
     var body: some View {
@@ -47,12 +47,6 @@ private struct EditorShell: View {
         }
         .frame(minWidth: 900, minHeight: 600)
         .background(Theme.surface)
-        // Land on the Layout tool so the sidebar is populated on first open.
-        .onAppear {
-            if state.activeTool == .select {
-                state.selectTool(.padding)
-            }
-        }
         .animation(.spring(response: 0.32, dampingFraction: 0.86), value: state.isDetailPanelVisible)
     }
 

@@ -51,6 +51,12 @@ final class CanvasScrollView: NSScrollView {
         needsLayout = true
     }
 
+    func magnify(toFitCenteredOn rect: CGRect) {
+        guard !rect.isNull, !rect.isEmpty else { return }
+        magnify(toFit: rect)
+        centerDocumentPoint(CGPoint(x: rect.midX, y: rect.midY))
+    }
+
     override func layout() {
         super.layout()
         guard bounds.width > 0, bounds.height > 0, let fit = pendingInitialFit else { return }
@@ -76,6 +82,17 @@ final class CanvasScrollView: NSScrollView {
         let pointInDocument = documentView?.convert(event.locationInWindow, from: nil)
             ?? convert(event.locationInWindow, from: nil)
         setMagnification(newMag, centeredAt: pointInDocument)
+    }
+
+    private func centerDocumentPoint(_ point: CGPoint) {
+        var proposedBounds = contentView.bounds
+        proposedBounds.origin = CGPoint(
+            x: point.x - proposedBounds.width / 2,
+            y: point.y - proposedBounds.height / 2
+        )
+        let constrainedBounds = contentView.constrainBoundsRect(proposedBounds)
+        contentView.setBoundsOrigin(constrainedBounds.origin)
+        reflectScrolledClipView(contentView)
     }
 
     // MARK: - Space-hold pan

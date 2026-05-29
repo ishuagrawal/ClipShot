@@ -57,6 +57,29 @@ final class EditorDocumentTests: XCTestCase {
         XCTAssertLessThanOrEqual(tallSelection.width / tallFit.width, 0.8)
     }
 
+    func test_initialCanvasPlacement_expandsCanvasToCenterEdgeSelection() {
+        let imageBounds = CGRect(x: 0, y: 0, width: 1000, height: 1000)
+        let selection = CGRect(x: 0, y: 0, width: 100, height: 100)
+        let fit = CanvasCoordinator.initialFitRect(
+            for: selection,
+            in: CGSize(width: 800, height: 600)
+        )
+        let placement = CanvasInitialPlacement(imageBounds: imageBounds, targetRect: fit)
+
+        XCTAssertGreaterThan(placement.imageFrame.minX, 0)
+        XCTAssertGreaterThan(placement.imageFrame.minY, 0)
+        XCTAssertEqual(
+            placement.targetRect.midX,
+            placement.imageFrame.minX + selection.midX,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(
+            placement.targetRect.midY,
+            placement.imageFrame.minY + selection.midY,
+            accuracy: 0.001
+        )
+    }
+
     func test_effectiveCrop_expandsByPaddingPerSide() {
         let doc = makeDoc(padding: PaddingConfig(top: 10, right: 20, bottom: 30, left: 40))
         XCTAssertEqual(doc.effectiveCrop, CGRect(x: 60, y: 90, width: 260, height: 190))

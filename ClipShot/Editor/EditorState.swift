@@ -80,8 +80,12 @@ final class EditorState: ObservableObject {
 
     let undoStack = UndoStack()
 
-    init(document: EditorDocument) {
+    init(document: EditorDocument, initialTool: EditorTool = .select) {
         self.document = document
+        if initialTool.isEnabled {
+            activeTool = initialTool
+            isDetailPanelExpanded = initialTool.hasDetailPanel
+        }
     }
 
     func performUndo() {

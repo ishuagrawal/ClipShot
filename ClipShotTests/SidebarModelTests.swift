@@ -73,6 +73,15 @@ final class SidebarModelTests: XCTestCase {
         XCTAssertTrue(state.isDetailPanelVisible)
     }
 
+    func testInitialPanelToolIsVisibleImmediately() {
+        let state = EditorState(
+            document: FixtureDocument.basicPair().document,
+            initialTool: .padding
+        )
+        XCTAssertEqual(state.activeTool, .padding)
+        XCTAssertTrue(state.isDetailPanelVisible)
+    }
+
     func testReselectingActiveToolTogglesPanel() {
         let state = makeState()
         state.selectTool(.padding)
