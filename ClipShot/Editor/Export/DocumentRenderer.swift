@@ -192,7 +192,9 @@ enum DocumentRenderer {
         )
         ctx.saveGState()
         ctx.clip(to: outputRect)
-        ctx.draw(blurred, in: fill)
+        ctx.translateBy(x: fill.minX, y: fill.maxY)
+        ctx.scaleBy(x: 1, y: -1)
+        ctx.draw(blurred, in: CGRect(origin: .zero, size: fill.size))
         ctx.restoreGState()
     }
 
@@ -232,6 +234,7 @@ private final class BlurExtendCache: @unchecked Sendable {
 
     private let lock = NSLock()
     private var cachedImage: CGImage?
+    private var cachedSource: CGImage?
     private var cachedRadius: CGFloat = -1
     private var cachedWidth = -1
     private var cachedHeight = -1
@@ -240,6 +243,8 @@ private final class BlurExtendCache: @unchecked Sendable {
     func blurredImage(for source: CGImage, radius: CGFloat) -> CGImage? {
         lock.lock()
         if let cachedImage,
+           let cachedSource,
+           cachedSource === source,
            cachedRadius == radius,
            cachedWidth == source.width,
            cachedHeight == source.height {
@@ -256,6 +261,7 @@ private final class BlurExtendCache: @unchecked Sendable {
 
         lock.lock()
         cachedImage = result
+        cachedSource = source
         cachedRadius = radius
         cachedWidth = source.width
         cachedHeight = source.height

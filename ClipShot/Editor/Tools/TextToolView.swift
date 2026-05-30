@@ -77,7 +77,8 @@ struct TextToolView: View {
 
         if case let .text(origin, string, _, _) = state.selectedAnnotation?.kind {
             state.updateSelectedKind(
-                .text(origin: origin, string: string, fontSize: CGFloat(size), color: nextColor)
+                .text(origin: origin, string: string, fontSize: CGFloat(size), color: nextColor),
+                coalescingKey: .style
             )
         }
     }

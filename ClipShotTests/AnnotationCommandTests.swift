@@ -59,7 +59,27 @@ final class AnnotationCommandTests: XCTestCase {
         XCTAssertEqual(doc.annotations[0].kind, original.kind)
     }
 
-    func test_move_coalesce_sameIdKeepsOriginalFrom() {
+    func test_move_defaultDoesNotCoalesce() {
+        let id = UUID()
+        let firstKind = Annotation.Kind.arrow(
+            from: .zero,
+            to: CGPoint(x: 1, y: 1),
+            color: CGColor(gray: 0, alpha: 1),
+            weight: 2
+        )
+        let secondKind = Annotation.Kind.arrow(
+            from: .zero,
+            to: CGPoint(x: 2, y: 2),
+            color: CGColor(gray: 0, alpha: 1),
+            weight: 2
+        )
+        let first = MoveAnnotationCommand(id: id, from: firstKind, to: secondKind)
+        let second = MoveAnnotationCommand(id: id, from: secondKind, to: firstKind)
+
+        XCTAssertNil(first.coalesce(with: second))
+    }
+
+    func test_move_coalesce_sameIdAndKeyKeepsOriginalFrom() {
         let id = UUID()
         let firstKind = Annotation.Kind.arrow(
             from: .zero,
@@ -79,8 +99,8 @@ final class AnnotationCommandTests: XCTestCase {
             color: CGColor(gray: 0, alpha: 1),
             weight: 2
         )
-        let first = MoveAnnotationCommand(id: id, from: firstKind, to: secondKind)
-        let second = MoveAnnotationCommand(id: id, from: secondKind, to: thirdKind)
+        let first = MoveAnnotationCommand(id: id, from: firstKind, to: secondKind, coalescingKey: .style)
+        let second = MoveAnnotationCommand(id: id, from: secondKind, to: thirdKind, coalescingKey: .style)
 
         let merged = first.coalesce(with: second) as? MoveAnnotationCommand
 
@@ -98,6 +118,20 @@ final class AnnotationCommandTests: XCTestCase {
         )
         let first = MoveAnnotationCommand(id: UUID(), from: kind, to: kind)
         let second = MoveAnnotationCommand(id: UUID(), from: kind, to: kind)
+
+        XCTAssertNil(first.coalesce(with: second))
+    }
+
+    func test_move_coalesce_differentKeysReturnsNil() {
+        let id = UUID()
+        let kind = Annotation.Kind.arrow(
+            from: .zero,
+            to: CGPoint(x: 1, y: 1),
+            color: CGColor(gray: 0, alpha: 1),
+            weight: 2
+        )
+        let first = MoveAnnotationCommand(id: id, from: kind, to: kind, coalescingKey: .style)
+        let second = MoveAnnotationCommand(id: id, from: kind, to: kind, coalescingKey: .keyboardNudge)
 
         XCTAssertNil(first.coalesce(with: second))
     }

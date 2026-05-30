@@ -1,9 +1,27 @@
 import Foundation
 
+enum AnnotationEditCoalescingKey: Equatable {
+    case style
+    case keyboardNudge
+}
+
 struct MoveAnnotationCommand: EditorCommand {
     let id: UUID
     let from: Annotation.Kind
     let to: Annotation.Kind
+    let coalescingKey: AnnotationEditCoalescingKey?
+
+    init(
+        id: UUID,
+        from: Annotation.Kind,
+        to: Annotation.Kind,
+        coalescingKey: AnnotationEditCoalescingKey? = nil
+    ) {
+        self.id = id
+        self.from = from
+        self.to = to
+        self.coalescingKey = coalescingKey
+    }
 
     var displayName: String { "Move annotation" }
 
@@ -16,8 +34,11 @@ struct MoveAnnotationCommand: EditorCommand {
     }
 
     func coalesce(with next: EditorCommand) -> EditorCommand? {
-        guard let next = next as? MoveAnnotationCommand, next.id == id else { return nil }
-        return MoveAnnotationCommand(id: id, from: from, to: next.to)
+        guard let coalescingKey,
+              let next = next as? MoveAnnotationCommand,
+              next.id == id,
+              next.coalescingKey == coalescingKey else { return nil }
+        return MoveAnnotationCommand(id: id, from: from, to: next.to, coalescingKey: coalescingKey)
     }
 
     private func setKind(_ kind: Annotation.Kind, in document: inout EditorDocument) {

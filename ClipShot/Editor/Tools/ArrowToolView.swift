@@ -77,7 +77,8 @@ struct ArrowToolView: View {
 
         if case let .arrow(from, to, _, _) = state.selectedAnnotation?.kind {
             state.updateSelectedKind(
-                .arrow(from: from, to: to, color: nextColor, weight: CGFloat(weight))
+                .arrow(from: from, to: to, color: nextColor, weight: CGFloat(weight)),
+                coalescingKey: .style
             )
         }
     }

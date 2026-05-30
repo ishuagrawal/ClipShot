@@ -298,13 +298,16 @@ final class EditorState: ObservableObject {
         selectedAnnotationID = nil
     }
 
-    func updateSelectedKind(_ newKind: Annotation.Kind) {
+    func updateSelectedKind(
+        _ newKind: Annotation.Kind,
+        coalescingKey: AnnotationEditCoalescingKey? = nil
+    ) {
         guard let id = selectedAnnotationID,
               let index = document.annotations.firstIndex(where: { $0.id == id }) else { return }
         let from = document.annotations[index].kind
         guard from != newKind else { return }
 
-        performCommand(MoveAnnotationCommand(id: id, from: from, to: newKind))
+        performCommand(MoveAnnotationCommand(id: id, from: from, to: newKind, coalescingKey: coalescingKey))
     }
 
     var selectedAnnotation: Annotation? {

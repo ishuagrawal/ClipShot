@@ -133,7 +133,8 @@ struct RectangleToolView: View {
                     fill: fillColor,
                     weight: CGFloat(weight),
                     cornerRadius: CGFloat(corner)
-                )
+                ),
+                coalescingKey: .style
             )
         }
     }

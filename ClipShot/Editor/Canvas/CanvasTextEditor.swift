@@ -183,7 +183,7 @@ final class CanvasTextEditor: NSObject, NSTextFieldDelegate {
             ),
             to: state.documentBounds
         )
-        state.updateSelectedKind(nextKind)
+        state.updateSelectedKind(nextKind, coalescingKey: .keyboardNudge)
         syncEditingField(with: state.document, effectiveCrop: editingEffectiveCrop)
     }
 
