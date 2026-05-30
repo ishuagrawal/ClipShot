@@ -17,6 +17,10 @@ final class CanvasOverlayView: NSView {
         didSet { updateAnnotations() }
     }
 
+    var editingTextAnnotation: Annotation? {
+        didSet { updateAnnotations() }
+    }
+
     private let previewLayer: CALayer
     private let annotationsLayer: CALayer
     private var annotationLayers: [UUID: CALayer] = [:]
@@ -92,8 +96,15 @@ final class CanvasOverlayView: NSView {
         var liveIDs = Set<UUID>()
         for annotation in doc.annotations {
             liveIDs.insert(annotation.id)
+            let editingAnnotation = editingTextAnnotation?.id == annotation.id ? editingTextAnnotation : nil
+            let displayAnnotation = editingAnnotation ?? annotation
             let layer = annotationLayers[annotation.id] ?? makeLayer(for: annotation.id)
-            configure(layer, with: annotation.kind, selected: annotation.id == selectedAnnotationID)
+            configure(
+                layer,
+                with: displayAnnotation.kind,
+                selected: annotation.id == selectedAnnotationID || editingAnnotation != nil,
+                rendersContent: editingAnnotation == nil
+            )
         }
 
         if let inProgressAnnotation {
@@ -117,47 +128,54 @@ final class CanvasOverlayView: NSView {
         return container
     }
 
-    private func configure(_ container: CALayer, with kind: Annotation.Kind, selected: Bool) {
+    private func configure(
+        _ container: CALayer,
+        with kind: Annotation.Kind,
+        selected: Bool,
+        rendersContent: Bool = true
+    ) {
         container.sublayers?.forEach { $0.removeFromSuperlayer() }
         container.sublayers = nil
 
-        switch kind {
-        case .arrow(let from, let to, let color, let weight):
-            let line = CAShapeLayer()
-            line.path = AnnotationGeometry.arrowLinePath(from: from, to: to, weight: weight)
-            line.strokeColor = color
-            line.fillColor = nil
-            line.lineWidth = weight
-            line.lineCap = .round
-            container.addSublayer(line)
+        if rendersContent {
+            switch kind {
+            case .arrow(let from, let to, let color, let weight):
+                let line = CAShapeLayer()
+                line.path = AnnotationGeometry.arrowLinePath(from: from, to: to, weight: weight)
+                line.strokeColor = color
+                line.fillColor = nil
+                line.lineWidth = weight
+                line.lineCap = .round
+                container.addSublayer(line)
 
-            let head = CAShapeLayer()
-            head.path = AnnotationGeometry.arrowHeadPath(from: from, to: to, weight: weight)
-            head.fillColor = color
-            container.addSublayer(head)
+                let head = CAShapeLayer()
+                head.path = AnnotationGeometry.arrowHeadPath(from: from, to: to, weight: weight)
+                head.fillColor = color
+                container.addSublayer(head)
 
-        case .rect(let frame, let stroke, let fill, let weight, let corner):
-            let shape = CAShapeLayer()
-            shape.path = AnnotationGeometry.rectPath(frame: frame, cornerRadius: corner)
-            shape.fillColor = fill
-            shape.strokeColor = stroke
-            shape.lineWidth = weight
-            container.addSublayer(shape)
+            case .rect(let frame, let stroke, let fill, let weight, let corner):
+                let shape = CAShapeLayer()
+                shape.path = AnnotationGeometry.rectPath(frame: frame, cornerRadius: corner)
+                shape.fillColor = fill
+                shape.strokeColor = stroke
+                shape.lineWidth = weight
+                container.addSublayer(shape)
 
-        case .text(let origin, let string, let fontSize, let color):
-            let text = CATextLayer()
-            let frame = AnnotationGeometry.textFrame(origin: origin, string: string, fontSize: fontSize)
-            text.frame = frame
-            text.string = string
-            text.font = CTFontCreateWithName("Helvetica" as CFString, fontSize, nil)
-            text.fontSize = fontSize
-            text.foregroundColor = color
-            text.contentsScale = window?.backingScaleFactor ?? 2
-            text.isWrapped = false
-            container.addSublayer(text)
+            case .text(let origin, let string, let fontSize, let color):
+                let text = CATextLayer()
+                let frame = AnnotationGeometry.textFrame(origin: origin, string: string, fontSize: fontSize)
+                text.frame = frame
+                text.string = string
+                text.font = CTFontCreateWithName("Helvetica" as CFString, fontSize, nil)
+                text.fontSize = fontSize
+                text.foregroundColor = color
+                text.contentsScale = window?.backingScaleFactor ?? 2
+                text.isWrapped = false
+                container.addSublayer(text)
 
-        case .blur:
-            break
+            case .blur:
+                break
+            }
         }
 
         if selected {

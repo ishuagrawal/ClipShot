@@ -7,6 +7,8 @@ final class CanvasTextEditor: NSObject, NSTextFieldDelegate {
     private weak var state: EditorState?
     private var field: NSTextField?
     private var editingID: UUID?
+    private var editingEffectiveCrop: CGRect = .zero
+    var onEditingPreviewChanged: ((Annotation?) -> Void)?
     var imageFrameOrigin: CGPoint = .zero
 
     init(container: NSView) {
@@ -28,8 +30,8 @@ final class CanvasTextEditor: NSObject, NSTextFieldDelegate {
 
         let textField = NSTextField(frame: .zero)
         textField.isBordered = false
-        textField.drawsBackground = true
-        textField.backgroundColor = NSColor.white.withAlphaComponent(0.08)
+        textField.drawsBackground = false
+        textField.backgroundColor = .clear
         textField.focusRingType = .none
         textField.stringValue = string
         textField.delegate = self
@@ -39,12 +41,22 @@ final class CanvasTextEditor: NSObject, NSTextFieldDelegate {
         container.addSubview(textField)
         field = textField
         editingID = annotation.id
-        syncTextField(textField, origin: origin, string: string, fontSize: fontSize, color: color, effectiveCrop: effectiveCrop)
+        editingEffectiveCrop = effectiveCrop
+        syncTextField(
+            textField,
+            origin: origin,
+            string: string,
+            fontSize: fontSize,
+            color: color,
+            effectiveCrop: effectiveCrop
+        )
+        updateEditingPreview(with: annotation)
         container.window?.makeFirstResponder(textField)
     }
 
     func syncEditingField(with document: EditorDocument, effectiveCrop: CGRect) {
         guard let textField = field, let id = editingID else { return }
+        editingEffectiveCrop = effectiveCrop
         guard let annotation = document.annotations.first(where: { $0.id == id }),
               case let .text(origin, _, fontSize, color) = annotation.kind else {
             cancelEditing()
@@ -59,6 +71,7 @@ final class CanvasTextEditor: NSObject, NSTextFieldDelegate {
             color: color,
             effectiveCrop: effectiveCrop
         )
+        updateEditingPreview(with: annotation)
     }
 
     func finishEditing() {
@@ -67,6 +80,7 @@ final class CanvasTextEditor: NSObject, NSTextFieldDelegate {
         textField.removeFromSuperview()
         field = nil
         editingID = nil
+        onEditingPreviewChanged?(nil)
 
         guard let index = state.document.annotations.firstIndex(where: { $0.id == id }),
               case let .text(origin, oldString, fontSize, color) = state.document.annotations[index].kind else {
@@ -83,6 +97,11 @@ final class CanvasTextEditor: NSObject, NSTextFieldDelegate {
 
     func controlTextDidEndEditing(_ obj: Notification) {
         finishEditing()
+    }
+
+    func controlTextDidChange(_ obj: Notification) {
+        guard let state else { return }
+        syncEditingField(with: state.document, effectiveCrop: editingEffectiveCrop)
     }
 
     private func syncTextField(
@@ -109,5 +128,26 @@ final class CanvasTextEditor: NSObject, NSTextFieldDelegate {
         field?.removeFromSuperview()
         field = nil
         editingID = nil
+        onEditingPreviewChanged?(nil)
+    }
+
+    private func updateEditingPreview(with annotation: Annotation) {
+        guard let textField = field,
+              case let .text(origin, _, fontSize, color) = annotation.kind else {
+            onEditingPreviewChanged?(nil)
+            return
+        }
+
+        onEditingPreviewChanged?(
+            Annotation(
+                id: annotation.id,
+                kind: .text(
+                    origin: origin,
+                    string: textField.stringValue,
+                    fontSize: fontSize,
+                    color: color
+                )
+            )
+        )
     }
 }
