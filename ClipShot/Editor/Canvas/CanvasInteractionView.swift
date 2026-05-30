@@ -54,14 +54,11 @@ final class CanvasInteractionView: NSView {
         window?.makeFirstResponder(self)
         let point = documentPoint(for: event)
 
-        if event.clickCount == 2, (state.activeTool == .select || state.activeTool == .text) {
-            if let id = state.annotationID(at: point),
-               let annotation = state.document.annotations.first(where: { $0.id == id }),
-               case .text = annotation.kind {
-                state.selectedAnnotationID = id
-                onEditText?(annotation)
-                return
-            }
+        if (state.activeTool == .select || state.activeTool == .text),
+           let annotation = textAnnotation(at: point) {
+            state.selectedAnnotationID = annotation.id
+            onEditText?(annotation)
+            return
         }
 
         if state.activeTool.isDrawTool {
@@ -144,5 +141,16 @@ final class CanvasInteractionView: NSView {
     private func documentPoint(for event: NSEvent) -> CGPoint {
         let viewPoint = convert(event.locationInWindow, from: nil)
         return CanvasGeometry.documentPoint(fromImagePixel: viewPoint, effectiveCrop: effectiveCrop)
+    }
+
+    private func textAnnotation(at point: CGPoint) -> Annotation? {
+        guard let state,
+              let id = state.annotationID(at: point),
+              let annotation = state.document.annotations.first(where: { $0.id == id }),
+              case .text = annotation.kind else {
+            return nil
+        }
+
+        return annotation
     }
 }

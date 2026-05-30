@@ -366,6 +366,89 @@ final class CanvasTextEditorTests: XCTestCase {
 }
 
 @MainActor
+final class CanvasInteractionViewTests: XCTestCase {
+
+    func test_singleClickInsideTextStartsEditingWithSelectTool() throws {
+        let annotation = Annotation(
+            kind: .text(
+                origin: CGPoint(x: 10, y: 10),
+                string: "Hello",
+                fontSize: 20,
+                color: CGColor(gray: 0, alpha: 1)
+            )
+        )
+        let document = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
+            viewport: CGSize(width: 100, height: 100),
+            pageTitle: "t",
+            pageURL: "u",
+            baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80),
+            annotations: [annotation]
+        )
+        let state = EditorState(document: document, initialTool: .select)
+        let view = CanvasInteractionView(frame: CGRect(x: 0, y: 0, width: 120, height: 40))
+        var editedAnnotation: Annotation?
+        view.state = state
+        view.effectiveCrop = document.effectiveCrop
+        view.onEditText = { editedAnnotation = $0 }
+
+        view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 20, y: 18)))
+
+        XCTAssertEqual(editedAnnotation?.id, annotation.id)
+        XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertEqual(state.document.annotations.count, 1)
+    }
+
+    func test_singleClickInsideTextToolEditsExistingTextInsteadOfCreatingNewText() throws {
+        let annotation = Annotation(
+            kind: .text(
+                origin: CGPoint(x: 10, y: 10),
+                string: "Hello",
+                fontSize: 20,
+                color: CGColor(gray: 0, alpha: 1)
+            )
+        )
+        let document = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
+            viewport: CGSize(width: 100, height: 100),
+            pageTitle: "t",
+            pageURL: "u",
+            baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80),
+            annotations: [annotation]
+        )
+        let state = EditorState(document: document, initialTool: .text)
+        let view = CanvasInteractionView(frame: CGRect(x: 0, y: 0, width: 120, height: 40))
+        var editedAnnotation: Annotation?
+        view.state = state
+        view.effectiveCrop = document.effectiveCrop
+        view.onEditText = { editedAnnotation = $0 }
+
+        view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 20, y: 18)))
+
+        XCTAssertEqual(editedAnnotation?.id, annotation.id)
+        XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertEqual(state.document.annotations.count, 1)
+        XCTAssertNil(state.inProgressAnnotation)
+    }
+
+    private func makeMouseDown(at point: CGPoint) throws -> NSEvent {
+        try XCTUnwrap(
+            NSEvent.mouseEvent(
+                with: .leftMouseDown,
+                location: point,
+                modifierFlags: [],
+                timestamp: 0,
+                windowNumber: 0,
+                context: nil,
+                eventNumber: 0,
+                clickCount: 1,
+                pressure: 1
+            )
+        )
+    }
+}
+
+@MainActor
 final class CanvasOverlayViewTests: XCTestCase {
 
     func test_editingTextAnnotationDrawsOnlyExpandedSelectionHalo() throws {
