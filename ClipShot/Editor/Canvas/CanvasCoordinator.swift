@@ -30,6 +30,7 @@ final class CanvasCoordinator {
         textEditor = CanvasTextEditor(container: container)
         textEditor.onEditingPreviewChanged = { [weak self] annotation in
             self?.overlayView.editingTextAnnotation = annotation
+            self?.interactionView.editingTextAnnotation = annotation
         }
         container.addSubview(contentView)
         container.addSubview(overlayView)

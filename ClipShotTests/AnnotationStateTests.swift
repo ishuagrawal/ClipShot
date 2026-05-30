@@ -367,32 +367,15 @@ final class CanvasTextEditorTests: XCTestCase {
 
 @MainActor
 final class CanvasInteractionViewTests: XCTestCase {
+    private nonisolated static let interactionViewSize = CGSize(width: 160, height: 80)
 
     func test_singleClickInsideTextStartsEditingWithSelectTool() throws {
-        let annotation = Annotation(
-            kind: .text(
-                origin: CGPoint(x: 10, y: 10),
-                string: "Hello",
-                fontSize: 20,
-                color: CGColor(gray: 0, alpha: 1)
-            )
-        )
-        let document = EditorDocument(
-            screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
-            viewport: CGSize(width: 100, height: 100),
-            pageTitle: "t",
-            pageURL: "u",
-            baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80),
-            annotations: [annotation]
-        )
-        let state = EditorState(document: document, initialTool: .select)
-        let view = CanvasInteractionView(frame: CGRect(x: 0, y: 0, width: 120, height: 40))
+        let (annotation, state, view) = makeTextInteraction(initialTool: .select)
         var editedAnnotation: Annotation?
-        view.state = state
-        view.effectiveCrop = document.effectiveCrop
         view.onEditText = { editedAnnotation = $0 }
 
         view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 20, y: 18)))
+        view.mouseUp(with: try makeMouseEvent(type: .leftMouseUp, at: CGPoint(x: 20, y: 18)))
 
         XCTAssertEqual(editedAnnotation?.id, annotation.id)
         XCTAssertEqual(state.selectedAnnotationID, annotation.id)
@@ -400,6 +383,127 @@ final class CanvasInteractionViewTests: XCTestCase {
     }
 
     func test_singleClickInsideTextToolEditsExistingTextInsteadOfCreatingNewText() throws {
+        let (annotation, state, view) = makeTextInteraction(initialTool: .text)
+        var editedAnnotation: Annotation?
+        view.onEditText = { editedAnnotation = $0 }
+
+        view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 20, y: 18)))
+        view.mouseUp(with: try makeMouseEvent(type: .leftMouseUp, at: CGPoint(x: 20, y: 18)))
+
+        XCTAssertEqual(editedAnnotation?.id, annotation.id)
+        XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertEqual(state.document.annotations.count, 1)
+        XCTAssertNil(state.inProgressAnnotation)
+    }
+
+    func test_dragTextBorderMovesTextWithoutSelectTool() throws {
+        let (annotation, state, view) = makeTextInteraction(initialTool: .arrow)
+        var editedAnnotation: Annotation?
+        view.onEditText = { editedAnnotation = $0 }
+
+        view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 7, y: 18)))
+        view.mouseDragged(with: try makeMouseEvent(type: .leftMouseDragged, at: CGPoint(x: 17, y: 28)))
+        view.mouseUp(with: try makeMouseEvent(type: .leftMouseUp, at: CGPoint(x: 17, y: 28)))
+
+        XCTAssertNil(editedAnnotation)
+        XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertNil(state.inProgressAnnotation)
+        XCTAssertEqual(state.undoStack.undoCount, 1)
+
+        if case let .text(origin, _, _, _) = state.document.annotations[0].kind {
+            XCTAssertEqual(origin, CGPoint(x: 20, y: 20))
+        } else {
+            XCTFail("expected text")
+        }
+    }
+
+    func test_dragTextBodyMovesTextWithoutEditingOrCreatingText() throws {
+        let (annotation, state, view) = makeTextInteraction(initialTool: .text)
+        var editedAnnotation: Annotation?
+        view.onEditText = { editedAnnotation = $0 }
+
+        view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 20, y: 18)))
+        view.mouseDragged(with: try makeMouseEvent(type: .leftMouseDragged, at: CGPoint(x: 30, y: 28)))
+        view.mouseUp(with: try makeMouseEvent(type: .leftMouseUp, at: CGPoint(x: 30, y: 28)))
+
+        XCTAssertNil(editedAnnotation)
+        XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertEqual(state.document.annotations.count, 1)
+        XCTAssertNil(state.inProgressAnnotation)
+        XCTAssertEqual(state.undoStack.undoCount, 1)
+
+        if case let .text(origin, _, _, _) = state.document.annotations[0].kind {
+            XCTAssertEqual(origin, CGPoint(x: 20, y: 20))
+        } else {
+            XCTFail("expected text")
+        }
+    }
+
+    func test_clickNearTextBorderEdgeDoesNotCreateNewTextInTextTool() throws {
+        let (annotation, state, view) = makeTextInteraction(initialTool: .text)
+        var editedAnnotation: Annotation?
+        view.onEditText = { editedAnnotation = $0 }
+        let point = nearRightTextBorderEdgePoint(for: annotation)
+
+        view.mouseDown(with: try makeMouseDown(at: point))
+        view.mouseUp(with: try makeMouseEvent(type: .leftMouseUp, at: point))
+
+        XCTAssertNil(editedAnnotation)
+        XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertEqual(state.document.annotations.count, 1)
+        XCTAssertNil(state.inProgressAnnotation)
+        XCTAssertEqual(state.undoStack.undoCount, 0)
+    }
+
+    func test_clickNearEditingPreviewBorderDoesNotCreateNewTextInTextTool() throws {
+        let (annotation, state, view) = makeTextInteraction(initialTool: .text)
+        let preview = Annotation(
+            id: annotation.id,
+            kind: .text(
+                origin: CGPoint(x: 10, y: 10),
+                string: "Hello while actively editing a much wider value",
+                fontSize: 20,
+                color: CGColor(gray: 0, alpha: 1)
+            )
+        )
+        view.editingTextAnnotation = preview
+        var editedAnnotation: Annotation?
+        view.onEditText = { editedAnnotation = $0 }
+        let point = nearRightTextBorderEdgePoint(for: preview)
+
+        view.mouseDown(with: try makeMouseDown(at: point))
+        view.mouseUp(with: try makeMouseEvent(type: .leftMouseUp, at: point))
+
+        XCTAssertNil(editedAnnotation)
+        XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertEqual(state.document.annotations.count, 1)
+        XCTAssertNil(state.inProgressAnnotation)
+        XCTAssertEqual(state.undoStack.undoCount, 0)
+    }
+
+    func test_textHitTestCapturesBodyAndBorderForNonInteractiveTools() {
+        let fixture = makeTextInteraction(initialTool: .background)
+        let view = fixture.view
+
+        withExtendedLifetime(fixture.state) {
+            XCTAssertIdentical(view.hitTest(CGPoint(x: 7, y: 18)), view)
+            XCTAssertIdentical(view.hitTest(CGPoint(x: 20, y: 18)), view)
+            XCTAssertNil(view.hitTest(CGPoint(x: 70, y: 60)))
+        }
+    }
+
+    private func nearRightTextBorderEdgePoint(for annotation: Annotation) -> CGPoint {
+        let haloFrame = AnnotationGeometry
+            .boundingBox(annotation.kind)
+            .insetBy(dx: -3, dy: -3)
+        return CGPoint(x: haloFrame.maxX + 9, y: haloFrame.midY)
+    }
+
+    private func makeTextInteraction(initialTool: EditorTool) -> (
+        annotation: Annotation,
+        state: EditorState,
+        view: CanvasInteractionView
+    ) {
         let annotation = Annotation(
             kind: .text(
                 origin: CGPoint(x: 10, y: 10),
@@ -416,26 +520,22 @@ final class CanvasInteractionViewTests: XCTestCase {
             baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80),
             annotations: [annotation]
         )
-        let state = EditorState(document: document, initialTool: .text)
-        let view = CanvasInteractionView(frame: CGRect(x: 0, y: 0, width: 120, height: 40))
-        var editedAnnotation: Annotation?
+        let state = EditorState(document: document, initialTool: initialTool)
+        let view = CanvasInteractionView(frame: CGRect(origin: .zero, size: Self.interactionViewSize))
         view.state = state
         view.effectiveCrop = document.effectiveCrop
-        view.onEditText = { editedAnnotation = $0 }
-
-        view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 20, y: 18)))
-
-        XCTAssertEqual(editedAnnotation?.id, annotation.id)
-        XCTAssertEqual(state.selectedAnnotationID, annotation.id)
-        XCTAssertEqual(state.document.annotations.count, 1)
-        XCTAssertNil(state.inProgressAnnotation)
+        return (annotation, state, view)
     }
 
     private func makeMouseDown(at point: CGPoint) throws -> NSEvent {
+        try makeMouseEvent(type: .leftMouseDown, at: point)
+    }
+
+    private func makeMouseEvent(type: NSEvent.EventType, at point: CGPoint) throws -> NSEvent {
         try XCTUnwrap(
             NSEvent.mouseEvent(
-                with: .leftMouseDown,
-                location: point,
+                with: type,
+                location: CGPoint(x: point.x, y: Self.interactionViewSize.height - point.y),
                 modifierFlags: [],
                 timestamp: 0,
                 windowNumber: 0,
