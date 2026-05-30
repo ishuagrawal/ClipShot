@@ -61,6 +61,7 @@ final class CanvasCoordinator {
         interactionView.effectiveCrop = document.effectiveCrop
         textEditor.attach(state: state)
         textEditor.imageFrameOrigin = contentView.frame.origin
+        textEditor.syncEditingField(with: document, effectiveCrop: document.effectiveCrop)
 
         if !didApplyInitialZoom {
             didApplyInitialZoom = true

@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 @testable import ClipShot
 
@@ -120,5 +121,51 @@ final class AnnotationStateTests: XCTestCase {
 
         XCTAssertNil(state.selectedAnnotationID)
         XCTAssertFalse(state.isDetailPanelVisible)
+    }
+}
+
+@MainActor
+final class CanvasTextEditorTests: XCTestCase {
+
+    func test_syncEditingField_updatesActiveTextFieldFontAndFrame() throws {
+        let container = NSView(frame: CGRect(x: 0, y: 0, width: 300, height: 200))
+        let editor = CanvasTextEditor(container: container)
+        let annotation = Annotation(
+            kind: .text(
+                origin: CGPoint(x: 5, y: 5),
+                string: "Text",
+                fontSize: 12,
+                color: CGColor(gray: 0, alpha: 1)
+            )
+        )
+        var document = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
+            viewport: CGSize(width: 100, height: 100),
+            pageTitle: "t",
+            pageURL: "u",
+            baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80),
+            annotations: [annotation]
+        )
+        let state = EditorState(document: document)
+        editor.attach(state: state)
+        editor.imageFrameOrigin = CGPoint(x: 10, y: 20)
+        editor.beginEditing(annotation, effectiveCrop: document.effectiveCrop)
+
+        let textField = try XCTUnwrap(container.subviews.compactMap { $0 as? NSTextField }.first)
+        let initialFrame = textField.frame
+        textField.stringValue = "Current typed text"
+        document.annotations[0].kind = .text(
+            origin: CGPoint(x: 5, y: 5),
+            string: "Text",
+            fontSize: 36,
+            color: CGColor(gray: 0, alpha: 1)
+        )
+
+        editor.syncEditingField(with: document, effectiveCrop: document.effectiveCrop)
+
+        XCTAssertEqual(textField.stringValue, "Current typed text")
+        XCTAssertEqual(textField.font?.pointSize ?? 0, 36, accuracy: 0.1)
+        XCTAssertGreaterThan(textField.frame.width, initialFrame.width)
+        XCTAssertGreaterThan(textField.frame.height, initialFrame.height)
     }
 }

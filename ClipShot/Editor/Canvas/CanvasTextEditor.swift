@@ -26,31 +26,39 @@ final class CanvasTextEditor: NSObject, NSTextFieldDelegate {
               let container else { return }
         finishEditing()
 
-        let imageOrigin = CanvasGeometry.imagePixel(fromDocumentPoint: origin, effectiveCrop: effectiveCrop)
-        let box = AnnotationGeometry.textFrame(origin: origin, string: string, fontSize: fontSize)
-        let frame = CGRect(
-            x: imageFrameOrigin.x + imageOrigin.x,
-            y: imageFrameOrigin.y + imageOrigin.y,
-            width: max(box.width, fontSize * 4),
-            height: box.height
-        )
-
-        let textField = NSTextField(frame: frame)
+        let textField = NSTextField(frame: .zero)
         textField.isBordered = false
         textField.drawsBackground = true
         textField.backgroundColor = NSColor.white.withAlphaComponent(0.08)
         textField.focusRingType = .none
-        textField.font = NSFont(name: "Helvetica", size: fontSize) ?? NSFont.systemFont(ofSize: fontSize)
-        textField.textColor = NSColor(cgColor: color) ?? .red
         textField.stringValue = string
         textField.delegate = self
         textField.usesSingleLineMode = true
         textField.lineBreakMode = .byClipping
 
         container.addSubview(textField)
-        container.window?.makeFirstResponder(textField)
         field = textField
         editingID = annotation.id
+        syncTextField(textField, origin: origin, string: string, fontSize: fontSize, color: color, effectiveCrop: effectiveCrop)
+        container.window?.makeFirstResponder(textField)
+    }
+
+    func syncEditingField(with document: EditorDocument, effectiveCrop: CGRect) {
+        guard let textField = field, let id = editingID else { return }
+        guard let annotation = document.annotations.first(where: { $0.id == id }),
+              case let .text(origin, _, fontSize, color) = annotation.kind else {
+            cancelEditing()
+            return
+        }
+
+        syncTextField(
+            textField,
+            origin: origin,
+            string: textField.stringValue,
+            fontSize: fontSize,
+            color: color,
+            effectiveCrop: effectiveCrop
+        )
     }
 
     func finishEditing() {
@@ -75,5 +83,31 @@ final class CanvasTextEditor: NSObject, NSTextFieldDelegate {
 
     func controlTextDidEndEditing(_ obj: Notification) {
         finishEditing()
+    }
+
+    private func syncTextField(
+        _ textField: NSTextField,
+        origin: CGPoint,
+        string: String,
+        fontSize: CGFloat,
+        color: CGColor,
+        effectiveCrop: CGRect
+    ) {
+        let imageOrigin = CanvasGeometry.imagePixel(fromDocumentPoint: origin, effectiveCrop: effectiveCrop)
+        let box = AnnotationGeometry.textFrame(origin: origin, string: string, fontSize: fontSize)
+        textField.frame = CGRect(
+            x: imageFrameOrigin.x + imageOrigin.x,
+            y: imageFrameOrigin.y + imageOrigin.y,
+            width: max(box.width, fontSize * 4),
+            height: box.height
+        )
+        textField.font = NSFont(name: "Helvetica", size: fontSize) ?? NSFont.systemFont(ofSize: fontSize)
+        textField.textColor = NSColor(cgColor: color) ?? .red
+    }
+
+    private func cancelEditing() {
+        field?.removeFromSuperview()
+        field = nil
+        editingID = nil
     }
 }
