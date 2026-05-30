@@ -3,6 +3,8 @@ import AppKit
 @MainActor
 final class CanvasTextEditor: NSObject, NSTextFieldDelegate {
 
+    private nonisolated static let keyboardNudgeDistance: CGFloat = 3
+
     private weak var container: NSView?
     private weak var state: EditorState?
     private var field: NSTextField?
@@ -104,6 +106,27 @@ final class CanvasTextEditor: NSObject, NSTextFieldDelegate {
         syncEditingField(with: state.document, effectiveCrop: editingEffectiveCrop)
     }
 
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+        switch commandSelector {
+        case #selector(NSResponder.moveUp(_:)):
+            nudgeEditingText(by: CGSize(width: 0, height: -Self.keyboardNudgeDistance))
+            return true
+        case #selector(NSResponder.moveDown(_:)):
+            nudgeEditingText(by: CGSize(width: 0, height: Self.keyboardNudgeDistance))
+            return true
+        case #selector(NSResponder.moveLeft(_:)):
+            guard isCaretAtHorizontalBoundary(in: textView, movingLeft: true) else { return false }
+            nudgeEditingText(by: CGSize(width: -Self.keyboardNudgeDistance, height: 0))
+            return true
+        case #selector(NSResponder.moveRight(_:)):
+            guard isCaretAtHorizontalBoundary(in: textView, movingLeft: false) else { return false }
+            nudgeEditingText(by: CGSize(width: Self.keyboardNudgeDistance, height: 0))
+            return true
+        default:
+            return false
+        }
+    }
+
     private func syncTextField(
         _ textField: NSTextField,
         origin: CGPoint,
@@ -129,6 +152,39 @@ final class CanvasTextEditor: NSObject, NSTextFieldDelegate {
         field = nil
         editingID = nil
         onEditingPreviewChanged?(nil)
+    }
+
+    private func isCaretAtHorizontalBoundary(in textView: NSTextView, movingLeft: Bool) -> Bool {
+        let selectedRange = textView.selectedRange()
+        guard selectedRange.location != NSNotFound, selectedRange.length == 0 else { return false }
+
+        if movingLeft {
+            return selectedRange.location == 0
+        }
+
+        return selectedRange.location >= (textView.string as NSString).length
+    }
+
+    private func nudgeEditingText(by delta: CGSize) {
+        guard let id = editingID,
+              let state,
+              let index = state.document.annotations.firstIndex(where: { $0.id == id }),
+              case let .text(origin, string, fontSize, color) = state.document.annotations[index].kind else {
+            return
+        }
+
+        state.selectedAnnotationID = id
+        let nextKind = AnnotationGeometry.clamped(
+            .text(
+                origin: CGPoint(x: origin.x + delta.width, y: origin.y + delta.height),
+                string: string,
+                fontSize: fontSize,
+                color: color
+            ),
+            to: state.documentBounds
+        )
+        state.updateSelectedKind(nextKind)
+        syncEditingField(with: state.document, effectiveCrop: editingEffectiveCrop)
     }
 
     private func updateEditingPreview(with annotation: Annotation) {
