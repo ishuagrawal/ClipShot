@@ -6,44 +6,57 @@ struct BottomBarView: View {
     @ObservedObject var state: EditorState
 
     var body: some View {
-        HStack(spacing: 8) {
-            Group {
-                Button(action: { state.performUndo() }) {
-                    Image(systemName: "arrow.uturn.backward")
-                }
+        HStack(spacing: 6) {
+            BarIconButton(systemName: "arrow.uturn.backward") { state.performUndo() }
                 .accessibilityLabel("Undo")
                 .disabled(!state.undoStack.canUndo)
+                .opacity(state.undoStack.canUndo ? 1 : 0.35)
 
-                Button(action: { state.performRedo() }) {
-                    Image(systemName: "arrow.uturn.forward")
-                }
+            BarIconButton(systemName: "arrow.uturn.forward") { state.performRedo() }
                 .accessibilityLabel("Redo")
                 .disabled(!state.undoStack.canRedo)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
+                .opacity(state.undoStack.canRedo ? 1 : 0.35)
 
-            Divider().frame(height: 14)
+            barDivider
 
             ZoomControls()
 
-            Divider().frame(height: 14)
+            barDivider
 
             Button("Copy") { copyToClipboard() }
+                .buttonStyle(GhostButtonStyle())
                 .keyboardShortcut("c", modifiers: [.command])
 
             Button("Save") { save() }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(AccentButtonStyle())
                 .keyboardShortcut("s", modifiers: [.command])
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        .background {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [Theme.raisedTop, Theme.raisedBottom],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                )
         }
-        .shadow(color: .black.opacity(0.5), radius: 12, y: 6)
+        .overlay(alignment: .top) {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Theme.topHighlight, lineWidth: 1)
+                .mask(LinearGradient(colors: [.white, .clear], startPoint: .top, endPoint: .center))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.black.opacity(0.4), lineWidth: 1)
+                .mask(LinearGradient(colors: [.clear, .black], startPoint: .center, endPoint: .bottom))
+        }
+        .shadow(color: .black.opacity(0.55), radius: 18, y: 9)
+    }
+
+    private var barDivider: some View {
+        Rectangle().fill(Theme.hairline).frame(width: 1, height: 16)
     }
 
     private func copyToClipboard() {
@@ -98,14 +111,14 @@ private struct ZoomControls: View {
     // P0 placeholder: shows fixed "100%". Live zoom binding deferred to a follow-up —
     // wiring NSScrollView.magnification into SwiftUI adds risk to this PR.
     var body: some View {
-        HStack(spacing: 4) {
-            Button(action: {}) { Image(systemName: "minus") }
-            Text("100%").font(.system(size: 11, weight: .medium).monospacedDigit())
+        HStack(spacing: 2) {
+            BarIconButton(systemName: "minus")
+            Text("100%")
+                .font(Theme.mono(11, .semibold))
+                .foregroundStyle(Theme.textSecondary)
                 .frame(minWidth: 42)
-            Button(action: {}) { Image(systemName: "plus") }
+            BarIconButton(systemName: "plus")
         }
-        .buttonStyle(.plain)
-        .foregroundStyle(.secondary)
         .disabled(true)
         .help("Use trackpad pinch or ⌘+scroll to zoom (P0)")
     }

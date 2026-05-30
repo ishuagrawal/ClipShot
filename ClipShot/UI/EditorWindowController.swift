@@ -3,6 +3,8 @@ import SwiftUI
 
 @MainActor
 final class EditorWindowController {
+    private static let frameAutosaveName = NSWindow.FrameAutosaveName("ClipShotEditorWindow")
+
     private let store: DOMCaptureSessionStore
     private var window: NSWindow?
 
@@ -35,7 +37,10 @@ final class EditorWindowController {
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 860, height: 560)
         window.contentViewController = hostingController
-        window.center()
+        if !window.setFrameUsingName(Self.frameAutosaveName) {
+            window.center()
+        }
+        window.setFrameAutosaveName(Self.frameAutosaveName)
         return window
     }
 }

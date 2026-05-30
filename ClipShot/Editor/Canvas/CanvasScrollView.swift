@@ -12,10 +12,14 @@ final class CanvasScrollView: NSScrollView {
         }
     }
 
+    var viewportSizeDidChange: ((CGSize) -> Void)?
+    var userInteractionDidStart: (() -> Void)?
+
     /// Closure that fits the document into view. Held until the scroll view has a
     /// real laid-out size, then run exactly once (see `layout()`). Avoids fitting
     /// against a zero/placeholder size during the first render pass.
     private var pendingInitialFit: (() -> Void)?
+    private var lastReportedViewportSize: CGSize = .zero
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -35,8 +39,8 @@ final class CanvasScrollView: NSScrollView {
         minMagnification = 0.05
         maxMagnification = 16
         magnification = 1
-        hasHorizontalScroller = true
-        hasVerticalScroller = true
+        hasHorizontalScroller = false
+        hasVerticalScroller = false
         autohidesScrollers = true
         drawsBackground = true
         backgroundColor = NSColor(white: 0.04, alpha: 1)
@@ -51,16 +55,54 @@ final class CanvasScrollView: NSScrollView {
         needsLayout = true
     }
 
+    func magnify(toFitCenteredOn rect: CGRect) {
+        guard !rect.isNull, !rect.isEmpty else { return }
+        let viewportSize = viewportSizeForFitting
+        guard viewportSize.width > 0, viewportSize.height > 0 else { return }
+
+        let targetMagnification = Self.fitMagnification(
+            for: rect,
+            in: viewportSize,
+            limits: minMagnification...maxMagnification
+        )
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+
+        setMagnification(targetMagnification, centeredAt: center)
+        layoutSubtreeIfNeeded()
+        centerDocumentPoint(center)
+    }
+
+    nonisolated static func fitMagnification(
+        for rect: CGRect,
+        in viewportSize: CGSize,
+        limits: ClosedRange<CGFloat>
+    ) -> CGFloat {
+        guard !rect.isNull,
+              !rect.isEmpty,
+              viewportSize.width > 0,
+              viewportSize.height > 0 else {
+            return limits.lowerBound
+        }
+
+        let fit = min(viewportSize.width / rect.width, viewportSize.height / rect.height)
+        return fit.clamped(to: limits)
+    }
+
     override func layout() {
         super.layout()
-        guard bounds.width > 0, bounds.height > 0, let fit = pendingInitialFit else { return }
-        pendingInitialFit = nil
-        fit()
+        if bounds.width > 0, bounds.height > 0, let fit = pendingInitialFit {
+            pendingInitialFit = nil
+            fit()
+            lastReportedViewportSize = viewportSizeForFitting
+            return
+        }
+        reportViewportSizeIfNeeded()
     }
 
     // MARK: - Cmd+scroll zoom
 
     override func scrollWheel(with event: NSEvent) {
+        userInteractionDidStart?()
         guard event.modifierFlags.contains(.command) else {
             super.scrollWheel(with: event)
             return
@@ -76,6 +118,44 @@ final class CanvasScrollView: NSScrollView {
         let pointInDocument = documentView?.convert(event.locationInWindow, from: nil)
             ?? convert(event.locationInWindow, from: nil)
         setMagnification(newMag, centeredAt: pointInDocument)
+    }
+
+    override func magnify(with event: NSEvent) {
+        userInteractionDidStart?()
+        super.magnify(with: event)
+    }
+
+    override func smartMagnify(with event: NSEvent) {
+        userInteractionDidStart?()
+        super.smartMagnify(with: event)
+    }
+
+    private func centerDocumentPoint(_ point: CGPoint) {
+        var proposedBounds = contentView.bounds
+        proposedBounds.origin = CGPoint(
+            x: point.x - proposedBounds.width / 2,
+            y: point.y - proposedBounds.height / 2
+        )
+        let constrainedBounds = contentView.constrainBoundsRect(proposedBounds)
+        contentView.setBoundsOrigin(constrainedBounds.origin)
+        reflectScrolledClipView(contentView)
+    }
+
+    var viewportSizeForFitting: CGSize {
+        let frameSize = contentView.frame.size
+        if frameSize.width > 0, frameSize.height > 0 {
+            return frameSize
+        }
+        return bounds.size
+    }
+
+    private func reportViewportSizeIfNeeded() {
+        let size = viewportSizeForFitting
+        guard size.width > 0, size.height > 0 else { return }
+        guard !size.isAlmostEqual(to: lastReportedViewportSize) else { return }
+
+        lastReportedViewportSize = size
+        viewportSizeDidChange?(size)
     }
 
     // MARK: - Space-hold pan
@@ -126,5 +206,11 @@ private final class CenteringClipView: NSClipView {
 private extension Comparable {
     func clamped(to range: ClosedRange<Self>) -> Self {
         min(max(self, range.lowerBound), range.upperBound)
+    }
+}
+
+private extension CGSize {
+    func isAlmostEqual(to other: CGSize, accuracy: CGFloat = 0.5) -> Bool {
+        abs(width - other.width) <= accuracy && abs(height - other.height) <= accuracy
     }
 }

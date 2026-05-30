@@ -12,8 +12,25 @@ enum EditorTool: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    /// P0: only Select is enabled. Others are scaffolded but inert.
-    var isEnabledInP0: Bool { self == .select }
+    /// Tools shipped so far: Select (P0), Padding + Background (P1).
+    var isEnabled: Bool {
+        switch self {
+        case .select, .padding, .background:
+            return true
+        case .arrow, .rectangle, .text, .blur:
+            return false
+        }
+    }
+
+    /// Whether this tool exposes controls in the sidebar detail panel.
+    var hasDetailPanel: Bool {
+        switch self {
+        case .select:
+            return false
+        case .padding, .background, .arrow, .rectangle, .text, .blur:
+            return true
+        }
+    }
 
     var symbolName: String {
         switch self {
@@ -41,9 +58,8 @@ enum EditorTool: String, CaseIterable, Identifiable {
 
     var comingSoonNote: String {
         switch self {
-        case .select:     return ""
-        case .padding:    return "Coming in P1"
-        case .background: return "Coming in P1"
+        case .select, .padding, .background:
+            return ""
         case .arrow:      return "Coming in P2"
         case .rectangle:  return "Coming in P2"
         case .text:       return "Coming in P2"
@@ -56,6 +72,7 @@ enum EditorTool: String, CaseIterable, Identifiable {
 final class EditorState: ObservableObject {
     @Published var document: EditorDocument
     @Published var activeTool: EditorTool = .select
+    @Published var isDetailPanelExpanded: Bool = true
     /// In-progress annotation being drawn. Unused in P0 (always nil).
     @Published var inProgressAnnotation: Annotation? = nil
     /// Selected annotation id. Unused in P0.
@@ -63,8 +80,12 @@ final class EditorState: ObservableObject {
 
     let undoStack = UndoStack()
 
-    init(document: EditorDocument) {
+    init(document: EditorDocument, initialTool: EditorTool = .select) {
         self.document = document
+        if initialTool.isEnabled {
+            activeTool = initialTool
+            isDetailPanelExpanded = initialTool.hasDetailPanel
+        }
     }
 
     func performUndo() {
@@ -77,5 +98,27 @@ final class EditorState: ObservableObject {
 
     func performCommand(_ command: EditorCommand) {
         undoStack.push(command, apply: { $0.apply(to: &document) })
+    }
+
+    /// Selecting a new enabled tool activates it and expands its panel; re-selecting
+    /// the active tool toggles the panel. Disabled tools are ignored.
+    func selectTool(_ tool: EditorTool) {
+        guard tool.isEnabled else { return }
+        if activeTool == tool {
+            if tool.hasDetailPanel {
+                isDetailPanelExpanded.toggle()
+            }
+        } else {
+            activeTool = tool
+            isDetailPanelExpanded = true
+        }
+    }
+
+    func toggleDetailPanel() {
+        isDetailPanelExpanded.toggle()
+    }
+
+    var isDetailPanelVisible: Bool {
+        activeTool.hasDetailPanel && isDetailPanelExpanded
     }
 }

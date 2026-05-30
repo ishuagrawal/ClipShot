@@ -67,4 +67,63 @@ final class DocumentRendererTests: XCTestCase {
         XCTAssertEqual(renderedBuf.height, expectedBuf.height)
         XCTAssertEqual(renderedBuf.pixels, expectedBuf.pixels)
     }
+
+    func test_render_outputSize_includesPadding() throws {
+        let image = try XCTUnwrap(DocumentRenderer.render(paddedDoc(padding: 10, background: .none)))
+        XCTAssertEqual(image.width, 100)
+        XCTAssertEqual(image.height, 80)
+    }
+
+    func test_render_noneBackground_marginIsTransparent() throws {
+        let image = try XCTUnwrap(DocumentRenderer.render(paddedDoc(padding: 10, background: .none)))
+        let buffer = try XCTUnwrap(PixelBuffer.decode(image))
+        XCTAssertEqual(buffer.pixels[3], 0, "top-left margin alpha must be 0 for .none")
+    }
+
+    func test_render_solidBackground_fillsMarginAndKeepsScreenshot() throws {
+        let blue = CGColor(red: 0, green: 0, blue: 1, alpha: 1)
+        let image = try XCTUnwrap(DocumentRenderer.render(paddedDoc(padding: 10, background: .solidColor(blue))))
+        let buffer = try XCTUnwrap(PixelBuffer.decode(image))
+
+        XCTAssertEqual(Int(buffer.pixels[2]), 255, accuracy: 2)
+        XCTAssertEqual(Int(buffer.pixels[3]), 255)
+
+        let padding = 10
+        let inside = padding * buffer.bytesPerRow + padding * 4
+        XCTAssertEqual(Int(buffer.pixels[inside]), 255, accuracy: 2)
+        XCTAssertEqual(Int(buffer.pixels[inside + 2]), 0, accuracy: 2)
+    }
+
+    func test_render_gradientBackground_marginIsOpaque() throws {
+        let start = CGColor(red: 0, green: 0, blue: 0, alpha: 1)
+        let end = CGColor(red: 1, green: 1, blue: 1, alpha: 1)
+        let image = try XCTUnwrap(
+            DocumentRenderer.render(
+                paddedDoc(
+                    padding: 20,
+                    background: .gradient(start: start, end: end, angleDegrees: 90)
+                )
+            )
+        )
+        let buffer = try XCTUnwrap(PixelBuffer.decode(image))
+        XCTAssertEqual(buffer.pixels[3], 255, "gradient margin must be opaque")
+    }
+
+    func test_render_blurExtendBackground_marginIsOpaque() throws {
+        let image = try XCTUnwrap(DocumentRenderer.render(paddedDoc(padding: 20, background: .blurExtend(radius: 12))))
+        let buffer = try XCTUnwrap(PixelBuffer.decode(image))
+        XCTAssertEqual(buffer.pixels[3], 255, "blur-extend margin must be opaque")
+    }
+
+    private func paddedDoc(padding: CGFloat, background: BackgroundStyle) -> EditorDocument {
+        EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 200, height: 200)),
+            viewport: CGSize(width: 200, height: 200),
+            pageTitle: "t",
+            pageURL: "u",
+            baseSelection: CGRect(x: 50, y: 50, width: 80, height: 60),
+            padding: PaddingConfig(top: padding, right: padding, bottom: padding, left: padding),
+            background: background
+        )
+    }
 }
