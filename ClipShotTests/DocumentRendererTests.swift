@@ -115,6 +115,73 @@ final class DocumentRendererTests: XCTestCase {
         XCTAssertEqual(buffer.pixels[3], 255, "blur-extend margin must be opaque")
     }
 
+    func test_render_arrow_overridesScreenshotPixels() throws {
+        var doc = paddedDoc(padding: 0, background: .none)
+        doc.annotations = [
+            Annotation(
+                kind: .arrow(
+                    from: CGPoint(x: 5, y: 5),
+                    to: CGPoint(x: 70, y: 50),
+                    color: CGColor(red: 0, green: 0, blue: 1, alpha: 1),
+                    weight: 8
+                )
+            )
+        ]
+
+        let image = try XCTUnwrap(DocumentRenderer.render(doc))
+        let buffer = try XCTUnwrap(PixelBuffer.decode(image))
+        let midX = 37
+        let midY = 27
+        let index = midY * buffer.bytesPerRow + midX * 4
+
+        XCTAssertEqual(Int(buffer.pixels[index + 3]), 255)
+        XCTAssertLessThan(Int(buffer.pixels[index]), 80)
+        XCTAssertGreaterThan(Int(buffer.pixels[index + 2]), 150)
+    }
+
+    func test_render_rect_strokeChangesEdgePixels() throws {
+        var doc = paddedDoc(padding: 0, background: .none)
+        doc.annotations = [
+            Annotation(
+                kind: .rect(
+                    frame: CGRect(x: 10, y: 10, width: 50, height: 30),
+                    stroke: CGColor(red: 0, green: 1, blue: 0, alpha: 1),
+                    fill: nil,
+                    weight: 4,
+                    cornerRadius: 0
+                )
+            )
+        ]
+
+        let image = try XCTUnwrap(DocumentRenderer.render(doc))
+        let buffer = try XCTUnwrap(PixelBuffer.decode(image))
+        let index = 10 * buffer.bytesPerRow + 30 * 4
+
+        XCTAssertGreaterThan(Int(buffer.pixels[index + 1]), 150)
+    }
+
+    func test_render_annotationsDoNotChangeOutputSize() throws {
+        var doc = paddedDoc(
+            padding: 10,
+            background: .solidColor(CGColor(red: 0, green: 0, blue: 0, alpha: 1))
+        )
+        let before = try XCTUnwrap(DocumentRenderer.render(doc))
+        doc.annotations = [
+            Annotation(
+                kind: .text(
+                    origin: CGPoint(x: 5, y: 5),
+                    string: "Hi",
+                    fontSize: 18,
+                    color: CGColor(gray: 1, alpha: 1)
+                )
+            )
+        ]
+        let after = try XCTUnwrap(DocumentRenderer.render(doc))
+
+        XCTAssertEqual(before.width, after.width)
+        XCTAssertEqual(before.height, after.height)
+    }
+
     private func paddedDoc(padding: CGFloat, background: BackgroundStyle) -> EditorDocument {
         EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 200, height: 200)),

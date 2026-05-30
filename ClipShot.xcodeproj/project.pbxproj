@@ -43,8 +43,23 @@
 		01A000000000000000000211 /* SetBackgroundCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000211 /* SetBackgroundCommand.swift */; };
 		01A000000000000000000212 /* PaddingToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000212 /* PaddingToolView.swift */; };
 		01A000000000000000000213 /* BackgroundToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000213 /* BackgroundToolView.swift */; };
+		01A000000000000000000216 /* CanvasGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000216 /* CanvasGeometry.swift */; };
+		01A000000000000000000217 /* AnnotationGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000217 /* AnnotationGeometry.swift */; };
+		01A000000000000000000218 /* AddAnnotationCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000218 /* AddAnnotationCommand.swift */; };
+		01A000000000000000000219 /* RemoveAnnotationCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000219 /* RemoveAnnotationCommand.swift */; };
+		01A00000000000000000021A /* MoveAnnotationCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000021A /* MoveAnnotationCommand.swift */; };
+		01A00000000000000000021B /* CanvasInteractionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000021B /* CanvasInteractionView.swift */; };
+		01A00000000000000000021C /* CanvasTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000021C /* CanvasTextEditor.swift */; };
+		01A00000000000000000021D /* SelectToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000021D /* SelectToolView.swift */; };
+		01A00000000000000000021E /* ArrowToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000021E /* ArrowToolView.swift */; };
+		01A00000000000000000021F /* RectangleToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000021F /* RectangleToolView.swift */; };
+		01A000000000000000000220 /* TextToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000220 /* TextToolView.swift */; };
 		01A000000000000000000305 /* CommandTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000305 /* CommandTests.swift */; };
 		01A000000000000000000306 /* SidebarModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000306 /* SidebarModelTests.swift */; };
+		01A000000000000000000307 /* AnnotationGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000307 /* AnnotationGeometryTests.swift */; };
+		01A000000000000000000308 /* CoordinateConversionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000308 /* CoordinateConversionTests.swift */; };
+		01A000000000000000000309 /* AnnotationCommandTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000309 /* AnnotationCommandTests.swift */; };
+		01A00000000000000000030A /* AnnotationStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000030A /* AnnotationStateTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -83,12 +98,27 @@
 		01B000000000000000000211 /* SetBackgroundCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetBackgroundCommand.swift; sourceTree = "<group>"; };
 		01B000000000000000000212 /* PaddingToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaddingToolView.swift; sourceTree = "<group>"; };
 		01B000000000000000000213 /* BackgroundToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundToolView.swift; sourceTree = "<group>"; };
+		01B000000000000000000216 /* CanvasGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasGeometry.swift; sourceTree = "<group>"; };
+		01B000000000000000000217 /* AnnotationGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnotationGeometry.swift; sourceTree = "<group>"; };
+		01B000000000000000000218 /* AddAnnotationCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddAnnotationCommand.swift; sourceTree = "<group>"; };
+		01B000000000000000000219 /* RemoveAnnotationCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoveAnnotationCommand.swift; sourceTree = "<group>"; };
+		01B00000000000000000021A /* MoveAnnotationCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoveAnnotationCommand.swift; sourceTree = "<group>"; };
+		01B00000000000000000021B /* CanvasInteractionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasInteractionView.swift; sourceTree = "<group>"; };
+		01B00000000000000000021C /* CanvasTextEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasTextEditor.swift; sourceTree = "<group>"; };
+		01B00000000000000000021D /* SelectToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectToolView.swift; sourceTree = "<group>"; };
+		01B00000000000000000021E /* ArrowToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArrowToolView.swift; sourceTree = "<group>"; };
+		01B00000000000000000021F /* RectangleToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RectangleToolView.swift; sourceTree = "<group>"; };
+		01B000000000000000000220 /* TextToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextToolView.swift; sourceTree = "<group>"; };
 		01B000000000000000000301 /* EditorDocumentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorDocumentTests.swift; sourceTree = "<group>"; };
 		01B000000000000000000302 /* UndoStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UndoStackTests.swift; sourceTree = "<group>"; };
 		01B000000000000000000303 /* FixtureDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixtureDocument.swift; sourceTree = "<group>"; };
 		01B000000000000000000304 /* DocumentRendererTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentRendererTests.swift; sourceTree = "<group>"; };
 		01B000000000000000000305 /* CommandTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandTests.swift; sourceTree = "<group>"; };
 		01B000000000000000000306 /* SidebarModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarModelTests.swift; sourceTree = "<group>"; };
+		01B000000000000000000307 /* AnnotationGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnotationGeometryTests.swift; sourceTree = "<group>"; };
+		01B000000000000000000308 /* CoordinateConversionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoordinateConversionTests.swift; sourceTree = "<group>"; };
+		01B000000000000000000309 /* AnnotationCommandTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnotationCommandTests.swift; sourceTree = "<group>"; };
+		01B00000000000000000030A /* AnnotationStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnotationStateTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -122,15 +152,19 @@
 		};
 		01D000000000000000000100 /* ClipShotTests */ = {
 			isa = PBXGroup;
-			children = (
-				01D000000000000000000101 /* Helpers */,
-				01B000000000000000000102 /* SanityTest.swift */,
-				01B000000000000000000301 /* EditorDocumentTests.swift */,
-				01B000000000000000000302 /* UndoStackTests.swift */,
-				01B000000000000000000304 /* DocumentRendererTests.swift */,
-				01B000000000000000000305 /* CommandTests.swift */,
-				01B000000000000000000306 /* SidebarModelTests.swift */,
-			);
+				children = (
+					01D000000000000000000101 /* Helpers */,
+					01B000000000000000000102 /* SanityTest.swift */,
+					01B000000000000000000301 /* EditorDocumentTests.swift */,
+					01B000000000000000000302 /* UndoStackTests.swift */,
+					01B000000000000000000304 /* DocumentRendererTests.swift */,
+					01B000000000000000000305 /* CommandTests.swift */,
+					01B000000000000000000306 /* SidebarModelTests.swift */,
+					01B000000000000000000307 /* AnnotationGeometryTests.swift */,
+					01B000000000000000000308 /* CoordinateConversionTests.swift */,
+					01B000000000000000000309 /* AnnotationCommandTests.swift */,
+					01B00000000000000000030A /* AnnotationStateTests.swift */,
+				);
 			path = ClipShotTests;
 			sourceTree = "<group>";
 		};
@@ -176,13 +210,17 @@
 			children = (
 				01B000000000000000000201 /* EditorDocument.swift */,
 				01B000000000000000000202 /* PaddingConfig.swift */,
-				01B000000000000000000203 /* BackgroundStyle.swift */,
-				01B000000000000000000204 /* Annotation.swift */,
-				01B000000000000000000205 /* EditorCommand.swift */,
-				01B000000000000000000206 /* UndoStack.swift */,
-				01B000000000000000000210 /* SetPaddingCommand.swift */,
-				01B000000000000000000211 /* SetBackgroundCommand.swift */,
-			);
+					01B000000000000000000203 /* BackgroundStyle.swift */,
+					01B000000000000000000204 /* Annotation.swift */,
+					01B000000000000000000217 /* AnnotationGeometry.swift */,
+					01B000000000000000000205 /* EditorCommand.swift */,
+					01B000000000000000000206 /* UndoStack.swift */,
+					01B000000000000000000210 /* SetPaddingCommand.swift */,
+					01B000000000000000000211 /* SetBackgroundCommand.swift */,
+					01B000000000000000000218 /* AddAnnotationCommand.swift */,
+					01B000000000000000000219 /* RemoveAnnotationCommand.swift */,
+					01B00000000000000000021A /* MoveAnnotationCommand.swift */,
+				);
 			path = Document;
 			sourceTree = "<group>";
 		};
@@ -191,10 +229,13 @@
 			children = (
 				01B000000000000000000209 /* CanvasContentView.swift */,
 				01B00000000000000000020A /* CanvasOverlayView.swift */,
-				01B00000000000000000020B /* CanvasScrollView.swift */,
-				01B00000000000000000020C /* CanvasCoordinator.swift */,
-				01B00000000000000000020D /* CanvasView.swift */,
-			);
+					01B00000000000000000020B /* CanvasScrollView.swift */,
+					01B00000000000000000020C /* CanvasCoordinator.swift */,
+					01B00000000000000000020D /* CanvasView.swift */,
+					01B000000000000000000216 /* CanvasGeometry.swift */,
+					01B00000000000000000021B /* CanvasInteractionView.swift */,
+					01B00000000000000000021C /* CanvasTextEditor.swift */,
+				);
 			path = Canvas;
 			sourceTree = "<group>";
 		};
@@ -210,10 +251,14 @@
 			isa = PBXGroup;
 			children = (
 				01B00000000000000000020F /* ToolSidebarView.swift */,
-				01B000000000000000000215 /* TopToolBarView.swift */,
-				01B000000000000000000212 /* PaddingToolView.swift */,
-				01B000000000000000000213 /* BackgroundToolView.swift */,
-			);
+					01B000000000000000000215 /* TopToolBarView.swift */,
+					01B000000000000000000212 /* PaddingToolView.swift */,
+					01B000000000000000000213 /* BackgroundToolView.swift */,
+					01B00000000000000000021D /* SelectToolView.swift */,
+					01B00000000000000000021E /* ArrowToolView.swift */,
+					01B00000000000000000021F /* RectangleToolView.swift */,
+					01B000000000000000000220 /* TextToolView.swift */,
+				);
 			path = Tools;
 			sourceTree = "<group>";
 		};
@@ -348,6 +393,7 @@
 				01A000000000000000000202 /* PaddingConfig.swift in Sources */,
 				01A000000000000000000203 /* BackgroundStyle.swift in Sources */,
 				01A000000000000000000204 /* Annotation.swift in Sources */,
+				01A000000000000000000217 /* AnnotationGeometry.swift in Sources */,
 				01A000000000000000000205 /* EditorCommand.swift in Sources */,
 				01A000000000000000000206 /* UndoStack.swift in Sources */,
 				01A000000000000000000207 /* EditorState.swift in Sources */,
@@ -357,13 +403,23 @@
 				01A00000000000000000020B /* CanvasScrollView.swift in Sources */,
 				01A00000000000000000020C /* CanvasCoordinator.swift in Sources */,
 				01A00000000000000000020D /* CanvasView.swift in Sources */,
+				01A000000000000000000216 /* CanvasGeometry.swift in Sources */,
+				01A00000000000000000021B /* CanvasInteractionView.swift in Sources */,
+				01A00000000000000000021C /* CanvasTextEditor.swift in Sources */,
 				01A00000000000000000020E /* BottomBarView.swift in Sources */,
 				01A00000000000000000020F /* ToolSidebarView.swift in Sources */,
 				01A000000000000000000215 /* TopToolBarView.swift in Sources */,
 				01A000000000000000000210 /* SetPaddingCommand.swift in Sources */,
 				01A000000000000000000211 /* SetBackgroundCommand.swift in Sources */,
+				01A000000000000000000218 /* AddAnnotationCommand.swift in Sources */,
+				01A000000000000000000219 /* RemoveAnnotationCommand.swift in Sources */,
+				01A00000000000000000021A /* MoveAnnotationCommand.swift in Sources */,
 				01A000000000000000000212 /* PaddingToolView.swift in Sources */,
 				01A000000000000000000213 /* BackgroundToolView.swift in Sources */,
+				01A00000000000000000021D /* SelectToolView.swift in Sources */,
+				01A00000000000000000021E /* ArrowToolView.swift in Sources */,
+				01A00000000000000000021F /* RectangleToolView.swift in Sources */,
+				01A000000000000000000220 /* TextToolView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -379,6 +435,10 @@
 				01A000000000000000000304 /* DocumentRendererTests.swift in Sources */,
 				01A000000000000000000305 /* CommandTests.swift in Sources */,
 				01A000000000000000000306 /* SidebarModelTests.swift in Sources */,
+				01A000000000000000000307 /* AnnotationGeometryTests.swift in Sources */,
+				01A000000000000000000308 /* CoordinateConversionTests.swift in Sources */,
+				01A000000000000000000309 /* AnnotationCommandTests.swift in Sources */,
+				01A00000000000000000030A /* AnnotationStateTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

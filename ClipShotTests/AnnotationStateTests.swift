@@ -1,0 +1,124 @@
+import XCTest
+@testable import ClipShot
+
+@MainActor
+final class AnnotationStateTests: XCTestCase {
+
+    private func makeState() -> EditorState {
+        EditorState(
+            document: EditorDocument(
+                screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
+                viewport: CGSize(width: 100, height: 100),
+                pageTitle: "t",
+                pageURL: "u",
+                baseSelection: CGRect(x: 10, y: 10, width: 40, height: 40)
+            )
+        )
+    }
+
+    func test_drawArrow_commitPushesAnnotationAndSelects() {
+        let state = makeState()
+        state.activeTool = .arrow
+
+        state.beginDraw(at: CGPoint(x: 5, y: 5))
+        state.updateDraw(to: CGPoint(x: 30, y: 20), shiftSnap: false)
+        XCTAssertNotNil(state.inProgressAnnotation)
+        let committed = state.commitDraw()
+
+        XCTAssertNotNil(committed)
+        XCTAssertNil(state.inProgressAnnotation)
+        XCTAssertEqual(state.document.annotations.count, 1)
+        XCTAssertEqual(state.selectedAnnotationID, committed?.id)
+        XCTAssertTrue(state.undoStack.canUndo)
+    }
+
+    func test_drawArrow_degenerateDiscarded() {
+        let state = makeState()
+        state.activeTool = .arrow
+
+        state.beginDraw(at: CGPoint(x: 5, y: 5))
+        state.updateDraw(to: CGPoint(x: 6, y: 6), shiftSnap: false)
+
+        XCTAssertNil(state.commitDraw())
+        XCTAssertEqual(state.document.annotations.count, 0)
+    }
+
+    func test_drawRect_clampsToDocumentBounds() {
+        let state = makeState()
+        state.activeTool = .rectangle
+
+        state.beginDraw(at: CGPoint(x: 5, y: 5))
+        state.updateDraw(to: CGPoint(x: 999, y: 999), shiftSnap: false)
+
+        if case let .rect(frame, _, _, _, _) = state.inProgressAnnotation?.kind {
+            XCTAssertLessThanOrEqual(frame.maxX, state.documentBounds.maxX + 0.5)
+            XCTAssertLessThanOrEqual(frame.maxY, state.documentBounds.maxY + 0.5)
+        } else {
+            XCTFail("expected rect")
+        }
+    }
+
+    func test_selectAndDelete_removesAndUndoRestores() {
+        let state = makeState()
+        state.activeTool = .arrow
+        state.beginDraw(at: CGPoint(x: 5, y: 5))
+        state.updateDraw(to: CGPoint(x: 30, y: 30), shiftSnap: false)
+        let annotation = state.commitDraw()!
+
+        state.selectAnnotation(at: CGPoint(x: 17, y: 17))
+        XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+        state.deleteSelectedAnnotation()
+        XCTAssertEqual(state.document.annotations.count, 0)
+        state.performUndo()
+        XCTAssertEqual(state.document.annotations.count, 1)
+    }
+
+    func test_move_commitsSingleUndoEntry() {
+        let state = makeState()
+        state.activeTool = .arrow
+        state.beginDraw(at: CGPoint(x: 5, y: 5))
+        state.updateDraw(to: CGPoint(x: 25, y: 25), shiftSnap: false)
+        _ = state.commitDraw()
+        let undoBefore = state.undoStack.undoCount
+
+        state.beginMoveSelected()
+        state.moveSelected(by: CGSize(width: 3, height: 3))
+        state.moveSelected(by: CGSize(width: 6, height: 6))
+        state.commitMoveSelected()
+
+        XCTAssertEqual(state.undoStack.undoCount, undoBefore + 1)
+        state.performUndo()
+        if case let .arrow(from, _, _, _) = state.document.annotations[0].kind {
+            XCTAssertEqual(from, CGPoint(x: 5, y: 5))
+        } else {
+            XCTFail("expected arrow")
+        }
+    }
+
+    func test_selectToolPanelVisible_onlyWithSelection() {
+        let state = makeState()
+        state.activeTool = .select
+        XCTAssertFalse(state.isDetailPanelVisible)
+
+        state.activeTool = .arrow
+        state.beginDraw(at: CGPoint(x: 5, y: 5))
+        state.updateDraw(to: CGPoint(x: 25, y: 25), shiftSnap: false)
+        _ = state.commitDraw()
+        state.activeTool = .select
+
+        XCTAssertTrue(state.isDetailPanelVisible)
+    }
+
+    func test_undoAddClearsStaleSelection() {
+        let state = makeState()
+        state.activeTool = .arrow
+        state.beginDraw(at: CGPoint(x: 5, y: 5))
+        state.updateDraw(to: CGPoint(x: 25, y: 25), shiftSnap: false)
+        _ = state.commitDraw()
+
+        state.performUndo()
+
+        XCTAssertNil(state.selectedAnnotationID)
+        XCTAssertFalse(state.isDetailPanelVisible)
+    }
+}

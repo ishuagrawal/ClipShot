@@ -7,9 +7,9 @@ struct TopToolBarView: View {
     @ObservedObject var state: EditorState
     @Namespace private var indicator
 
-    /// Tools shown as tabs: those shipped *and* carrying a detail panel (Layout, Background).
+    /// Tools shown as tabs: shipped controls plus Select.
     private var tabs: [EditorTool] {
-        EditorTool.allCases.filter { $0.isEnabled && $0.hasDetailPanel }
+        EditorTool.allCases.filter { $0.isToolbarTab }
     }
 
     var body: some View {
@@ -25,6 +25,17 @@ struct TopToolBarView: View {
                 }
             }
             Spacer(minLength: 0)
+            Group {
+                shortcutButton("v", .select)
+                shortcutButton("p", .padding)
+                shortcutButton("b", .background)
+                shortcutButton("a", .arrow)
+                shortcutButton("r", .rectangle)
+                shortcutButton("t", .text)
+            }
+            .frame(width: 0, height: 0)
+            .opacity(0)
+            .accessibilityHidden(true)
         }
         .padding(.horizontal, 14)
         .frame(height: 50)
@@ -36,10 +47,20 @@ struct TopToolBarView: View {
     /// Bar labels lean toward the editor verb rather than the model field name.
     static func tabLabel(_ tool: EditorTool) -> String {
         switch tool {
+        case .select:     return "Select"
         case .padding:    return "Layout"
         case .background: return "Background"
-        default:          return tool.displayName
+        case .arrow:      return "Arrow"
+        case .rectangle:  return "Rectangle"
+        case .text:       return "Text"
+        case .blur:       return "Blur"
         }
+    }
+
+    private func shortcutButton(_ key: KeyEquivalent, _ tool: EditorTool) -> some View {
+        Button("") { state.selectTool(tool) }
+            .buttonStyle(.plain)
+            .keyboardShortcut(key, modifiers: [])
     }
 }
 

@@ -100,7 +100,7 @@ final class SidebarModelTests: XCTestCase {
 
     func testDisabledToolIsIgnored() {
         let state = makeState()
-        state.selectTool(.arrow)
+        state.selectTool(.blur)
         XCTAssertEqual(state.activeTool, .select)
     }
 

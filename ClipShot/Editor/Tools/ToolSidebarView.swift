@@ -50,10 +50,18 @@ struct ToolSidebarView: View {
     @ViewBuilder
     private var controls: some View {
         switch state.activeTool {
+        case .select:
+            SelectToolView(state: state)
         case .padding:
             PaddingToolView(state: state)
         case .background:
             BackgroundToolView(state: state)
+        case .arrow:
+            ArrowToolView(state: state)
+        case .rectangle:
+            RectangleToolView(state: state)
+        case .text:
+            TextToolView(state: state)
         default:
             EmptyView()
         }
