@@ -20,11 +20,16 @@ struct ArrowToolView: View {
             HStack(spacing: 10) {
                 rowLabel("Weight")
                 GraphiteSlider(
-                    value: $weight,
+                    value: Binding(
+                        get: { weight },
+                        set: { newValue in
+                            weight = newValue
+                            apply()
+                        }
+                    ),
                     range: 1...18,
                     accessibilityLabel: "Arrow weight",
-                    accessibilityValue: { "\(Int($0.rounded())) pixels" },
-                    onEditingChanged: { if !$0 { apply() } }
+                    accessibilityValue: { "\(Int($0.rounded())) pixels" }
                 )
                 valueLabel("\(Int(weight.rounded()))")
             }

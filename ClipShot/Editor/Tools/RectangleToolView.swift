@@ -34,22 +34,32 @@ struct RectangleToolView: View {
             HStack(spacing: 10) {
                 rowLabel("Weight")
                 GraphiteSlider(
-                    value: $weight,
+                    value: Binding(
+                        get: { weight },
+                        set: { newValue in
+                            weight = newValue
+                            apply()
+                        }
+                    ),
                     range: 1...18,
                     accessibilityLabel: "Rectangle stroke weight",
-                    accessibilityValue: { "\(Int($0.rounded())) pixels" },
-                    onEditingChanged: { if !$0 { apply() } }
+                    accessibilityValue: { "\(Int($0.rounded())) pixels" }
                 )
                 valueLabel("\(Int(weight.rounded()))")
             }
             HStack(spacing: 10) {
                 rowLabel("Corner")
                 GraphiteSlider(
-                    value: $corner,
+                    value: Binding(
+                        get: { corner },
+                        set: { newValue in
+                            corner = newValue
+                            apply()
+                        }
+                    ),
                     range: 0...36,
                     accessibilityLabel: "Rectangle corner radius",
-                    accessibilityValue: { "\(Int($0.rounded())) pixels" },
-                    onEditingChanged: { if !$0 { apply() } }
+                    accessibilityValue: { "\(Int($0.rounded())) pixels" }
                 )
                 valueLabel("\(Int(corner.rounded()))")
             }

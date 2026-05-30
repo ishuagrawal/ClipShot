@@ -20,11 +20,16 @@ struct TextToolView: View {
             HStack(spacing: 10) {
                 rowLabel("Size")
                 GraphiteSlider(
-                    value: $size,
+                    value: Binding(
+                        get: { size },
+                        set: { newValue in
+                            size = newValue
+                            apply()
+                        }
+                    ),
                     range: 8...96,
                     accessibilityLabel: "Font size",
-                    accessibilityValue: { "\(Int($0.rounded())) points" },
-                    onEditingChanged: { if !$0 { apply() } }
+                    accessibilityValue: { "\(Int($0.rounded())) points" }
                 )
                 valueLabel("\(Int(size.rounded()))")
             }

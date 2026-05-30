@@ -74,11 +74,15 @@ struct PaddingToolView: View {
     private func field(_ side: PaddingSide) -> some View {
         TextField(
             "",
-            value: Binding(
-                get: { Int(value(of: side)) },
-                set: { setSide(side, to: CGFloat($0)) }
+            text: Binding(
+                get: { "\(Int(value(of: side).rounded()))" },
+                set: { rawValue in
+                    if let value = parsePadding(rawValue) {
+                        setSide(side, to: CGFloat(value))
+                    }
+                }
             ),
-            format: .number
+            prompt: Text("")
         )
         .textFieldStyle(.plain)
         .font(Theme.mono(12, .semibold))
@@ -150,6 +154,12 @@ struct PaddingToolView: View {
     private func setSide(_ side: PaddingSide, to value: CGFloat) {
         let next = linked ? PaddingConfig.uniform(value) : padding.setting(side, to: value)
         commit(next)
+    }
+
+    private func parsePadding(_ rawValue: String) -> Int? {
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let value = Int(trimmed) else { return nil }
+        return value
     }
 
     private func setLive(_ next: PaddingConfig) {

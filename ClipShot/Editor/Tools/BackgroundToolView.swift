@@ -156,11 +156,16 @@ struct BackgroundToolView: View {
                 HStack(spacing: 10) {
                     rowLabel("Angle")
                     GraphiteSlider(
-                        value: $gradientAngle,
+                        value: Binding(
+                            get: { gradientAngle },
+                            set: { newValue in
+                                gradientAngle = newValue
+                                applyGradient()
+                            }
+                        ),
                         range: 0...360,
                         accessibilityLabel: "Gradient angle",
-                        accessibilityValue: { "\(Int($0.rounded())) degrees" },
-                        onEditingChanged: { if !$0 { applyGradient() } }
+                        accessibilityValue: { "\(Int($0.rounded())) degrees" }
                     )
                     valueLabel("\(Int(gradientAngle))°")
                 }
@@ -169,11 +174,16 @@ struct BackgroundToolView: View {
             HStack(spacing: 10) {
                 rowLabel("Radius")
                 GraphiteSlider(
-                    value: $blurRadius,
+                    value: Binding(
+                        get: { blurRadius },
+                        set: { newValue in
+                            blurRadius = newValue
+                            commit(.blurExtend(radius: CGFloat(newValue)))
+                        }
+                    ),
                     range: 0...80,
                     accessibilityLabel: "Blur radius",
-                    accessibilityValue: { "\(Int($0.rounded())) pixels" },
-                    onEditingChanged: { if !$0 { commit(.blurExtend(radius: CGFloat(blurRadius))) } }
+                    accessibilityValue: { "\(Int($0.rounded())) pixels" }
                 )
                 valueLabel("\(Int(blurRadius))")
             }
