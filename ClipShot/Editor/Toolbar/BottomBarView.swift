@@ -21,11 +21,9 @@ struct BottomBarView: View {
 
             Button("Copy") { copyToClipboard() }
                 .buttonStyle(GhostButtonStyle())
-                .keyboardShortcut("c", modifiers: [.command])
 
             Button("Save") { save() }
                 .buttonStyle(AccentButtonStyle())
-                .keyboardShortcut("s", modifiers: [.command])
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)

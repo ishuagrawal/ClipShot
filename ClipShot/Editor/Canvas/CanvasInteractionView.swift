@@ -38,7 +38,7 @@ final class CanvasInteractionView: NSView {
     override var acceptsFirstResponder: Bool { true }
 
     private var shouldCapture: Bool {
-        guard let state, scrollView?.isSpaceHeld != true else { return false }
+        guard let state else { return false }
         switch state.activeTool {
         case .select:
             // In select mode with a document panel open, fall through to annotation-only
@@ -52,7 +52,6 @@ final class CanvasInteractionView: NSView {
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
-        guard scrollView?.isSpaceHeld != true else { return nil }
         if shouldCapture {
             return super.hitTest(point)
         }
@@ -184,14 +183,6 @@ final class CanvasInteractionView: NSView {
             return
         }
 
-        if event.charactersIgnoringModifiers == " " {
-            if scrollView?.isSpaceHeld != true {
-                scrollView?.isSpaceHeld = true
-                window?.invalidateCursorRects(for: self)
-            }
-            return
-        }
-
         if let delta = keyboardNudgeDelta(for: event) {
             if state.activeTool == .select {
                 state.nudgeSelected(by: delta)
@@ -199,24 +190,7 @@ final class CanvasInteractionView: NSView {
             return
         }
 
-        switch event.keyCode {
-        case 53:
-            state.cancelDraw()
-            state.deselect()
-        case 51, 117:
-            state.deleteSelectedAnnotation()
-        default:
-            super.keyDown(with: event)
-        }
-    }
-
-    override func keyUp(with event: NSEvent) {
-        if event.charactersIgnoringModifiers == " " {
-            scrollView?.isSpaceHeld = false
-            window?.invalidateCursorRects(for: self)
-            return
-        }
-        super.keyUp(with: event)
+        super.keyDown(with: event)
     }
 
     private func documentPoint(for event: NSEvent) -> CGPoint {
@@ -291,7 +265,7 @@ final class CanvasInteractionView: NSView {
     }
 
     private func addTextBorderCursorRects() {
-        guard let state, scrollView?.isSpaceHeld != true else { return }
+        guard let state else { return }
 
         for annotation in displayAnnotations(for: state) {
             guard case .text = annotation.kind else { continue }
@@ -308,7 +282,7 @@ final class CanvasInteractionView: NSView {
     }
 
     private func addRectCursorRects() {
-        guard let state, scrollView?.isSpaceHeld != true else { return }
+        guard let state else { return }
 
         for annotation in state.document.annotations {
             guard case .rect = annotation.kind else { continue }
@@ -421,7 +395,7 @@ final class CanvasInteractionView: NSView {
 
         let documentPoint = CanvasGeometry.documentPoint(fromImagePixel: viewPoint, effectiveCrop: effectiveCrop)
 
-        if scrollView?.isSpaceHeld != true, draggableAnnotation(at: documentPoint) != nil {
+        if draggableAnnotation(at: documentPoint) != nil {
             NSCursor.openHand.set()
         } else {
             baseCursor.set()
@@ -429,10 +403,6 @@ final class CanvasInteractionView: NSView {
     }
 
     private var baseCursor: NSCursor {
-        if scrollView?.isSpaceHeld == true {
-            return .openHand
-        }
-
         guard let state else { return .arrow }
         switch state.activeTool {
         case .arrow, .rectangle:

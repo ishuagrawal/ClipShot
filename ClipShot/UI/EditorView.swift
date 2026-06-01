@@ -28,19 +28,15 @@ private struct EditorShell: View {
     }
 
     var body: some View {
-        ZStack {
-            VStack(spacing: 0) {
-                TopToolBarView(state: state)
-                Rectangle().fill(Theme.hairline).frame(height: 1)
-                HStack(spacing: 0) {
-                    if state.isInspectorVisible {
-                        ToolSidebarView(state: state)
-                    }
-                    canvasArea
+        VStack(spacing: 0) {
+            TopToolBarView(state: state)
+            Rectangle().fill(Theme.hairline).frame(height: 1)
+            HStack(spacing: 0) {
+                if state.isInspectorVisible {
+                    ToolSidebarView(state: state)
                 }
+                canvasArea
             }
-            panelToggleShortcut
-            toolShortcuts
         }
         .frame(minWidth: 900, minHeight: 600)
         .background(Theme.canvas)
@@ -65,47 +61,6 @@ private struct EditorShell: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private var panelToggleShortcut: some View {
-        Button {
-            // ⌘I closes whatever the inspector is showing, or opens Layout if it's hidden.
-            if state.isInspectorVisible {
-                state.dismissInspector()
-            } else {
-                state.toggleDocumentPanel(.layout)
-            }
-        } label: {
-            Color.clear.frame(width: 0, height: 0)
-        }
-        .buttonStyle(.plain)
-        .keyboardShortcut("i", modifiers: [.command])
-        .accessibilityHidden(true)
-    }
-
-    /// Single-key tool shortcuts (no modifier). Draw tools via the palette; Select / Layout /
-    /// Background toggle their inspector panels — mirrors the original V/P/B/A/R/T map.
-    private var toolShortcuts: some View {
-        ZStack {
-            panelKey("v", .components)
-            cursorKey("a", .arrow)
-            cursorKey("r", .rectangle)
-            cursorKey("t", .text)
-            panelKey("p", .layout)
-            panelKey("b", .background)
-        }
-        .accessibilityHidden(true)
-    }
-
-    private func cursorKey(_ key: KeyEquivalent, _ tool: EditorTool) -> some View {
-        Button { state.selectCursorTool(tool) } label: { Color.clear.frame(width: 0, height: 0) }
-            .buttonStyle(.plain)
-            .keyboardShortcut(key, modifiers: [])
-    }
-
-    private func panelKey(_ key: KeyEquivalent, _ panel: DocumentPanel) -> some View {
-        Button { state.toggleDocumentPanel(panel) } label: { Color.clear.frame(width: 0, height: 0) }
-            .buttonStyle(.plain)
-            .keyboardShortcut(key, modifiers: [])
-    }
 }
 
 private struct EmptyEditorView: View {
