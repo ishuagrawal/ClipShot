@@ -10,16 +10,16 @@ struct TextToolView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            PanelTitle(text: "Text")
+            SectionLabel(text: "Text")
             HStack(spacing: 10) {
-                rowLabel("Color")
+                InspectorRowLabel(text: "Color")
                 ColorPicker("", selection: $color, supportsOpacity: false)
                     .labelsHidden()
                     .onChange(of: color) { _, _ in apply() }
             }
             HStack(spacing: 10) {
-                rowLabel("Size")
-                GraphiteSlider(
+                InspectorRowLabel(text: "Size")
+                FlatSlider(
                     value: Binding(
                         get: { size },
                         set: { newValue in
@@ -31,27 +31,13 @@ struct TextToolView: View {
                     accessibilityLabel: "Font size",
                     accessibilityValue: { "\(Int($0.rounded())) points" }
                 )
-                valueLabel("\(Int(size.rounded()))")
+                InspectorValueLabel(text: "\(Int(size.rounded()))")
             }
         }
         .padding(16)
         .onAppear { syncFromState() }
         .onChange(of: state.selectedAnnotationID) { _, _ in syncFromState() }
         .onChange(of: state.document.version) { _, _ in syncFromState() }
-    }
-
-    private func rowLabel(_ text: String) -> some View {
-        Text(text)
-            .font(Theme.label(12))
-            .foregroundStyle(Theme.textSecondary)
-            .frame(width: 52, alignment: .leading)
-    }
-
-    private func valueLabel(_ text: String) -> some View {
-        Text(text)
-            .font(Theme.mono(12, .semibold))
-            .foregroundStyle(Theme.textPrimary)
-            .frame(width: 34, alignment: .trailing)
     }
 
     private func syncFromState() {
