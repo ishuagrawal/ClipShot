@@ -22,6 +22,7 @@ struct EditorView: View {
 
 private struct EditorShell: View {
     @StateObject private var state: EditorState
+    @StateObject private var canvasFocusProxy = CanvasFocusProxy()
 
     init(document: EditorDocument) {
         _state = StateObject(wrappedValue: EditorState(document: document, openingPanel: .layout))
@@ -33,7 +34,10 @@ private struct EditorShell: View {
             Rectangle().fill(Theme.hairline).frame(height: 1)
             HStack(spacing: 0) {
                 if state.isInspectorVisible {
-                    ToolSidebarView(state: state)
+                    ToolSidebarView(
+                        state: state,
+                        onCanvasFocusRequested: canvasFocusProxy.requestKeyboardFocus
+                    )
                 }
                 canvasArea
             }
@@ -44,7 +48,7 @@ private struct EditorShell: View {
 
     private var canvasArea: some View {
         ZStack {
-            CanvasView(state: state)
+            CanvasView(state: state, focusProxy: canvasFocusProxy)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Theme.canvas)
             VStack {

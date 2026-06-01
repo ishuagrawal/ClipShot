@@ -5,6 +5,7 @@ import SwiftUI
 /// `inspectorRoute` resolves to. The header title tracks that route.
 struct ToolSidebarView: View {
     @ObservedObject var state: EditorState
+    var onCanvasFocusRequested: () -> Void = {}
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -49,7 +50,10 @@ struct ToolSidebarView: View {
             // Excluded by isInspectorVisible (sidebar isn't rendered) — defensive only.
             EmptyView()
         case .componentList:
-            ComponentListView(state: state)
+            ComponentListView(
+                state: state,
+                onCanvasFocusRequested: onCanvasFocusRequested
+            )
         case .layout:
             PaddingToolView(state: state)
         case .background:

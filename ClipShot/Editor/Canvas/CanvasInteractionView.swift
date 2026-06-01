@@ -37,6 +37,10 @@ final class CanvasInteractionView: NSView {
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
 
+    func requestKeyboardFocus() {
+        window?.makeFirstResponder(self)
+    }
+
     private var shouldCapture: Bool {
         guard let state else { return false }
         switch state.activeTool {
@@ -110,7 +114,7 @@ final class CanvasInteractionView: NSView {
             super.mouseDown(with: event)
             return
         }
-        window?.makeFirstResponder(self)
+        requestKeyboardFocus()
         let point = documentPoint(for: event)
 
         if let annotation = draggableAnnotation(at: point) {

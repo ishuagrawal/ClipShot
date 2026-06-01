@@ -4,6 +4,7 @@ import SwiftUI
 /// row selects that annotation, which routes the inspector to its detail editor.
 struct ComponentListView: View {
     @ObservedObject var state: EditorState
+    var onCanvasFocusRequested: () -> Void = {}
 
     var body: some View {
         if state.document.annotations.isEmpty {
@@ -17,6 +18,7 @@ struct ComponentListView: View {
                         isSelected: state.selectedAnnotationID == annotation.id
                     ) {
                         state.selectedAnnotationID = annotation.id
+                        onCanvasFocusRequested()
                     }
                 }
             }
