@@ -23,28 +23,12 @@ enum EditorTool: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Select appears as a tab even without a static panel, because it is the gateway
-    /// to selecting, moving, and deleting annotations.
-    var isToolbarTab: Bool {
-        isEnabled && (hasDetailPanel || self == .select)
-    }
-
     var isDrawTool: Bool {
         switch self {
         case .arrow, .rectangle, .text, .blur:
             return true
         case .select, .padding, .background:
             return false
-        }
-    }
-
-    /// Whether this tool exposes controls in the sidebar detail panel.
-    var hasDetailPanel: Bool {
-        switch self {
-        case .select:
-            return false
-        case .padding, .background, .arrow, .rectangle, .text, .blur:
-            return true
         }
     }
 
@@ -72,13 +56,6 @@ enum EditorTool: String, CaseIterable, Identifiable {
         }
     }
 
-    var comingSoonNote: String {
-        switch self {
-        case .select, .padding, .background, .arrow, .rectangle, .text:
-            return ""
-        case .blur:       return "Coming in P3"
-        }
-    }
 }
 
 enum DocumentPanel: Equatable {
@@ -98,7 +75,6 @@ final class EditorState: ObservableObject {
     @Published var document: EditorDocument
     @Published var activeTool: EditorTool = .select          // cursor mode: select/arrow/rectangle/text
     @Published var documentPanel: DocumentPanel = .none
-    @Published var isDetailPanelExpanded: Bool = false       // transition-only; removed in a later phase
     @Published var inProgressAnnotation: Annotation? = nil
     @Published var selectedAnnotationID: UUID? = nil
     @Published var toolStyle = ToolStyle()
@@ -136,20 +112,6 @@ final class EditorState: ObservableObject {
     func performCommand(_ command: EditorCommand) {
         undoStack.push(command, apply: { $0.apply(to: &document) })
         validateSelectedAnnotation()
-    }
-
-    /// Selecting a new enabled tool activates it and expands its panel; re-selecting
-    /// the active tool toggles the panel. Disabled tools are ignored.
-    func selectTool(_ tool: EditorTool) {
-        guard tool.isEnabled else { return }
-        if activeTool == tool {
-            if tool.hasDetailPanel {
-                isDetailPanelExpanded.toggle()
-            }
-        } else {
-            activeTool = tool
-            isDetailPanelExpanded = true
-        }
     }
 
     /// Pick a canvas cursor mode (select / arrow / rectangle / text). Closes any pinned
@@ -209,21 +171,6 @@ final class EditorState: ObservableObject {
             case .none: return ""
             }
         }
-    }
-
-    func toggleDetailPanel() {
-        if activeTool == .select {
-            deselect()
-            return
-        }
-        isDetailPanelExpanded.toggle()
-    }
-
-    var isDetailPanelVisible: Bool {
-        if activeTool == .select {
-            return selectedAnnotation != nil
-        }
-        return activeTool.hasDetailPanel && isDetailPanelExpanded
     }
 
     var documentBounds: CGRect {
