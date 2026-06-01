@@ -13,15 +13,15 @@ struct RectangleToolView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            PanelTitle(text: "Rectangle")
+            SectionLabel(text: "Rectangle")
             HStack(spacing: 10) {
-                rowLabel("Stroke")
+                InspectorRowLabel(text: "Stroke")
                 ColorPicker("", selection: $stroke, supportsOpacity: false)
                     .labelsHidden()
                     .onChange(of: stroke) { _, _ in apply() }
             }
             HStack(spacing: 10) {
-                rowLabel("Fill")
+                InspectorRowLabel(text: "Fill")
                 Toggle("", isOn: $fillEnabled)
                     .labelsHidden()
                     .onChange(of: fillEnabled) { _, _ in apply() }
@@ -32,8 +32,8 @@ struct RectangleToolView: View {
                     .onChange(of: fill) { _, _ in apply() }
             }
             HStack(spacing: 10) {
-                rowLabel("Weight")
-                GraphiteSlider(
+                InspectorRowLabel(text: "Weight")
+                FlatSlider(
                     value: Binding(
                         get: { weight },
                         set: { newValue in
@@ -45,11 +45,11 @@ struct RectangleToolView: View {
                     accessibilityLabel: "Rectangle stroke weight",
                     accessibilityValue: { "\(Int($0.rounded())) pixels" }
                 )
-                valueLabel("\(Int(weight.rounded()))")
+                InspectorValueLabel(text: "\(Int(weight.rounded()))")
             }
             HStack(spacing: 10) {
-                rowLabel("Corner")
-                GraphiteSlider(
+                InspectorRowLabel(text: "Corner")
+                FlatSlider(
                     value: Binding(
                         get: { corner },
                         set: { newValue in
@@ -61,27 +61,13 @@ struct RectangleToolView: View {
                     accessibilityLabel: "Rectangle corner radius",
                     accessibilityValue: { "\(Int($0.rounded())) pixels" }
                 )
-                valueLabel("\(Int(corner.rounded()))")
+                InspectorValueLabel(text: "\(Int(corner.rounded()))")
             }
         }
         .padding(16)
         .onAppear { syncFromState() }
         .onChange(of: state.selectedAnnotationID) { _, _ in syncFromState() }
         .onChange(of: state.document.version) { _, _ in syncFromState() }
-    }
-
-    private func rowLabel(_ text: String) -> some View {
-        Text(text)
-            .font(Theme.label(12))
-            .foregroundStyle(Theme.textSecondary)
-            .frame(width: 52, alignment: .leading)
-    }
-
-    private func valueLabel(_ text: String) -> some View {
-        Text(text)
-            .font(Theme.mono(12, .semibold))
-            .foregroundStyle(Theme.textPrimary)
-            .frame(width: 34, alignment: .trailing)
     }
 
     private func syncFromState() {
