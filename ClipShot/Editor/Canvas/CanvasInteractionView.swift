@@ -11,6 +11,7 @@ final class CanvasInteractionView: NSView {
     private nonisolated static let textBorderInnerHitTolerance: CGFloat = 5
     private nonisolated static let selectionDragActivationDistance: CGFloat = 3
     private nonisolated static let shapeDragHitTolerance: CGFloat = 10
+    private nonisolated static let keyboardNudgeDistance: CGFloat = 8
 
     weak var state: EditorState? {
         didSet { invalidateCursorRectsIfPossible() }
@@ -185,6 +186,13 @@ final class CanvasInteractionView: NSView {
             return
         }
 
+        if let delta = keyboardNudgeDelta(for: event) {
+            if state.activeTool == .select {
+                state.nudgeSelected(by: delta)
+            }
+            return
+        }
+
         switch event.keyCode {
         case 53:
             state.cancelDraw()
@@ -208,6 +216,24 @@ final class CanvasInteractionView: NSView {
     private func documentPoint(for event: NSEvent) -> CGPoint {
         let viewPoint = convert(event.locationInWindow, from: nil)
         return CanvasGeometry.documentPoint(fromImagePixel: viewPoint, effectiveCrop: effectiveCrop)
+    }
+
+    private func keyboardNudgeDelta(for event: NSEvent) -> CGSize? {
+        let ignoredModifiers: NSEvent.ModifierFlags = [.command, .control, .option]
+        guard event.modifierFlags.intersection(ignoredModifiers).isEmpty else { return nil }
+
+        switch event.keyCode {
+        case 123:
+            return CGSize(width: -Self.keyboardNudgeDistance, height: 0)
+        case 124:
+            return CGSize(width: Self.keyboardNudgeDistance, height: 0)
+        case 125:
+            return CGSize(width: 0, height: Self.keyboardNudgeDistance)
+        case 126:
+            return CGSize(width: 0, height: -Self.keyboardNudgeDistance)
+        default:
+            return nil
+        }
     }
 
     private func textBorderAnnotation(at point: CGPoint) -> Annotation? {

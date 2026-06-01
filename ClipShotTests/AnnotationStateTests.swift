@@ -216,74 +216,7 @@ final class CanvasTextEditorTests: XCTestCase {
         XCTAssertTrue(didClearPreview)
     }
 
-    func test_arrowCommandsNudgeEditingTextVertically() throws {
-        let container = NSView(frame: CGRect(x: 0, y: 0, width: 300, height: 200))
-        let editor = CanvasTextEditor(container: container)
-        let annotation = Annotation(
-            kind: .text(
-                origin: CGPoint(x: 5, y: 10),
-                string: "Text",
-                fontSize: 12,
-                color: CGColor(gray: 0, alpha: 1)
-            )
-        )
-        let document = EditorDocument(
-            screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
-            viewport: CGSize(width: 100, height: 100),
-            pageTitle: "t",
-            pageURL: "u",
-            baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80),
-            annotations: [annotation]
-        )
-        let state = EditorState(document: document)
-        state.selectedAnnotationID = annotation.id
-        var latestPreview: Annotation?
-        editor.onEditingPreviewChanged = { latestPreview = $0 }
-        editor.attach(state: state)
-        editor.beginEditing(annotation, effectiveCrop: document.effectiveCrop)
-
-        let textField = try XCTUnwrap(container.subviews.compactMap { $0 as? NSTextField }.first)
-        let initialFrame = textField.frame
-        textField.stringValue = "Typed but not finished"
-
-        XCTAssertTrue(
-            editor.control(
-                textField,
-                textView: NSTextView(),
-                doCommandBy: #selector(NSResponder.moveUp(_:))
-            )
-        )
-
-        guard case let .text(upOrigin, documentString, _, _) = state.document.annotations[0].kind else {
-            return XCTFail("expected text")
-        }
-        XCTAssertEqual(upOrigin, CGPoint(x: 5, y: 7))
-        XCTAssertEqual(documentString, "Text")
-        XCTAssertLessThan(textField.frame.minY, initialFrame.minY)
-
-        if case let .text(previewOrigin, previewString, _, _) = latestPreview?.kind {
-            XCTAssertEqual(previewOrigin, CGPoint(x: 5, y: 7))
-            XCTAssertEqual(previewString, "Typed but not finished")
-        } else {
-            XCTFail("expected text preview")
-        }
-
-        XCTAssertTrue(
-            editor.control(
-                textField,
-                textView: NSTextView(),
-                doCommandBy: #selector(NSResponder.moveDown(_:))
-            )
-        )
-
-        if case let .text(downOrigin, _, _, _) = state.document.annotations[0].kind {
-            XCTAssertEqual(downOrigin, CGPoint(x: 5, y: 10))
-        } else {
-            XCTFail("expected text")
-        }
-    }
-
-    func test_leftRightCommandsNudgeEditingTextOnlyAtTextEdges() throws {
+    func test_arrowCommandsAreNotHandledWhileEditingText() throws {
         let container = NSView(frame: CGRect(x: 0, y: 0, width: 300, height: 200))
         let editor = CanvasTextEditor(container: container)
         let annotation = Annotation(
@@ -304,8 +237,6 @@ final class CanvasTextEditorTests: XCTestCase {
         )
         let state = EditorState(document: document)
         state.selectedAnnotationID = annotation.id
-        var latestPreview: Annotation?
-        editor.onEditingPreviewChanged = { latestPreview = $0 }
         editor.attach(state: state)
         editor.beginEditing(annotation, effectiveCrop: document.effectiveCrop)
 
@@ -313,8 +244,15 @@ final class CanvasTextEditorTests: XCTestCase {
         textField.stringValue = "Typed"
         let textView = NSTextView()
         textView.string = "Typed"
-        textView.setSelectedRange(NSRange(location: 2, length: 0))
+        textView.setSelectedRange(NSRange(location: 0, length: 0))
 
+        XCTAssertFalse(
+            editor.control(
+                textField,
+                textView: textView,
+                doCommandBy: #selector(NSResponder.moveUp(_:))
+            )
+        )
         XCTAssertFalse(
             editor.control(
                 textField,
@@ -322,46 +260,29 @@ final class CanvasTextEditorTests: XCTestCase {
                 doCommandBy: #selector(NSResponder.moveLeft(_:))
             )
         )
-        if case let .text(origin, _, _, _) = state.document.annotations[0].kind {
-            XCTAssertEqual(origin, CGPoint(x: 10, y: 10))
-        } else {
-            XCTFail("expected text")
-        }
-
-        textView.setSelectedRange(NSRange(location: 0, length: 0))
-        XCTAssertTrue(
-            editor.control(
-                textField,
-                textView: textView,
-                doCommandBy: #selector(NSResponder.moveLeft(_:))
-            )
-        )
-        if case let .text(leftOrigin, _, _, _) = state.document.annotations[0].kind {
-            XCTAssertEqual(leftOrigin, CGPoint(x: 7, y: 10))
-        } else {
-            XCTFail("expected text")
-        }
-
         textView.setSelectedRange(NSRange(location: 5, length: 0))
-        XCTAssertTrue(
+        XCTAssertFalse(
             editor.control(
                 textField,
                 textView: textView,
                 doCommandBy: #selector(NSResponder.moveRight(_:))
             )
         )
-        if case let .text(rightOrigin, _, _, _) = state.document.annotations[0].kind {
-            XCTAssertEqual(rightOrigin, CGPoint(x: 10, y: 10))
+        XCTAssertFalse(
+            editor.control(
+                textField,
+                textView: textView,
+                doCommandBy: #selector(NSResponder.moveDown(_:))
+            )
+        )
+
+        if case let .text(origin, documentString, _, _) = state.document.annotations[0].kind {
+            XCTAssertEqual(origin, CGPoint(x: 10, y: 10))
+            XCTAssertEqual(documentString, "Text")
         } else {
             XCTFail("expected text")
         }
-
-        if case let .text(previewOrigin, previewString, _, _) = latestPreview?.kind {
-            XCTAssertEqual(previewOrigin, CGPoint(x: 10, y: 10))
-            XCTAssertEqual(previewString, "Typed")
-        } else {
-            XCTFail("expected text preview")
-        }
+        XCTAssertEqual(state.undoStack.undoCount, 0)
     }
 }
 
@@ -700,6 +621,92 @@ final class CanvasInteractionViewTests: XCTestCase {
         }
     }
 
+    func test_selectToolArrowKeysNudgeTextArrowAndRectangleByDefaultDistance() throws {
+        let textFixture = makeTextInteraction(initialTool: .select)
+        let arrowFixture = makeArrowInteraction(initialTool: .select)
+        let rectFixture = makeRectangleInteraction(initialTool: .select)
+
+        try withExtendedLifetime(textFixture.state) {
+            textFixture.state.selectedAnnotationID = textFixture.annotation.id
+            textFixture.view.keyDown(with: try makeKeyDown(keyCode: 124))
+
+            if case let .text(origin, _, _, _) = textFixture.state.document.annotations[0].kind {
+                XCTAssertEqual(origin, CGPoint(x: 18, y: 10))
+            } else {
+                XCTFail("expected text")
+            }
+            XCTAssertEqual(textFixture.state.undoStack.undoCount, 1)
+        }
+
+        try withExtendedLifetime(arrowFixture.state) {
+            arrowFixture.state.selectedAnnotationID = arrowFixture.annotation.id
+            arrowFixture.view.keyDown(with: try makeKeyDown(keyCode: 125))
+
+            if case let .arrow(from, to, _, _) = arrowFixture.state.document.annotations[0].kind {
+                XCTAssertEqual(from, CGPoint(x: 10, y: 18))
+                XCTAssertEqual(to, CGPoint(x: 40, y: 48))
+            } else {
+                XCTFail("expected arrow")
+            }
+            XCTAssertEqual(arrowFixture.state.undoStack.undoCount, 1)
+        }
+
+        try withExtendedLifetime(rectFixture.state) {
+            rectFixture.state.selectedAnnotationID = rectFixture.annotation.id
+            rectFixture.view.keyDown(with: try makeKeyDown(keyCode: 123))
+
+            if case let .rect(frame, _, _, _, _) = rectFixture.state.document.annotations[0].kind {
+                XCTAssertEqual(frame, CGRect(x: 2, y: 10, width: 40, height: 24))
+            } else {
+                XCTFail("expected rectangle")
+            }
+            XCTAssertEqual(rectFixture.state.undoStack.undoCount, 1)
+        }
+    }
+
+    func test_arrowKeysDoNotNudgeOutsideSelectTool() throws {
+        let textFixture = makeTextInteraction(initialTool: .text)
+        let arrowFixture = makeArrowInteraction(initialTool: .arrow)
+        let rectFixture = makeRectangleInteraction(initialTool: .rectangle)
+
+        try withExtendedLifetime(textFixture.state) {
+            textFixture.state.selectedAnnotationID = textFixture.annotation.id
+            textFixture.view.keyDown(with: try makeKeyDown(keyCode: 124))
+
+            if case let .text(origin, _, _, _) = textFixture.state.document.annotations[0].kind {
+                XCTAssertEqual(origin, CGPoint(x: 10, y: 10))
+            } else {
+                XCTFail("expected text")
+            }
+            XCTAssertEqual(textFixture.state.undoStack.undoCount, 0)
+        }
+
+        try withExtendedLifetime(arrowFixture.state) {
+            arrowFixture.state.selectedAnnotationID = arrowFixture.annotation.id
+            arrowFixture.view.keyDown(with: try makeKeyDown(keyCode: 125))
+
+            if case let .arrow(from, to, _, _) = arrowFixture.state.document.annotations[0].kind {
+                XCTAssertEqual(from, CGPoint(x: 10, y: 10))
+                XCTAssertEqual(to, CGPoint(x: 40, y: 40))
+            } else {
+                XCTFail("expected arrow")
+            }
+            XCTAssertEqual(arrowFixture.state.undoStack.undoCount, 0)
+        }
+
+        try withExtendedLifetime(rectFixture.state) {
+            rectFixture.state.selectedAnnotationID = rectFixture.annotation.id
+            rectFixture.view.keyDown(with: try makeKeyDown(keyCode: 123))
+
+            if case let .rect(frame, _, _, _, _) = rectFixture.state.document.annotations[0].kind {
+                XCTAssertEqual(frame, CGRect(x: 10, y: 10, width: 40, height: 24))
+            } else {
+                XCTFail("expected rectangle")
+            }
+            XCTAssertEqual(rectFixture.state.undoStack.undoCount, 0)
+        }
+    }
+
     private func nearRightTextBorderEdgePoint(for annotation: Annotation) -> CGPoint {
         let haloFrame = AnnotationGeometry
             .boundingBox(annotation.kind)
@@ -797,6 +804,23 @@ final class CanvasInteractionViewTests: XCTestCase {
 
     private func makeMouseDown(at point: CGPoint, clickCount: Int = 1) throws -> NSEvent {
         try makeMouseEvent(type: .leftMouseDown, at: point, clickCount: clickCount)
+    }
+
+    private func makeKeyDown(keyCode: UInt16) throws -> NSEvent {
+        try XCTUnwrap(
+            NSEvent.keyEvent(
+                with: .keyDown,
+                location: .zero,
+                modifierFlags: [],
+                timestamp: 0,
+                windowNumber: 0,
+                context: nil,
+                characters: "",
+                charactersIgnoringModifiers: "",
+                isARepeat: false,
+                keyCode: keyCode
+            )
+        )
     }
 
     private func makeMouseEvent(

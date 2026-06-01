@@ -310,6 +310,15 @@ final class EditorState: ObservableObject {
         performCommand(MoveAnnotationCommand(id: id, from: from, to: newKind, coalescingKey: coalescingKey))
     }
 
+    func nudgeSelected(by delta: CGSize) {
+        guard let annotation = selectedAnnotation else { return }
+        let nextKind = AnnotationGeometry.clamped(
+            AnnotationGeometry.translated(annotation.kind, by: delta),
+            to: documentBounds
+        )
+        updateSelectedKind(nextKind, coalescingKey: .keyboardNudge)
+    }
+
     var selectedAnnotation: Annotation? {
         guard let id = selectedAnnotationID else { return nil }
         return document.annotations.first { $0.id == id }
