@@ -22,6 +22,5 @@ struct ToolPaletteView: View {
         }
         .padding(5)
         .floatingBar(cornerRadius: Theme.radiusPill)
-        .animation(.spring(response: 0.30, dampingFraction: 0.82), value: state.activeTool)
     }
 }

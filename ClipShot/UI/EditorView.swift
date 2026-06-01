@@ -35,7 +35,6 @@ private struct EditorShell: View {
                 HStack(spacing: 0) {
                     if state.isInspectorVisible {
                         ToolSidebarView(state: state)
-                            .transition(.move(edge: .leading).combined(with: .opacity))
                     }
                     canvasArea
                 }
@@ -45,7 +44,6 @@ private struct EditorShell: View {
         }
         .frame(minWidth: 900, minHeight: 600)
         .background(Theme.canvas)
-        .animation(.spring(response: 0.32, dampingFraction: 0.86), value: state.isInspectorVisible)
     }
 
     private var canvasArea: some View {
