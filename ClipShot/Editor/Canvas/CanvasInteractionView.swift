@@ -62,7 +62,7 @@ final class CanvasInteractionView: NSView {
         }
 
         let documentPoint = CanvasGeometry.documentPoint(fromImagePixel: point, effectiveCrop: effectiveCrop)
-        return draggableAnnotation(at: documentPoint) == nil ? nil : self
+        return annotationInteractionTarget(at: documentPoint) == nil ? nil : self
     }
 
     override func resetCursorRects() {
@@ -267,8 +267,36 @@ final class CanvasInteractionView: NSView {
         }
     }
 
+    private func selectableAnnotation(at point: CGPoint) -> Annotation? {
+        guard let state else { return nil }
+
+        return displayAnnotations(for: state).reversed().first { annotation in
+            textBorderContains(point, annotation: annotation)
+            || AnnotationGeometry.hitTest(
+                annotation.kind,
+                point: point,
+                tolerance: Self.shapeDragHitTolerance
+            )
+        }
+    }
+
     private func draggableAnnotation(at point: CGPoint) -> Annotation? {
-        draggableTextAnnotation(at: point) ?? shapeAnnotation(at: point)
+        if state?.activeTool == .select {
+            return selectableAnnotation(at: point)
+        }
+
+        return draggableTextAnnotation(at: point) ?? shapeAnnotation(at: point)
+    }
+
+    private func annotationInteractionTarget(at point: CGPoint) -> Annotation? {
+        guard let state else { return nil }
+
+        switch state.activeTool {
+        case .select, .padding, .background:
+            return selectableAnnotation(at: point)
+        case .arrow, .rectangle, .text, .blur:
+            return draggableAnnotation(at: point)
+        }
     }
 
     private func textBorderContains(_ point: CGPoint, annotation: Annotation) -> Bool {
@@ -444,7 +472,7 @@ final class CanvasInteractionView: NSView {
 
         let documentPoint = CanvasGeometry.documentPoint(fromImagePixel: viewPoint, effectiveCrop: effectiveCrop)
 
-        if draggableAnnotation(at: documentPoint) != nil {
+        if annotationInteractionTarget(at: documentPoint) != nil {
             NSCursor.openHand.set()
         } else {
             baseCursor.set()

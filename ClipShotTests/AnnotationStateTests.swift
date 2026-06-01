@@ -779,6 +779,45 @@ final class CanvasInteractionViewTests: XCTestCase {
         }
     }
 
+    func test_selectToolWithComponentsPanelCanSelectAnyAnnotationKind() throws {
+        let cases: [(
+            annotation: Annotation,
+            state: EditorState,
+            view: CanvasInteractionView,
+            point: CGPoint
+        )] = [
+            {
+                let fixture = makeTextInteraction(initialTool: .select)
+                return (fixture.annotation, fixture.state, fixture.view, CGPoint(x: 20, y: 18))
+            }(),
+            {
+                let fixture = makeArrowInteraction(initialTool: .select)
+                return (fixture.annotation, fixture.state, fixture.view, CGPoint(x: 20, y: 20))
+            }(),
+            {
+                let fixture = makeRectangleInteraction(initialTool: .select)
+                return (fixture.annotation, fixture.state, fixture.view, CGPoint(x: 25, y: 20))
+            }(),
+            {
+                let fixture = makeBlurInteraction(initialTool: .select)
+                return (fixture.annotation, fixture.state, fixture.view, CGPoint(x: 25, y: 20))
+            }()
+        ]
+
+        for testCase in cases {
+            testCase.state.toggleDocumentPanel(.components)
+            XCTAssertEqual(testCase.state.activeTool, .select)
+            XCTAssertIdentical(testCase.view.hitTest(testCase.point), testCase.view)
+
+            testCase.view.mouseDown(with: try makeMouseDown(at: testCase.point))
+            testCase.view.mouseUp(with: try makeMouseEvent(type: .leftMouseUp, at: testCase.point))
+
+            XCTAssertEqual(testCase.state.selectedAnnotationID, testCase.annotation.id)
+            XCTAssertEqual(testCase.state.inspectorRoute, .annotation)
+            XCTAssertEqual(testCase.state.undoStack.undoCount, 0)
+        }
+    }
+
     func test_selectToolCanDragArrowAndRectangle() throws {
         let arrowFixture = makeArrowInteraction(initialTool: .select)
         let rectFixture = makeRectangleInteraction(initialTool: .select)
@@ -961,6 +1000,22 @@ final class CanvasInteractionViewTests: XCTestCase {
                     fill: nil,
                     weight: 3,
                     cornerRadius: 0
+                )
+            ),
+            initialTool: initialTool
+        )
+    }
+
+    private func makeBlurInteraction(initialTool: EditorTool) -> (
+        annotation: Annotation,
+        state: EditorState,
+        view: CanvasInteractionView
+    ) {
+        makeInteraction(
+            annotation: Annotation(
+                kind: .blur(
+                    frame: CGRect(x: 10, y: 10, width: 40, height: 24),
+                    radius: 12
                 )
             ),
             initialTool: initialTool
