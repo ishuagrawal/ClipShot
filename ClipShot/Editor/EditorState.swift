@@ -81,11 +81,24 @@ enum EditorTool: String, CaseIterable, Identifiable {
     }
 }
 
+enum DocumentPanel: Equatable {
+    case none, layout, background
+}
+
+enum InspectorRoute: Equatable {
+    case hidden
+    case layout
+    case background
+    case annotation
+    case drawDefaults(EditorTool)
+}
+
 @MainActor
 final class EditorState: ObservableObject {
     @Published var document: EditorDocument
-    @Published var activeTool: EditorTool = .select
-    @Published var isDetailPanelExpanded: Bool = true
+    @Published var activeTool: EditorTool = .select          // cursor mode: select/arrow/rectangle/text
+    @Published var documentPanel: DocumentPanel = .none
+    @Published var isDetailPanelExpanded: Bool = false       // transition-only; removed in a later phase
     @Published var inProgressAnnotation: Annotation? = nil
     @Published var selectedAnnotationID: UUID? = nil
     @Published var toolStyle = ToolStyle()
@@ -105,12 +118,9 @@ final class EditorState: ObservableObject {
     private let hitTolerance: CGFloat = 6
     private var moveStartKind: Annotation.Kind?
 
-    init(document: EditorDocument, initialTool: EditorTool = .select) {
+    init(document: EditorDocument, openingPanel: DocumentPanel = .none) {
         self.document = document
-        if initialTool.isEnabled {
-            activeTool = initialTool
-            isDetailPanelExpanded = initialTool.hasDetailPanel
-        }
+        self.documentPanel = openingPanel
     }
 
     func performUndo() {
@@ -139,6 +149,65 @@ final class EditorState: ObservableObject {
         } else {
             activeTool = tool
             isDetailPanelExpanded = true
+        }
+    }
+
+    /// Pick a canvas cursor mode (select / arrow / rectangle / text). Closes any pinned
+    /// document panel. Picking a draw tool clears the current selection so the panel shows
+    /// that tool's defaults.
+    func selectCursorTool(_ tool: EditorTool) {
+        guard tool.isEnabled, tool == .select || tool.isDrawTool else { return }
+        activeTool = tool
+        documentPanel = .none
+        if tool.isDrawTool { deselect() }
+    }
+
+    /// Pin/unpin a document settings panel. Opening one returns the cursor to select and
+    /// clears the selection so the panel is actually shown by the inspector route.
+    func toggleDocumentPanel(_ panel: DocumentPanel) {
+        if documentPanel == panel {
+            documentPanel = .none
+        } else {
+            documentPanel = panel
+            activeTool = .select
+            deselect()
+        }
+    }
+
+    /// Close the inspector: drop any pinned panel and selection, return cursor to select.
+    func dismissInspector() {
+        documentPanel = .none
+        deselect()
+        activeTool = .select
+    }
+
+    var inspectorRoute: InspectorRoute {
+        switch documentPanel {
+        case .layout: return .layout
+        case .background: return .background
+        case .none:
+            if selectedAnnotation != nil { return .annotation }
+            if activeTool.isDrawTool { return .drawDefaults(activeTool) }
+            return .hidden
+        }
+    }
+
+    var isInspectorVisible: Bool { inspectorRoute != .hidden }
+
+    var inspectorTitle: String {
+        switch inspectorRoute {
+        case .hidden: return ""
+        case .layout: return "Layout"
+        case .background: return "Background"
+        case .drawDefaults(let tool): return tool.displayName
+        case .annotation:
+            switch selectedAnnotation?.kind {
+            case .arrow: return "Arrow"
+            case .rect: return "Rectangle"
+            case .text: return "Text"
+            case .blur: return "Blur"
+            case .none: return ""
+            }
         }
     }
 

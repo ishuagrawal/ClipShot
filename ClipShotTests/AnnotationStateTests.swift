@@ -735,7 +735,8 @@ final class CanvasInteractionViewTests: XCTestCase {
             baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80),
             annotations: [annotation]
         )
-        let state = EditorState(document: document, initialTool: initialTool)
+        let state = EditorState(document: document)
+        applyInitialTool(initialTool, to: state)
         let view = CanvasInteractionView(frame: CGRect(origin: .zero, size: Self.interactionViewSize))
         view.state = state
         view.effectiveCrop = document.effectiveCrop
@@ -795,11 +796,27 @@ final class CanvasInteractionViewTests: XCTestCase {
             baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80),
             annotations: [annotation]
         )
-        let state = EditorState(document: document, initialTool: initialTool)
+        let state = EditorState(document: document)
+        applyInitialTool(initialTool, to: state)
         let view = CanvasInteractionView(frame: CGRect(origin: .zero, size: Self.interactionViewSize))
         view.state = state
         view.effectiveCrop = document.effectiveCrop
         return (annotation, state, view)
+    }
+
+    /// Migrate from the old `initialTool:` init pattern: apply a tool to a freshly-created
+    /// EditorState using the new cursor/panel API.
+    private func applyInitialTool(_ tool: EditorTool, to state: EditorState) {
+        switch tool {
+        case .select:
+            break // default
+        case .arrow, .rectangle, .text, .blur:
+            state.selectCursorTool(tool)
+        case .padding:
+            state.toggleDocumentPanel(.layout)
+        case .background:
+            state.toggleDocumentPanel(.background)
+        }
     }
 
     private func makeMouseDown(at point: CGPoint, clickCount: Int = 1) throws -> NSEvent {

@@ -24,7 +24,7 @@ private struct EditorShell: View {
     @StateObject private var state: EditorState
 
     init(document: EditorDocument) {
-        _state = StateObject(wrappedValue: EditorState(document: document, initialTool: .padding))
+        _state = StateObject(wrappedValue: EditorState(document: document, openingPanel: .layout))
     }
 
     var body: some View {

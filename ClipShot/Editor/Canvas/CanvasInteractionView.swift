@@ -40,7 +40,11 @@ final class CanvasInteractionView: NSView {
     private var shouldCapture: Bool {
         guard let state, scrollView?.isSpaceHeld != true else { return false }
         switch state.activeTool {
-        case .select, .arrow, .rectangle, .text:
+        case .select:
+            // In select mode with a document panel open, fall through to annotation-only
+            // hit testing (same behaviour as the old .padding / .background tool).
+            return state.documentPanel == .none
+        case .arrow, .rectangle, .text:
             return true
         case .padding, .background, .blur:
             return false
