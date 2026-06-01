@@ -41,6 +41,7 @@ private struct EditorShell: View {
                 }
             }
             panelToggleShortcut
+            toolShortcuts
         }
         .frame(minWidth: 900, minHeight: 600)
         .background(Theme.canvas)
@@ -76,6 +77,32 @@ private struct EditorShell: View {
         .keyboardShortcut("i", modifiers: [.command])
         .accessibilityHidden(true)
     }
+
+    /// Single-key tool shortcuts (no modifier). Cursor modes via the palette; Layout /
+    /// Background toggle their document panels — mirrors the original V/P/B/A/R/T map.
+    private var toolShortcuts: some View {
+        ZStack {
+            cursorKey("v", .select)
+            cursorKey("a", .arrow)
+            cursorKey("r", .rectangle)
+            cursorKey("t", .text)
+            panelKey("p", .layout)
+            panelKey("b", .background)
+        }
+        .accessibilityHidden(true)
+    }
+
+    private func cursorKey(_ key: KeyEquivalent, _ tool: EditorTool) -> some View {
+        Button { state.selectCursorTool(tool) } label: { Color.clear.frame(width: 0, height: 0) }
+            .buttonStyle(.plain)
+            .keyboardShortcut(key, modifiers: [])
+    }
+
+    private func panelKey(_ key: KeyEquivalent, _ panel: DocumentPanel) -> some View {
+        Button { state.toggleDocumentPanel(panel) } label: { Color.clear.frame(width: 0, height: 0) }
+            .buttonStyle(.plain)
+            .keyboardShortcut(key, modifiers: [])
+    }
 }
 
 private struct EmptyEditorView: View {
@@ -83,13 +110,13 @@ private struct EmptyEditorView: View {
         VStack(spacing: 12) {
             Image(systemName: "crop")
                 .font(.system(size: 34, weight: .medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.textTertiary)
             Text("No capture session")
-                .font(.headline)
+                .font(Theme.title(16))
+                .foregroundStyle(Theme.textSecondary)
         }
         .frame(minWidth: 860, minHeight: 560)
-        .background(Color(red: 0.055, green: 0.057, blue: 0.06))
-        .foregroundStyle(.secondary)
+        .background(Theme.canvas)
     }
 }
 
