@@ -59,11 +59,12 @@ enum EditorTool: String, CaseIterable, Identifiable {
 }
 
 enum DocumentPanel: Equatable {
-    case none, layout, background
+    case none, components, layout, background
 }
 
 enum InspectorRoute: Equatable {
     case hidden
+    case componentList
     case layout
     case background
     case annotation
@@ -147,6 +148,10 @@ final class EditorState: ObservableObject {
         switch documentPanel {
         case .layout: return .layout
         case .background: return .background
+        case .components:
+            // Select mode: a chosen annotation shows its details (with a back path to
+            // the list); otherwise the full component list.
+            return selectedAnnotation != nil ? .annotation : .componentList
         case .none:
             if selectedAnnotation != nil { return .annotation }
             if activeTool.isDrawTool { return .drawDefaults(activeTool) }
@@ -159,6 +164,7 @@ final class EditorState: ObservableObject {
     var inspectorTitle: String {
         switch inspectorRoute {
         case .hidden: return ""
+        case .componentList: return "Components"
         case .layout: return "Layout"
         case .background: return "Background"
         case .drawDefaults(let tool): return tool.displayName
@@ -246,6 +252,9 @@ final class EditorState: ObservableObject {
         performCommand(AddAnnotationCommand(annotation: annotation))
         selectedAnnotationID = annotation.id
         activeTool = .select
+        // Land in the Select inspector showing the new annotation's details; "back"
+        // then returns to the full component list.
+        documentPanel = .components
         return annotation
     }
 

@@ -135,6 +135,37 @@ final class SidebarModelTests: XCTestCase {
         XCTAssertTrue(state.isInspectorVisible)
     }
 
+    func testComponentsPanelShowsListWhenNothingSelected() {
+        let state = makeState()
+        state.toggleDocumentPanel(.components)
+        XCTAssertEqual(state.inspectorRoute, .componentList)
+        XCTAssertEqual(state.inspectorTitle, "Components")
+        XCTAssertTrue(state.isInspectorVisible)
+    }
+
+    func testSelectingComponentRoutesToAnnotationDetails() {
+        let state = makeState()
+        state.toggleDocumentPanel(.components)
+        state.selectCursorTool(.arrow)
+        state.beginDraw(at: CGPoint(x: 10, y: 10))
+        state.updateDraw(to: CGPoint(x: 90, y: 90), shiftSnap: false)
+        _ = state.commitDraw()
+        // commitDraw selects the new annotation inside the components panel.
+        XCTAssertEqual(state.documentPanel, .components)
+        XCTAssertEqual(state.inspectorRoute, .annotation)
+    }
+
+    func testDeselectingInComponentsReturnsToList() {
+        let state = makeState()
+        state.selectCursorTool(.arrow)
+        state.beginDraw(at: CGPoint(x: 10, y: 10))
+        state.updateDraw(to: CGPoint(x: 90, y: 90), shiftSnap: false)
+        _ = state.commitDraw()
+        XCTAssertEqual(state.inspectorRoute, .annotation)
+        state.deselect()
+        XCTAssertEqual(state.inspectorRoute, .componentList)
+    }
+
     func testDisabledDrawToolIsIgnored() {
         let state = makeState()
         state.selectCursorTool(.blur)

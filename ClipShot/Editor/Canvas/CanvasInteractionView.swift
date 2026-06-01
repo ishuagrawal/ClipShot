@@ -381,7 +381,7 @@ final class CanvasInteractionView: NSView {
         state.cancelDraw()
         state.selectedAnnotationID = annotation.id
         state.activeTool = .select
-        state.documentPanel = .none
+        state.documentPanel = .components
         moveStartPoint = point
         state.beginMoveSelected()
         isMoving = true
@@ -394,7 +394,7 @@ final class CanvasInteractionView: NSView {
         state.cancelDraw()
         state.selectedAnnotationID = annotation.id
         state.activeTool = .select
-        state.documentPanel = .none
+        state.documentPanel = .components
         isMoving = false
         didMoveSelected = false
         moveStartPoint = nil

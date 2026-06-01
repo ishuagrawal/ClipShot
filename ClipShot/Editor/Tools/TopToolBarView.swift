@@ -1,13 +1,19 @@
 import SwiftUI
 
-/// Slim top bar: document-settings toggles (Layout · Background) on the left, page title
-/// on the right. Drawing tools live in the floating `ToolPaletteView`, not here.
+/// Slim top bar: Select (component inspector) plus the document-settings toggles
+/// (Layout · Background) on the left, page title on the right. Drawing tools live in the
+/// floating `ToolPaletteView`, not here.
 struct TopToolBarView: View {
     @ObservedObject var state: EditorState
     @Namespace private var indicator
 
     var body: some View {
         HStack(spacing: 4) {
+            DocToggle(label: "Select", symbol: "cursorarrow",
+                      isActive: state.documentPanel == .components, indicator: indicator) {
+                state.toggleDocumentPanel(.components)
+            }
+            divider
             DocToggle(label: "Layout", symbol: "square.dashed",
                       isActive: state.documentPanel == .layout, indicator: indicator) {
                 state.toggleDocumentPanel(.layout)
@@ -28,6 +34,14 @@ struct TopToolBarView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.surface)
         .animation(.spring(response: 0.30, dampingFraction: 0.82), value: state.documentPanel)
+    }
+
+    /// Hairline separating Select (selection mode) from the document-settings toggles.
+    private var divider: some View {
+        Rectangle()
+            .fill(Theme.hairline)
+            .frame(width: 1, height: 20)
+            .padding(.horizontal, 4)
     }
 }
 

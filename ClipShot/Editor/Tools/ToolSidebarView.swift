@@ -24,6 +24,12 @@ struct ToolSidebarView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
+            if state.inspectorRoute == .annotation {
+                // Annotation details are reached from the component list; offer a way back.
+                IconButton(systemName: "chevron.left") { state.deselect() }
+                    .help("Back to components")
+                    .accessibilityLabel("Back to components")
+            }
             Text(state.inspectorTitle)
                 .font(Theme.title())
                 .foregroundStyle(Theme.textPrimary)
@@ -42,6 +48,8 @@ struct ToolSidebarView: View {
         case .hidden:
             // Excluded by isInspectorVisible (sidebar isn't rendered) — defensive only.
             EmptyView()
+        case .componentList:
+            ComponentListView(state: state)
         case .layout:
             PaddingToolView(state: state)
         case .background:

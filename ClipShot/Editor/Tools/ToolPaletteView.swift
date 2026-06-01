@@ -1,12 +1,13 @@
 import SwiftUI
 
-/// Floating drawing-mode palette, centred at the top of the canvas. The only control with
-/// an active-mode highlight. Picking a tool sets the canvas cursor mode; finishing a draw
-/// auto-returns to Select (see `CanvasInteractionView` / `EditorState.commitDraw`).
+/// Floating drawing-tools palette, centred at the top of the canvas. Arrow / Rectangle /
+/// Text — the annotation tools. Picking one sets the canvas cursor mode; finishing a draw
+/// auto-returns to Select and opens the component inspector (see `EditorState.commitDraw`).
+/// Select itself lives in the top bar (`TopToolBarView`), not here.
 struct ToolPaletteView: View {
     @ObservedObject var state: EditorState
 
-    private let tools: [EditorTool] = [.select, .arrow, .rectangle, .text]
+    private let tools: [EditorTool] = [.arrow, .rectangle, .text]
 
     var body: some View {
         HStack(spacing: 4) {

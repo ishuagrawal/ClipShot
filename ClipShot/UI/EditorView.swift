@@ -81,11 +81,11 @@ private struct EditorShell: View {
         .accessibilityHidden(true)
     }
 
-    /// Single-key tool shortcuts (no modifier). Cursor modes via the palette; Layout /
-    /// Background toggle their document panels — mirrors the original V/P/B/A/R/T map.
+    /// Single-key tool shortcuts (no modifier). Draw tools via the palette; Select / Layout /
+    /// Background toggle their inspector panels — mirrors the original V/P/B/A/R/T map.
     private var toolShortcuts: some View {
         ZStack {
-            cursorKey("v", .select)
+            panelKey("v", .components)
             cursorKey("a", .arrow)
             cursorKey("r", .rectangle)
             cursorKey("t", .text)

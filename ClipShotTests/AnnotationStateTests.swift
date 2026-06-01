@@ -121,7 +121,9 @@ final class AnnotationStateTests: XCTestCase {
         state.performUndo()
 
         XCTAssertNil(state.selectedAnnotationID)
-        XCTAssertEqual(state.inspectorRoute, .hidden)
+        // commitDraw pinned the Select inspector; undoing the only annotation leaves the
+        // component list open (now empty), not a hidden inspector.
+        XCTAssertEqual(state.inspectorRoute, .componentList)
     }
 }
 
