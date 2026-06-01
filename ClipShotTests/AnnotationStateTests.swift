@@ -397,7 +397,7 @@ final class CanvasInteractionViewTests: XCTestCase {
     }
 
     func test_dragTextBorderMovesTextWithoutSelectTool() throws {
-        let (annotation, state, view) = makeTextInteraction(initialTool: .arrow)
+        let (annotation, state, view) = makeTextInteraction(initialTool: .text)
         var editedAnnotation: Annotation?
         view.onEditText = { editedAnnotation = $0 }
 
@@ -436,6 +436,93 @@ final class CanvasInteractionViewTests: XCTestCase {
             XCTAssertEqual(origin, CGPoint(x: 20, y: 20))
         } else {
             XCTFail("expected text")
+        }
+    }
+
+    func test_dragArrowMovesExistingArrowWithoutCreatingNewArrow() throws {
+        let (annotation, state, view) = makeArrowInteraction(initialTool: .arrow)
+
+        view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 20, y: 20)))
+        view.mouseDragged(with: try makeMouseEvent(type: .leftMouseDragged, at: CGPoint(x: 30, y: 30)))
+        view.mouseUp(with: try makeMouseEvent(type: .leftMouseUp, at: CGPoint(x: 30, y: 30)))
+
+        XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertEqual(state.document.annotations.count, 1)
+        XCTAssertNil(state.inProgressAnnotation)
+        XCTAssertEqual(state.undoStack.undoCount, 1)
+
+        if case let .arrow(from, to, _, _) = state.document.annotations[0].kind {
+            XCTAssertEqual(from, CGPoint(x: 20, y: 20))
+            XCTAssertEqual(to, CGPoint(x: 50, y: 50))
+        } else {
+            XCTFail("expected arrow")
+        }
+    }
+
+    func test_dragRectangleMovesExistingRectangleWithoutCreatingNewRectangle() throws {
+        let (annotation, state, view) = makeRectangleInteraction(initialTool: .rectangle)
+
+        view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 25, y: 20)))
+        view.mouseDragged(with: try makeMouseEvent(type: .leftMouseDragged, at: CGPoint(x: 35, y: 30)))
+        view.mouseUp(with: try makeMouseEvent(type: .leftMouseUp, at: CGPoint(x: 35, y: 30)))
+
+        XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertEqual(state.document.annotations.count, 1)
+        XCTAssertNil(state.inProgressAnnotation)
+        XCTAssertEqual(state.undoStack.undoCount, 1)
+
+        if case let .rect(frame, _, _, _, _) = state.document.annotations[0].kind {
+            XCTAssertEqual(frame, CGRect(x: 20, y: 20, width: 40, height: 24))
+        } else {
+            XCTFail("expected rectangle")
+        }
+    }
+
+    func test_arrowToolDoesNotDragRectangle() throws {
+        let (annotation, state, view) = makeRectangleInteraction(initialTool: .arrow)
+
+        view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 25, y: 20)))
+        view.mouseDragged(with: try makeMouseEvent(type: .leftMouseDragged, at: CGPoint(x: 35, y: 30)))
+        view.mouseUp(with: try makeMouseEvent(type: .leftMouseUp, at: CGPoint(x: 35, y: 30)))
+
+        XCTAssertNotEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertEqual(state.document.annotations.count, 2)
+        XCTAssertNil(state.inProgressAnnotation)
+
+        if case let .rect(frame, _, _, _, _) = state.document.annotations[0].kind {
+            XCTAssertEqual(frame, CGRect(x: 10, y: 10, width: 40, height: 24))
+        } else {
+            XCTFail("expected original rectangle")
+        }
+        if case let .arrow(from, to, _, _) = state.document.annotations[1].kind {
+            XCTAssertEqual(from, CGPoint(x: 25, y: 20))
+            XCTAssertEqual(to, CGPoint(x: 35, y: 30))
+        } else {
+            XCTFail("expected new arrow")
+        }
+    }
+
+    func test_rectangleToolDoesNotDragArrow() throws {
+        let (annotation, state, view) = makeArrowInteraction(initialTool: .rectangle)
+
+        view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 20, y: 20)))
+        view.mouseDragged(with: try makeMouseEvent(type: .leftMouseDragged, at: CGPoint(x: 35, y: 30)))
+        view.mouseUp(with: try makeMouseEvent(type: .leftMouseUp, at: CGPoint(x: 35, y: 30)))
+
+        XCTAssertNotEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertEqual(state.document.annotations.count, 2)
+        XCTAssertNil(state.inProgressAnnotation)
+
+        if case let .arrow(from, to, _, _) = state.document.annotations[0].kind {
+            XCTAssertEqual(from, CGPoint(x: 10, y: 10))
+            XCTAssertEqual(to, CGPoint(x: 40, y: 40))
+        } else {
+            XCTFail("expected original arrow")
+        }
+        if case let .rect(frame, _, _, _, _) = state.document.annotations[1].kind {
+            XCTAssertEqual(frame, CGRect(x: 20, y: 20, width: 15, height: 10))
+        } else {
+            XCTFail("expected new rectangle")
         }
     }
 
@@ -481,14 +568,49 @@ final class CanvasInteractionViewTests: XCTestCase {
         XCTAssertEqual(state.undoStack.undoCount, 0)
     }
 
-    func test_textHitTestCapturesBodyAndBorderForNonInteractiveTools() {
-        let fixture = makeTextInteraction(initialTool: .background)
-        let view = fixture.view
+    func test_nonDrawingToolsDoNotCaptureAnnotationDrags() {
+        let textFixture = makeTextInteraction(initialTool: .background)
+        let arrowFixture = makeArrowInteraction(initialTool: .background)
+        let rectFixture = makeRectangleInteraction(initialTool: .background)
 
-        withExtendedLifetime(fixture.state) {
-            XCTAssertIdentical(view.hitTest(CGPoint(x: 7, y: 18)), view)
-            XCTAssertIdentical(view.hitTest(CGPoint(x: 20, y: 18)), view)
-            XCTAssertNil(view.hitTest(CGPoint(x: 70, y: 60)))
+        withExtendedLifetime(textFixture.state) {
+            XCTAssertNil(textFixture.view.hitTest(CGPoint(x: 7, y: 18)))
+            XCTAssertNil(textFixture.view.hitTest(CGPoint(x: 20, y: 18)))
+        }
+        withExtendedLifetime(arrowFixture.state) {
+            XCTAssertNil(arrowFixture.view.hitTest(CGPoint(x: 20, y: 20)))
+        }
+        withExtendedLifetime(rectFixture.state) {
+            XCTAssertNil(rectFixture.view.hitTest(CGPoint(x: 25, y: 20)))
+        }
+    }
+
+    func test_selectToolCanDragArrowAndRectangle() throws {
+        let arrowFixture = makeArrowInteraction(initialTool: .select)
+        let rectFixture = makeRectangleInteraction(initialTool: .select)
+
+        try withExtendedLifetime(arrowFixture.state) {
+            arrowFixture.view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 20, y: 20)))
+            arrowFixture.view.mouseDragged(with: try makeMouseEvent(type: .leftMouseDragged, at: CGPoint(x: 30, y: 30)))
+            arrowFixture.view.mouseUp(with: try makeMouseEvent(type: .leftMouseUp, at: CGPoint(x: 30, y: 30)))
+
+            if case let .arrow(from, to, _, _) = arrowFixture.state.document.annotations[0].kind {
+                XCTAssertEqual(from, CGPoint(x: 20, y: 20))
+                XCTAssertEqual(to, CGPoint(x: 50, y: 50))
+            } else {
+                XCTFail("expected arrow")
+            }
+        }
+        try withExtendedLifetime(rectFixture.state) {
+            rectFixture.view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 25, y: 20)))
+            rectFixture.view.mouseDragged(with: try makeMouseEvent(type: .leftMouseDragged, at: CGPoint(x: 35, y: 30)))
+            rectFixture.view.mouseUp(with: try makeMouseEvent(type: .leftMouseUp, at: CGPoint(x: 35, y: 30)))
+
+            if case let .rect(frame, _, _, _, _) = rectFixture.state.document.annotations[0].kind {
+                XCTAssertEqual(frame, CGRect(x: 20, y: 20, width: 40, height: 24))
+            } else {
+                XCTFail("expected rectangle")
+            }
         }
     }
 
@@ -512,6 +634,66 @@ final class CanvasInteractionViewTests: XCTestCase {
                 color: CGColor(gray: 0, alpha: 1)
             )
         )
+        let document = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
+            viewport: CGSize(width: 100, height: 100),
+            pageTitle: "t",
+            pageURL: "u",
+            baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80),
+            annotations: [annotation]
+        )
+        let state = EditorState(document: document, initialTool: initialTool)
+        let view = CanvasInteractionView(frame: CGRect(origin: .zero, size: Self.interactionViewSize))
+        view.state = state
+        view.effectiveCrop = document.effectiveCrop
+        return (annotation, state, view)
+    }
+
+    private func makeArrowInteraction(initialTool: EditorTool) -> (
+        annotation: Annotation,
+        state: EditorState,
+        view: CanvasInteractionView
+    ) {
+        makeInteraction(
+            annotation: Annotation(
+                kind: .arrow(
+                    from: CGPoint(x: 10, y: 10),
+                    to: CGPoint(x: 40, y: 40),
+                    color: CGColor(gray: 0, alpha: 1),
+                    weight: 4
+                )
+            ),
+            initialTool: initialTool
+        )
+    }
+
+    private func makeRectangleInteraction(initialTool: EditorTool) -> (
+        annotation: Annotation,
+        state: EditorState,
+        view: CanvasInteractionView
+    ) {
+        makeInteraction(
+            annotation: Annotation(
+                kind: .rect(
+                    frame: CGRect(x: 10, y: 10, width: 40, height: 24),
+                    stroke: CGColor(gray: 0, alpha: 1),
+                    fill: nil,
+                    weight: 3,
+                    cornerRadius: 0
+                )
+            ),
+            initialTool: initialTool
+        )
+    }
+
+    private func makeInteraction(
+        annotation: Annotation,
+        initialTool: EditorTool
+    ) -> (
+        annotation: Annotation,
+        state: EditorState,
+        view: CanvasInteractionView
+    ) {
         let document = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
             viewport: CGSize(width: 100, height: 100),

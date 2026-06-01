@@ -9,6 +9,7 @@ final class CanvasInteractionView: NSView {
     private nonisolated static let textBorderOuterHitTolerance: CGFloat = 10
     private nonisolated static let textBorderInnerHitTolerance: CGFloat = 5
     private nonisolated static let textBodyDragActivationDistance: CGFloat = 2
+    private nonisolated static let shapeDragHitTolerance: CGFloat = 10
 
     weak var state: EditorState? {
         didSet { invalidateCursorRectsIfPossible() }
@@ -52,7 +53,7 @@ final class CanvasInteractionView: NSView {
         }
 
         let documentPoint = CanvasGeometry.documentPoint(fromImagePixel: point, effectiveCrop: effectiveCrop)
-        return draggableTextAnnotation(at: documentPoint) == nil ? nil : self
+        return draggableAnnotation(at: documentPoint) == nil ? nil : self
     }
 
     override func resetCursorRects() {
@@ -72,6 +73,7 @@ final class CanvasInteractionView: NSView {
             addCursorRect(bounds, cursor: cursor)
         }
         addTextBorderCursorRects()
+        addRectCursorRects()
     }
 
     override func updateTrackingAreas() {
@@ -118,6 +120,11 @@ final class CanvasInteractionView: NSView {
                 at: point,
                 editOnClick: state.activeTool == .select || state.activeTool == .text
             )
+            return
+        }
+
+        if let annotation = shapeAnnotation(at: point) {
+            beginMove(annotation, at: point)
             return
         }
 
@@ -247,7 +254,8 @@ final class CanvasInteractionView: NSView {
         guard let state else { return nil }
 
         return displayAnnotations(for: state).reversed().first { annotation in
-            textBorderContains(point, annotation: annotation)
+            guard canDrag(annotation, with: state.activeTool) else { return false }
+            return textBorderContains(point, annotation: annotation)
         }
     }
 
@@ -256,6 +264,7 @@ final class CanvasInteractionView: NSView {
 
         return displayAnnotations(for: state).reversed().first { annotation in
             guard case .text = annotation.kind,
+                  canDrag(annotation, with: state.activeTool),
                   editingTextAnnotation?.id != annotation.id else {
                 return false
             }
@@ -268,6 +277,23 @@ final class CanvasInteractionView: NSView {
         textBorderAnnotation(at: point) ?? inactiveTextBodyAnnotation(at: point)
     }
 
+    private func shapeAnnotation(at point: CGPoint) -> Annotation? {
+        guard let state else { return nil }
+
+        return state.document.annotations.reversed().first { annotation in
+            guard canDrag(annotation, with: state.activeTool), annotation.isDraggableShape else { return false }
+            return AnnotationGeometry.hitTest(
+                annotation.kind,
+                point: point,
+                tolerance: Self.shapeDragHitTolerance
+            )
+        }
+    }
+
+    private func draggableAnnotation(at point: CGPoint) -> Annotation? {
+        draggableTextAnnotation(at: point) ?? shapeAnnotation(at: point)
+    }
+
     private func textBorderContains(_ point: CGPoint, annotation: Annotation) -> Bool {
         guard case .text = annotation.kind else { return false }
 
@@ -278,7 +304,8 @@ final class CanvasInteractionView: NSView {
         guard let state, scrollView?.isSpaceHeld != true else { return }
 
         for annotation in displayAnnotations(for: state) {
-            guard case .text = annotation.kind else { continue }
+            guard case .text = annotation.kind,
+                  canDrag(annotation, with: state.activeTool) else { continue }
             if editingTextAnnotation?.id != annotation.id {
                 addCursorRect(
                     viewFrame(forDocumentFrame: AnnotationGeometry.boundingBox(annotation.kind)),
@@ -288,6 +315,37 @@ final class CanvasInteractionView: NSView {
             for frame in textBorderHitFrames(for: annotation) {
                 addCursorRect(viewFrame(forDocumentFrame: frame), cursor: .openHand)
             }
+        }
+    }
+
+    private func addRectCursorRects() {
+        guard let state, scrollView?.isSpaceHeld != true else { return }
+
+        for annotation in state.document.annotations where canDrag(annotation, with: state.activeTool) {
+            guard case .rect = annotation.kind else { continue }
+            addCursorRect(
+                viewFrame(
+                    forDocumentFrame: AnnotationGeometry
+                        .boundingBox(annotation.kind)
+                        .insetBy(dx: -Self.shapeDragHitTolerance, dy: -Self.shapeDragHitTolerance)
+                ),
+                cursor: .openHand
+            )
+        }
+    }
+
+    private func canDrag(_ annotation: Annotation, with tool: EditorTool) -> Bool {
+        switch (tool, annotation.kind) {
+        case (.select, .arrow), (.select, .rect), (.select, .text):
+            return true
+        case (.arrow, .arrow):
+            return true
+        case (.rectangle, .rect):
+            return true
+        case (.text, .text):
+            return true
+        default:
+            return false
         }
     }
 
@@ -371,7 +429,7 @@ final class CanvasInteractionView: NSView {
 
         let documentPoint = CanvasGeometry.documentPoint(fromImagePixel: viewPoint, effectiveCrop: effectiveCrop)
 
-        if scrollView?.isSpaceHeld != true, draggableTextAnnotation(at: documentPoint) != nil {
+        if scrollView?.isSpaceHeld != true, draggableAnnotation(at: documentPoint) != nil {
             NSCursor.openHand.set()
         } else {
             baseCursor.set()
@@ -391,6 +449,17 @@ final class CanvasInteractionView: NSView {
             return .iBeam
         default:
             return .arrow
+        }
+    }
+}
+
+private extension Annotation {
+    var isDraggableShape: Bool {
+        switch kind {
+        case .arrow, .rect:
+            return true
+        case .text, .blur:
+            return false
         }
     }
 }
