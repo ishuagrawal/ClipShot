@@ -22,7 +22,7 @@ struct PaddingToolView: View {
 
     private var header: some View {
         HStack {
-            PanelTitle(text: "Padding")
+            SectionLabel(text: "Padding")
             Spacer()
             Button {
                 linked.toggle()
@@ -36,13 +36,8 @@ struct PaddingToolView: View {
                     .frame(width: 26, height: 24)
                     .background {
                         if linked {
-                            RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous)
-                                .fill(Color.clear)
-                                .raised(cornerRadius: Theme.radiusSmall)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous)
-                                        .fill(Theme.accentDim)
-                                )
+                            RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
+                                .fill(Theme.accentDim)
                         }
                     }
                     .contentShape(Rectangle())
@@ -59,7 +54,7 @@ struct PaddingToolView: View {
                 field(.left)
                 Color.clear
                     .frame(height: 54)
-                    .recessed(cornerRadius: Theme.radiusSmall)
+                    .insetField(cornerRadius: Theme.radiusControl)
                     .overlay(
                         Image(systemName: "photo")
                             .font(.system(size: 15))
@@ -90,15 +85,15 @@ struct PaddingToolView: View {
         .multilineTextAlignment(.center)
         .frame(width: 54)
         .padding(.vertical, 6)
-        .recessed(cornerRadius: Theme.radiusSmall)
+        .insetField(cornerRadius: Theme.radiusControl)
         .accessibilityLabel(label(side))
     }
 
     private var uniformRow: some View {
         VStack(alignment: .leading, spacing: 9) {
-            PanelTitle(text: "Uniform")
+            SectionLabel(text: "Uniform")
             HStack(spacing: 10) {
-                GraphiteSlider(
+                FlatSlider(
                 value: Binding(
                     get: { Double(padding.uniform ?? padding.top) },
                     set: { value in
@@ -117,10 +112,7 @@ struct PaddingToolView: View {
                     }
                 }
             )
-                Text("\(Int(padding.uniform ?? padding.top))")
-                    .font(Theme.mono(12, .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-                    .frame(width: 30, alignment: .trailing)
+                InspectorValueLabel(text: "\(Int(padding.uniform ?? padding.top))")
             }
         }
     }
