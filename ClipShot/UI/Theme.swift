@@ -8,7 +8,6 @@ enum Theme {
     static let canvas        = Color(red: 0.067, green: 0.075, blue: 0.086)   // #111316 stage
     static let surface       = Color(red: 0.102, green: 0.114, blue: 0.129)   // #1A1D21 floating panels/bars
     static let surfaceHover  = Color(red: 0.133, green: 0.149, blue: 0.169)   // #22262B hover tint
-    static let surfaceActive = Color(red: 0.157, green: 0.792, blue: 0.722).opacity(0.16)
     static let inputFill     = Color(red: 0.125, green: 0.137, blue: 0.153)   // #202327 inset fields
 
     // MARK: Lines & shadow
@@ -20,7 +19,6 @@ enum Theme {
     static let textPrimary   = Color(red: 0.949, green: 0.957, blue: 0.965)   // #F2F4F6 ~16:1
     static let textSecondary = Color(red: 0.635, green: 0.663, blue: 0.698)   // #A2A9B2 ~7:1
     static let textTertiary  = Color(red: 0.522, green: 0.545, blue: 0.576)   // #858B93 ~4.9:1
-    static let textDisabled  = Color(red: 0.353, green: 0.376, blue: 0.408)   // #5A6068 decorative only
 
     // MARK: Accent — teal (restrained)
     static let accent        = Color(red: 0.157, green: 0.792, blue: 0.722)   // #28CAB8
@@ -29,7 +27,6 @@ enum Theme {
     static let accentFocus   = Color(red: 0.157, green: 0.792, blue: 0.722).opacity(0.55)
 
     // MARK: Geometry
-    static let radiusPanel: CGFloat = 12
     static let radiusControl: CGFloat = 8
     static let radiusPill: CGFloat = 12
 
@@ -139,6 +136,7 @@ struct FlatSlider: View {
     private let knob: CGFloat = 14
 
     var body: some View {
+        // GeometryReader is intentional: knob offset arithmetic needs the numeric track width.
         GeometryReader { geo in
             let width = geo.size.width
             let span = range.upperBound - range.lowerBound

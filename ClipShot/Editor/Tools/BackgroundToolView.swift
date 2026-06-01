@@ -205,7 +205,8 @@ struct BackgroundToolView: View {
     private func syncControls(from style: BackgroundStyle) {
         isSyncingControls = true
         defer {
-            DispatchQueue.main.async {
+            // Re-enable writes after the onChange cascade settles, staying on the main actor.
+            Task { @MainActor in
                 isSyncingControls = false
             }
         }

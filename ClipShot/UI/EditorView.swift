@@ -69,7 +69,12 @@ private struct EditorShell: View {
 
     private var panelToggleShortcut: some View {
         Button {
-            state.toggleDocumentPanel(.layout)
+            // ⌘I closes whatever the inspector is showing, or opens Layout if it's hidden.
+            if state.isInspectorVisible {
+                state.dismissInspector()
+            } else {
+                state.toggleDocumentPanel(.layout)
+            }
         } label: {
             Color.clear.frame(width: 0, height: 0)
         }

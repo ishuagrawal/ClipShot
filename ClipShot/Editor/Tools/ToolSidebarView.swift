@@ -40,6 +40,7 @@ struct ToolSidebarView: View {
     private func content(for route: InspectorRoute) -> some View {
         switch route {
         case .hidden:
+            // Excluded by isInspectorVisible (sidebar isn't rendered) — defensive only.
             EmptyView()
         case .layout:
             PaddingToolView(state: state)

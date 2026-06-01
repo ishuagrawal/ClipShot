@@ -61,6 +61,14 @@ final class SidebarModelTests: XCTestCase {
         XCTAssertEqual(state.documentPanel, .none)
     }
 
+    func testPressingSelectWhilePanelOpenClosesPanel() {
+        let state = makeState()
+        state.toggleDocumentPanel(.layout)
+        state.selectCursorTool(.select)
+        XCTAssertEqual(state.documentPanel, .none)
+        XCTAssertEqual(state.activeTool, .select)
+    }
+
     func testToggleDocumentPanelTwiceReturnsToNone() {
         let state = makeState()
         state.toggleDocumentPanel(.layout)
