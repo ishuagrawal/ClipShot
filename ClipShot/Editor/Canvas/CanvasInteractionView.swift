@@ -118,7 +118,7 @@ final class CanvasInteractionView: NSView {
         requestKeyboardFocus()
         let point = documentPoint(for: event)
 
-        if let annotation = draggableAnnotation(at: point) {
+        if let annotation = annotationInteractionTarget(at: point) {
             if event.clickCount >= 2 {
                 activateEditingTool(for: annotation)
                 return

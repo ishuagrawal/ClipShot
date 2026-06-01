@@ -28,7 +28,7 @@ final class CanvasTextEditor: NSObject, NSTextFieldDelegate {
               let container else { return }
         finishEditing()
 
-        let textField = NSTextField(frame: .zero)
+        let textField = CanvasTextField(frame: .zero)
         textField.isBordered = false
         textField.drawsBackground = false
         textField.backgroundColor = .clear
@@ -110,7 +110,15 @@ final class CanvasTextEditor: NSObject, NSTextFieldDelegate {
     }
 
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
-        false
+        switch commandSelector {
+        case #selector(NSResponder.insertNewline(_:)),
+             #selector(NSResponder.insertLineBreak(_:)),
+             #selector(NSResponder.insertNewlineIgnoringFieldEditor(_:)):
+            finishEditing()
+            return true
+        default:
+            return false
+        }
     }
 
     private func syncTextField(
@@ -123,12 +131,16 @@ final class CanvasTextEditor: NSObject, NSTextFieldDelegate {
     ) {
         let imageOrigin = CanvasGeometry.imagePixel(fromDocumentPoint: origin, effectiveCrop: effectiveCrop)
         let box = AnnotationGeometry.textFrame(origin: origin, string: string, fontSize: fontSize)
+        let fieldWidth = max(box.width, fontSize * 4)
         textField.frame = CGRect(
             x: imageFrameOrigin.x + imageOrigin.x,
             y: imageFrameOrigin.y + imageOrigin.y,
-            width: max(box.width, fontSize * 4),
+            width: fieldWidth,
             height: box.height
         )
+        if let textField = textField as? CanvasTextField {
+            textField.mouseCaptureWidth = string.isEmpty ? fieldWidth : min(fieldWidth, box.width + 2)
+        }
         textField.font = NSFont(name: "Helvetica", size: fontSize) ?? NSFont.systemFont(ofSize: fontSize)
         textField.textColor = NSColor(cgColor: color) ?? .red
     }
@@ -168,6 +180,25 @@ final class CanvasTextEditor: NSObject, NSTextFieldDelegate {
             return state?.inProgressAnnotation
         }
         return nil
+    }
+}
+
+private final class CanvasTextField: NSTextField {
+    var mouseCaptureWidth: CGFloat = 0
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard bounds.contains(point) else { return nil }
+
+        let captureWidth = min(bounds.width, max(1, mouseCaptureWidth))
+        let captureBounds = CGRect(
+            x: bounds.minX,
+            y: bounds.minY,
+            width: captureWidth,
+            height: bounds.height
+        )
+        guard captureBounds.contains(point) else { return nil }
+
+        return super.hitTest(point)
     }
 }
 

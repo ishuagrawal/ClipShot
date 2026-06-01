@@ -173,6 +173,48 @@ final class CanvasTextEditorTests: XCTestCase {
         XCTAssertGreaterThan(textField.frame.height, initialFrame.height)
     }
 
+    func test_smallEditingTextBorderClickFallsThroughToCanvasInteraction() throws {
+        let container = CanvasDocumentView(frame: CGRect(x: 0, y: 0, width: 120, height: 80))
+        let annotation = Annotation(
+            kind: .text(
+                origin: CGPoint(x: 10, y: 10),
+                string: "i",
+                fontSize: 8,
+                color: CGColor(gray: 0, alpha: 1)
+            )
+        )
+        let document = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
+            viewport: CGSize(width: 100, height: 100),
+            pageTitle: "t",
+            pageURL: "u",
+            baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80),
+            annotations: [annotation]
+        )
+        let state = EditorState(document: document, openingPanel: .components)
+        let interactionView = CanvasInteractionView(frame: container.bounds)
+        interactionView.state = state
+        interactionView.effectiveCrop = document.effectiveCrop
+        container.addSubview(interactionView)
+
+        let editor = CanvasTextEditor(container: container)
+        editor.attach(state: state)
+        editor.onEditingPreviewChanged = { annotation in
+            interactionView.editingTextAnnotation = annotation
+        }
+        editor.beginEditing(annotation, effectiveCrop: document.effectiveCrop)
+
+        let textField = try XCTUnwrap(container.subviews.compactMap { $0 as? NSTextField }.first)
+        let textFrame = AnnotationGeometry.boundingBox(annotation.kind)
+        let borderPoint = CGPoint(x: textFrame.maxX + 9, y: textFrame.midY)
+        let textFieldPoint = textField.convert(borderPoint, from: container)
+        let interactionPoint = interactionView.convert(borderPoint, from: container)
+
+        XCTAssertTrue(textField.frame.contains(borderPoint))
+        XCTAssertNil(textField.hitTest(textFieldPoint))
+        XCTAssertIdentical(interactionView.hitTest(interactionPoint), interactionView)
+    }
+
     func test_controlTextDidChange_emitsPreviewForCurrentTypedText() throws {
         let container = NSView(frame: CGRect(x: 0, y: 0, width: 300, height: 200))
         let editor = CanvasTextEditor(container: container)
@@ -441,6 +483,63 @@ final class CanvasInteractionViewTests: XCTestCase {
         XCTAssertEqual(state.activeTool, .select)
         XCTAssertEqual(state.inspectorRoute, .drawDefaults(.text))
         XCTAssertEqual(state.undoStack.undoCount, 0)
+    }
+
+    func test_returnCommittedTextCanBeDraggedImmediately() throws {
+        let document = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
+            viewport: CGSize(width: 100, height: 100),
+            pageTitle: "t",
+            pageURL: "u",
+            baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80)
+        )
+        let state = EditorState(document: document)
+        state.selectCursorTool(.text)
+        let container = CanvasDocumentView(frame: CGRect(origin: .zero, size: Self.interactionViewSize))
+        let view = CanvasInteractionView(frame: container.bounds)
+        view.state = state
+        view.effectiveCrop = document.effectiveCrop
+        container.addSubview(view)
+        let editor = CanvasTextEditor(container: container)
+        editor.attach(state: state)
+        view.onEditText = { annotation in
+            editor.beginEditing(annotation, effectiveCrop: document.effectiveCrop)
+        }
+
+        view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 20, y: 20)))
+        let textField = try XCTUnwrap(container.subviews.compactMap { $0 as? NSTextField }.first)
+        textField.stringValue = "Hi"
+        let textView = NSTextView()
+        textView.string = "Hi"
+
+        XCTAssertTrue(
+            editor.control(
+                textField,
+                textView: textView,
+                doCommandBy: #selector(NSResponder.insertNewline(_:))
+            )
+        )
+
+        XCTAssertTrue(container.subviews.compactMap { $0 as? NSTextField }.isEmpty)
+        XCTAssertEqual(state.activeTool, .select)
+        XCTAssertEqual(state.selectedAnnotationID, state.document.annotations.first?.id)
+        XCTAssertNil(state.inProgressAnnotation)
+        XCTAssertEqual(state.document.annotations.count, 1)
+
+        let start = CGPoint(x: 25, y: 30)
+        XCTAssertIdentical(view.hitTest(start), view)
+        view.mouseDown(with: try makeMouseDown(at: start))
+        view.mouseDragged(with: try makeMouseEvent(type: .leftMouseDragged, at: CGPoint(x: 35, y: 38)))
+        view.mouseUp(with: try makeMouseEvent(type: .leftMouseUp, at: CGPoint(x: 35, y: 38)))
+
+        if case let .text(origin, string, _, _) = state.document.annotations[0].kind {
+            XCTAssertEqual(origin, CGPoint(x: 30, y: 28))
+            XCTAssertEqual(string, "Hi")
+        } else {
+            XCTFail("expected text")
+        }
+        XCTAssertEqual(state.activeTool, .select)
+        XCTAssertEqual(state.undoStack.undoCount, 2)
     }
 
     func test_singleClickInsideTextToolSelectsExistingTextInsteadOfCreatingNewText() throws {
