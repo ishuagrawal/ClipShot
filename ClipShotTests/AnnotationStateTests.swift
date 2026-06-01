@@ -99,7 +99,7 @@ final class AnnotationStateTests: XCTestCase {
     func test_selectToolPanelVisible_onlyWithSelection() {
         let state = makeState()
         state.activeTool = .select
-        XCTAssertFalse(state.isDetailPanelVisible)
+        XCTAssertFalse(state.isInspectorVisible)
 
         state.activeTool = .arrow
         state.beginDraw(at: CGPoint(x: 5, y: 5))
@@ -107,7 +107,7 @@ final class AnnotationStateTests: XCTestCase {
         _ = state.commitDraw()
         state.activeTool = .select
 
-        XCTAssertTrue(state.isDetailPanelVisible)
+        XCTAssertTrue(state.isInspectorVisible)
     }
 
     func test_undoAddClearsStaleSelection() {
@@ -120,7 +120,7 @@ final class AnnotationStateTests: XCTestCase {
         state.performUndo()
 
         XCTAssertNil(state.selectedAnnotationID)
-        XCTAssertFalse(state.isDetailPanelVisible)
+        XCTAssertEqual(state.inspectorRoute, .drawDefaults(.arrow))
     }
 }
 
@@ -349,8 +349,8 @@ final class CanvasInteractionViewTests: XCTestCase {
 
         XCTAssertEqual(editedAnnotation?.id, annotation.id)
         XCTAssertEqual(state.selectedAnnotationID, annotation.id)
-        XCTAssertEqual(state.activeTool, .text)
-        XCTAssertTrue(state.isDetailPanelExpanded)
+        XCTAssertEqual(state.activeTool, .select)
+        XCTAssertEqual(state.inspectorRoute, .annotation)
         XCTAssertEqual(state.document.annotations.count, 1)
         XCTAssertNil(state.inProgressAnnotation)
     }
@@ -427,8 +427,8 @@ final class CanvasInteractionViewTests: XCTestCase {
         view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 20, y: 20), clickCount: 2))
 
         XCTAssertEqual(state.selectedAnnotationID, annotation.id)
-        XCTAssertEqual(state.activeTool, .arrow)
-        XCTAssertTrue(state.isDetailPanelExpanded)
+        XCTAssertEqual(state.activeTool, .select)
+        XCTAssertEqual(state.inspectorRoute, .annotation)
         XCTAssertEqual(state.document.annotations.count, 1)
         XCTAssertNil(state.inProgressAnnotation)
         XCTAssertEqual(state.undoStack.undoCount, 0)
@@ -444,8 +444,8 @@ final class CanvasInteractionViewTests: XCTestCase {
         view.mouseUp(with: try makeMouseEvent(type: .leftMouseUp, at: CGPoint(x: 20, y: 20), clickCount: 2))
 
         XCTAssertEqual(state.selectedAnnotationID, annotation.id)
-        XCTAssertEqual(state.activeTool, .arrow)
-        XCTAssertTrue(state.isDetailPanelExpanded)
+        XCTAssertEqual(state.activeTool, .select)
+        XCTAssertEqual(state.inspectorRoute, .annotation)
         XCTAssertEqual(state.undoStack.undoCount, 0)
 
         if case let .arrow(from, to, _, _) = state.document.annotations[0].kind {
@@ -482,8 +482,8 @@ final class CanvasInteractionViewTests: XCTestCase {
         view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 25, y: 20), clickCount: 2))
 
         XCTAssertEqual(state.selectedAnnotationID, annotation.id)
-        XCTAssertEqual(state.activeTool, .rectangle)
-        XCTAssertTrue(state.isDetailPanelExpanded)
+        XCTAssertEqual(state.activeTool, .select)
+        XCTAssertEqual(state.inspectorRoute, .annotation)
         XCTAssertEqual(state.document.annotations.count, 1)
         XCTAssertNil(state.inProgressAnnotation)
         XCTAssertEqual(state.undoStack.undoCount, 0)
