@@ -31,44 +31,46 @@ private struct EditorShell: View {
         ZStack {
             VStack(spacing: 0) {
                 TopToolBarView(state: state)
-                Rectangle()
-                    .fill(Theme.hairline)
-                    .frame(height: 1)
+                Rectangle().fill(Theme.hairline).frame(height: 1)
                 HStack(spacing: 0) {
-                    if state.isDetailPanelVisible {
+                    if state.isInspectorVisible {
                         ToolSidebarView(state: state)
                             .transition(.move(edge: .leading).combined(with: .opacity))
                     }
                     canvasArea
                 }
             }
-
             panelToggleShortcut
         }
         .frame(minWidth: 900, minHeight: 600)
-        .background(Theme.surface)
-        .animation(.spring(response: 0.32, dampingFraction: 0.86), value: state.isDetailPanelVisible)
+        .background(Theme.canvas)
+        .animation(.spring(response: 0.32, dampingFraction: 0.86), value: state.isInspectorVisible)
     }
 
     private var canvasArea: some View {
-        ZStack(alignment: .bottom) {
+        ZStack {
             CanvasView(state: state)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Theme.canvasBack)
-            BottomBarView(state: state)
-                .padding(.bottom, 20)
+                .background(Theme.canvas)
+            VStack {
+                ToolPaletteView(state: state)
+                    .padding(.top, 14)
+                Spacer()
+            }
+            VStack {
+                Spacer()
+                BottomBarView(state: state)
+                    .padding(.bottom, 20)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var panelToggleShortcut: some View {
         Button {
-            if state.activeTool.hasDetailPanel {
-                state.toggleDetailPanel()
-            }
+            state.toggleDocumentPanel(.layout)
         } label: {
-            Color.clear
-                .frame(width: 0, height: 0)
+            Color.clear.frame(width: 0, height: 0)
         }
         .buttonStyle(.plain)
         .keyboardShortcut("i", modifiers: [.command])

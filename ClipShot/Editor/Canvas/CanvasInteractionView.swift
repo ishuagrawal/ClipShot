@@ -379,7 +379,7 @@ final class CanvasInteractionView: NSView {
         state.cancelDraw()
         state.selectedAnnotationID = annotation.id
         state.activeTool = .select
-        state.isDetailPanelExpanded = true
+        state.documentPanel = .none
         moveStartPoint = point
         state.beginMoveSelected()
         isMoving = true
@@ -391,10 +391,8 @@ final class CanvasInteractionView: NSView {
 
         state.cancelDraw()
         state.selectedAnnotationID = annotation.id
-        if let tool = annotation.editingTool, tool.isEnabled {
-            state.activeTool = tool
-            state.isDetailPanelExpanded = true
-        }
+        state.activeTool = .select
+        state.documentPanel = .none
         isMoving = false
         didMoveSelected = false
         moveStartPoint = nil
@@ -446,19 +444,6 @@ final class CanvasInteractionView: NSView {
 }
 
 private extension Annotation {
-    var editingTool: EditorTool? {
-        switch kind {
-        case .arrow:
-            return .arrow
-        case .rect:
-            return .rectangle
-        case .text:
-            return .text
-        case .blur:
-            return .blur
-        }
-    }
-
     var isDraggableShape: Bool {
         switch kind {
         case .arrow, .rect:

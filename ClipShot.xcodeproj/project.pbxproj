@@ -39,6 +39,7 @@
 		01A00000000000000000020E /* BottomBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000020E /* BottomBarView.swift */; };
 		01A00000000000000000020F /* ToolSidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000020F /* ToolSidebarView.swift */; };
 		01A000000000000000000215 /* TopToolBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000215 /* TopToolBarView.swift */; };
+		01A000000000000000000221 /* ToolPaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000221 /* ToolPaletteView.swift */; };
 		01A000000000000000000210 /* SetPaddingCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000210 /* SetPaddingCommand.swift */; };
 		01A000000000000000000211 /* SetBackgroundCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000211 /* SetBackgroundCommand.swift */; };
 		01A000000000000000000212 /* PaddingToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000212 /* PaddingToolView.swift */; };
@@ -94,6 +95,7 @@
 		01B00000000000000000020E /* BottomBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomBarView.swift; sourceTree = "<group>"; };
 		01B00000000000000000020F /* ToolSidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolSidebarView.swift; sourceTree = "<group>"; };
 		01B000000000000000000215 /* TopToolBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopToolBarView.swift; sourceTree = "<group>"; };
+		01B000000000000000000221 /* ToolPaletteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolPaletteView.swift; sourceTree = "<group>"; };
 		01B000000000000000000210 /* SetPaddingCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetPaddingCommand.swift; sourceTree = "<group>"; };
 		01B000000000000000000211 /* SetBackgroundCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetBackgroundCommand.swift; sourceTree = "<group>"; };
 		01B000000000000000000212 /* PaddingToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaddingToolView.swift; sourceTree = "<group>"; };
@@ -252,6 +254,7 @@
 			children = (
 				01B00000000000000000020F /* ToolSidebarView.swift */,
 					01B000000000000000000215 /* TopToolBarView.swift */,
+					01B000000000000000000221 /* ToolPaletteView.swift */,
 					01B000000000000000000212 /* PaddingToolView.swift */,
 					01B000000000000000000213 /* BackgroundToolView.swift */,
 					01B00000000000000000021D /* SelectToolView.swift */,
@@ -409,6 +412,7 @@
 				01A00000000000000000020E /* BottomBarView.swift in Sources */,
 				01A00000000000000000020F /* ToolSidebarView.swift in Sources */,
 				01A000000000000000000215 /* TopToolBarView.swift in Sources */,
+				01A000000000000000000221 /* ToolPaletteView.swift in Sources */,
 				01A000000000000000000210 /* SetPaddingCommand.swift in Sources */,
 				01A000000000000000000211 /* SetBackgroundCommand.swift in Sources */,
 				01A000000000000000000218 /* AddAnnotationCommand.swift in Sources */,
