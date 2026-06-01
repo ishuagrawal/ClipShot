@@ -369,7 +369,7 @@ final class CanvasTextEditorTests: XCTestCase {
 final class CanvasInteractionViewTests: XCTestCase {
     private nonisolated static let interactionViewSize = CGSize(width: 160, height: 80)
 
-    func test_singleClickInsideTextStartsEditingWithSelectTool() throws {
+    func test_singleClickInsideTextSelectsWithoutEditing() throws {
         let (annotation, state, view) = makeTextInteraction(initialTool: .select)
         var editedAnnotation: Annotation?
         view.onEditText = { editedAnnotation = $0 }
@@ -377,12 +377,13 @@ final class CanvasInteractionViewTests: XCTestCase {
         view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 20, y: 18)))
         view.mouseUp(with: try makeMouseEvent(type: .leftMouseUp, at: CGPoint(x: 20, y: 18)))
 
-        XCTAssertEqual(editedAnnotation?.id, annotation.id)
+        XCTAssertNil(editedAnnotation)
         XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertEqual(state.activeTool, .select)
         XCTAssertEqual(state.document.annotations.count, 1)
     }
 
-    func test_singleClickInsideTextToolEditsExistingTextInsteadOfCreatingNewText() throws {
+    func test_singleClickInsideTextToolSelectsExistingTextInsteadOfCreatingNewText() throws {
         let (annotation, state, view) = makeTextInteraction(initialTool: .text)
         var editedAnnotation: Annotation?
         view.onEditText = { editedAnnotation = $0 }
@@ -390,8 +391,45 @@ final class CanvasInteractionViewTests: XCTestCase {
         view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 20, y: 18)))
         view.mouseUp(with: try makeMouseEvent(type: .leftMouseUp, at: CGPoint(x: 20, y: 18)))
 
+        XCTAssertNil(editedAnnotation)
+        XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertEqual(state.activeTool, .select)
+        XCTAssertEqual(state.document.annotations.count, 1)
+        XCTAssertNil(state.inProgressAnnotation)
+    }
+
+    func test_smallJitterWhileSelectingTextDoesNotMoveOrCreateUndo() throws {
+        let (annotation, state, view) = makeTextInteraction(initialTool: .text)
+        var editedAnnotation: Annotation?
+        view.onEditText = { editedAnnotation = $0 }
+
+        view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 20, y: 18)))
+        view.mouseDragged(with: try makeMouseEvent(type: .leftMouseDragged, at: CGPoint(x: 21, y: 19)))
+        view.mouseUp(with: try makeMouseEvent(type: .leftMouseUp, at: CGPoint(x: 21, y: 19)))
+
+        XCTAssertNil(editedAnnotation)
+        XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertEqual(state.activeTool, .select)
+        XCTAssertEqual(state.undoStack.undoCount, 0)
+
+        if case let .text(origin, _, _, _) = state.document.annotations[0].kind {
+            XCTAssertEqual(origin, CGPoint(x: 10, y: 10))
+        } else {
+            XCTFail("expected text")
+        }
+    }
+
+    func test_doubleClickInsideTextSwitchesToTextToolAndStartsEditing() throws {
+        let (annotation, state, view) = makeTextInteraction(initialTool: .select)
+        var editedAnnotation: Annotation?
+        view.onEditText = { editedAnnotation = $0 }
+
+        view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 20, y: 18), clickCount: 2))
+
         XCTAssertEqual(editedAnnotation?.id, annotation.id)
         XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertEqual(state.activeTool, .text)
+        XCTAssertTrue(state.isDetailPanelExpanded)
         XCTAssertEqual(state.document.annotations.count, 1)
         XCTAssertNil(state.inProgressAnnotation)
     }
@@ -407,6 +445,7 @@ final class CanvasInteractionViewTests: XCTestCase {
 
         XCTAssertNil(editedAnnotation)
         XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertEqual(state.activeTool, .select)
         XCTAssertNil(state.inProgressAnnotation)
         XCTAssertEqual(state.undoStack.undoCount, 1)
 
@@ -428,6 +467,7 @@ final class CanvasInteractionViewTests: XCTestCase {
 
         XCTAssertNil(editedAnnotation)
         XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertEqual(state.activeTool, .select)
         XCTAssertEqual(state.document.annotations.count, 1)
         XCTAssertNil(state.inProgressAnnotation)
         XCTAssertEqual(state.undoStack.undoCount, 1)
@@ -447,6 +487,7 @@ final class CanvasInteractionViewTests: XCTestCase {
         view.mouseUp(with: try makeMouseEvent(type: .leftMouseUp, at: CGPoint(x: 30, y: 30)))
 
         XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertEqual(state.activeTool, .select)
         XCTAssertEqual(state.document.annotations.count, 1)
         XCTAssertNil(state.inProgressAnnotation)
         XCTAssertEqual(state.undoStack.undoCount, 1)
@@ -454,6 +495,41 @@ final class CanvasInteractionViewTests: XCTestCase {
         if case let .arrow(from, to, _, _) = state.document.annotations[0].kind {
             XCTAssertEqual(from, CGPoint(x: 20, y: 20))
             XCTAssertEqual(to, CGPoint(x: 50, y: 50))
+        } else {
+            XCTFail("expected arrow")
+        }
+    }
+
+    func test_doubleClickArrowSwitchesToArrowTool() throws {
+        let (annotation, state, view) = makeArrowInteraction(initialTool: .select)
+
+        view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 20, y: 20), clickCount: 2))
+
+        XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertEqual(state.activeTool, .arrow)
+        XCTAssertTrue(state.isDetailPanelExpanded)
+        XCTAssertEqual(state.document.annotations.count, 1)
+        XCTAssertNil(state.inProgressAnnotation)
+        XCTAssertEqual(state.undoStack.undoCount, 0)
+    }
+
+    func test_realDoubleClickArrowWithFirstClickJitterDoesNotMoveBeforeEditing() throws {
+        let (annotation, state, view) = makeArrowInteraction(initialTool: .select)
+
+        view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 20, y: 20)))
+        view.mouseDragged(with: try makeMouseEvent(type: .leftMouseDragged, at: CGPoint(x: 21, y: 21)))
+        view.mouseUp(with: try makeMouseEvent(type: .leftMouseUp, at: CGPoint(x: 21, y: 21)))
+        view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 20, y: 20), clickCount: 2))
+        view.mouseUp(with: try makeMouseEvent(type: .leftMouseUp, at: CGPoint(x: 20, y: 20), clickCount: 2))
+
+        XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertEqual(state.activeTool, .arrow)
+        XCTAssertTrue(state.isDetailPanelExpanded)
+        XCTAssertEqual(state.undoStack.undoCount, 0)
+
+        if case let .arrow(from, to, _, _) = state.document.annotations[0].kind {
+            XCTAssertEqual(from, CGPoint(x: 10, y: 10))
+            XCTAssertEqual(to, CGPoint(x: 40, y: 40))
         } else {
             XCTFail("expected arrow")
         }
@@ -467,6 +543,7 @@ final class CanvasInteractionViewTests: XCTestCase {
         view.mouseUp(with: try makeMouseEvent(type: .leftMouseUp, at: CGPoint(x: 35, y: 30)))
 
         XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertEqual(state.activeTool, .select)
         XCTAssertEqual(state.document.annotations.count, 1)
         XCTAssertNil(state.inProgressAnnotation)
         XCTAssertEqual(state.undoStack.undoCount, 1)
@@ -478,51 +555,57 @@ final class CanvasInteractionViewTests: XCTestCase {
         }
     }
 
-    func test_arrowToolDoesNotDragRectangle() throws {
+    func test_doubleClickRectangleSwitchesToRectangleTool() throws {
+        let (annotation, state, view) = makeRectangleInteraction(initialTool: .select)
+
+        view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 25, y: 20), clickCount: 2))
+
+        XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertEqual(state.activeTool, .rectangle)
+        XCTAssertTrue(state.isDetailPanelExpanded)
+        XCTAssertEqual(state.document.annotations.count, 1)
+        XCTAssertNil(state.inProgressAnnotation)
+        XCTAssertEqual(state.undoStack.undoCount, 0)
+    }
+
+    func test_arrowToolDragOnRectangleMovesRectangleAndSwitchesToSelect() throws {
         let (annotation, state, view) = makeRectangleInteraction(initialTool: .arrow)
 
         view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 25, y: 20)))
         view.mouseDragged(with: try makeMouseEvent(type: .leftMouseDragged, at: CGPoint(x: 35, y: 30)))
         view.mouseUp(with: try makeMouseEvent(type: .leftMouseUp, at: CGPoint(x: 35, y: 30)))
 
-        XCTAssertNotEqual(state.selectedAnnotationID, annotation.id)
-        XCTAssertEqual(state.document.annotations.count, 2)
+        XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertEqual(state.activeTool, .select)
+        XCTAssertEqual(state.document.annotations.count, 1)
         XCTAssertNil(state.inProgressAnnotation)
+        XCTAssertEqual(state.undoStack.undoCount, 1)
 
         if case let .rect(frame, _, _, _, _) = state.document.annotations[0].kind {
-            XCTAssertEqual(frame, CGRect(x: 10, y: 10, width: 40, height: 24))
+            XCTAssertEqual(frame, CGRect(x: 20, y: 20, width: 40, height: 24))
         } else {
-            XCTFail("expected original rectangle")
-        }
-        if case let .arrow(from, to, _, _) = state.document.annotations[1].kind {
-            XCTAssertEqual(from, CGPoint(x: 25, y: 20))
-            XCTAssertEqual(to, CGPoint(x: 35, y: 30))
-        } else {
-            XCTFail("expected new arrow")
+            XCTFail("expected rectangle")
         }
     }
 
-    func test_rectangleToolDoesNotDragArrow() throws {
+    func test_rectangleToolDragOnArrowMovesArrowAndSwitchesToSelect() throws {
         let (annotation, state, view) = makeArrowInteraction(initialTool: .rectangle)
 
         view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 20, y: 20)))
         view.mouseDragged(with: try makeMouseEvent(type: .leftMouseDragged, at: CGPoint(x: 35, y: 30)))
         view.mouseUp(with: try makeMouseEvent(type: .leftMouseUp, at: CGPoint(x: 35, y: 30)))
 
-        XCTAssertNotEqual(state.selectedAnnotationID, annotation.id)
-        XCTAssertEqual(state.document.annotations.count, 2)
+        XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertEqual(state.activeTool, .select)
+        XCTAssertEqual(state.document.annotations.count, 1)
         XCTAssertNil(state.inProgressAnnotation)
+        XCTAssertEqual(state.undoStack.undoCount, 1)
 
         if case let .arrow(from, to, _, _) = state.document.annotations[0].kind {
-            XCTAssertEqual(from, CGPoint(x: 10, y: 10))
-            XCTAssertEqual(to, CGPoint(x: 40, y: 40))
+            XCTAssertEqual(from, CGPoint(x: 25, y: 20))
+            XCTAssertEqual(to, CGPoint(x: 55, y: 50))
         } else {
-            XCTFail("expected original arrow")
-        }
-        if case let .rect(frame, _, _, _, _) = state.document.annotations[1].kind {
-            XCTAssertEqual(frame, CGRect(x: 20, y: 20, width: 15, height: 10))
-        } else {
-            XCTFail("expected new rectangle")
+            XCTFail("expected arrow")
         }
     }
 
@@ -537,6 +620,7 @@ final class CanvasInteractionViewTests: XCTestCase {
 
         XCTAssertNil(editedAnnotation)
         XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertEqual(state.activeTool, .select)
         XCTAssertEqual(state.document.annotations.count, 1)
         XCTAssertNil(state.inProgressAnnotation)
         XCTAssertEqual(state.undoStack.undoCount, 0)
@@ -563,25 +647,27 @@ final class CanvasInteractionViewTests: XCTestCase {
 
         XCTAssertNil(editedAnnotation)
         XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertEqual(state.activeTool, .select)
         XCTAssertEqual(state.document.annotations.count, 1)
         XCTAssertNil(state.inProgressAnnotation)
         XCTAssertEqual(state.undoStack.undoCount, 0)
     }
 
-    func test_nonDrawingToolsDoNotCaptureAnnotationDrags() {
+    func test_nonDrawingToolsCaptureAnnotationSelectionTargets() {
         let textFixture = makeTextInteraction(initialTool: .background)
         let arrowFixture = makeArrowInteraction(initialTool: .background)
         let rectFixture = makeRectangleInteraction(initialTool: .background)
 
         withExtendedLifetime(textFixture.state) {
-            XCTAssertNil(textFixture.view.hitTest(CGPoint(x: 7, y: 18)))
-            XCTAssertNil(textFixture.view.hitTest(CGPoint(x: 20, y: 18)))
+            XCTAssertIdentical(textFixture.view.hitTest(CGPoint(x: 7, y: 18)), textFixture.view)
+            XCTAssertIdentical(textFixture.view.hitTest(CGPoint(x: 20, y: 18)), textFixture.view)
+            XCTAssertNil(textFixture.view.hitTest(CGPoint(x: 70, y: 60)))
         }
         withExtendedLifetime(arrowFixture.state) {
-            XCTAssertNil(arrowFixture.view.hitTest(CGPoint(x: 20, y: 20)))
+            XCTAssertIdentical(arrowFixture.view.hitTest(CGPoint(x: 20, y: 20)), arrowFixture.view)
         }
         withExtendedLifetime(rectFixture.state) {
-            XCTAssertNil(rectFixture.view.hitTest(CGPoint(x: 25, y: 20)))
+            XCTAssertIdentical(rectFixture.view.hitTest(CGPoint(x: 25, y: 20)), rectFixture.view)
         }
     }
 
@@ -709,11 +795,15 @@ final class CanvasInteractionViewTests: XCTestCase {
         return (annotation, state, view)
     }
 
-    private func makeMouseDown(at point: CGPoint) throws -> NSEvent {
-        try makeMouseEvent(type: .leftMouseDown, at: point)
+    private func makeMouseDown(at point: CGPoint, clickCount: Int = 1) throws -> NSEvent {
+        try makeMouseEvent(type: .leftMouseDown, at: point, clickCount: clickCount)
     }
 
-    private func makeMouseEvent(type: NSEvent.EventType, at point: CGPoint) throws -> NSEvent {
+    private func makeMouseEvent(
+        type: NSEvent.EventType,
+        at point: CGPoint,
+        clickCount: Int = 1
+    ) throws -> NSEvent {
         try XCTUnwrap(
             NSEvent.mouseEvent(
                 with: type,
@@ -723,7 +813,7 @@ final class CanvasInteractionViewTests: XCTestCase {
                 windowNumber: 0,
                 context: nil,
                 eventNumber: 0,
-                clickCount: 1,
+                clickCount: clickCount,
                 pressure: 1
             )
         )

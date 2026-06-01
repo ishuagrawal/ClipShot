@@ -1,14 +1,15 @@
 import AppKit
 
-/// Transparent view layered above the canvas overlay. It captures only annotation
-/// tool interactions; non-drawing tools and space-pan fall through to the scroll view.
+/// Transparent view layered above the canvas overlay. It captures annotation
+/// interactions and drawing tool gestures; empty non-drawing tools and space-pan
+/// fall through to the scroll view.
 @MainActor
 final class CanvasInteractionView: NSView {
 
     private nonisolated static let textBorderHaloOutset: CGFloat = 3
     private nonisolated static let textBorderOuterHitTolerance: CGFloat = 10
     private nonisolated static let textBorderInnerHitTolerance: CGFloat = 5
-    private nonisolated static let textBodyDragActivationDistance: CGFloat = 2
+    private nonisolated static let selectionDragActivationDistance: CGFloat = 3
     private nonisolated static let shapeDragHitTolerance: CGFloat = 10
 
     weak var state: EditorState? {
@@ -30,7 +31,6 @@ final class CanvasInteractionView: NSView {
     private var moveStartPoint: CGPoint?
     private var isMoving = false
     private var didMoveSelected = false
-    private var pendingTextEditAnnotationID: UUID?
     private var cursorTrackingArea: NSTrackingArea?
 
     override var isFlipped: Bool { true }
@@ -109,29 +109,12 @@ final class CanvasInteractionView: NSView {
         window?.makeFirstResponder(self)
         let point = documentPoint(for: event)
 
-        if let annotation = textBorderAnnotation(at: point) {
+        if let annotation = draggableAnnotation(at: point) {
+            if event.clickCount >= 2 {
+                activateEditingTool(for: annotation)
+                return
+            }
             beginMove(annotation, at: point)
-            return
-        }
-
-        if let annotation = inactiveTextBodyAnnotation(at: point) {
-            beginMove(
-                annotation,
-                at: point,
-                editOnClick: state.activeTool == .select || state.activeTool == .text
-            )
-            return
-        }
-
-        if let annotation = shapeAnnotation(at: point) {
-            beginMove(annotation, at: point)
-            return
-        }
-
-        if (state.activeTool == .select || state.activeTool == .text),
-           let annotation = textAnnotation(at: point) {
-            state.selectedAnnotationID = annotation.id
-            onEditText?(annotation)
             return
         }
 
@@ -153,7 +136,6 @@ final class CanvasInteractionView: NSView {
             state.beginMoveSelected()
             isMoving = true
             didMoveSelected = false
-            pendingTextEditAnnotationID = nil
         }
     }
 
@@ -164,12 +146,10 @@ final class CanvasInteractionView: NSView {
 
         if isMoving, let start = moveStartPoint {
             let delta = CGSize(width: point.x - start.x, height: point.y - start.y)
-            if pendingTextEditAnnotationID != nil,
-               !didMoveSelected,
-               hypot(delta.width, delta.height) < Self.textBodyDragActivationDistance {
+            if !didMoveSelected,
+               hypot(delta.width, delta.height) < Self.selectionDragActivationDistance {
                 return
             }
-
             didMoveSelected = true
             state.moveSelected(by: delta)
         } else if state.activeTool.isDrawTool, state.activeTool != .text {
@@ -179,8 +159,6 @@ final class CanvasInteractionView: NSView {
 
     override func mouseUp(with event: NSEvent) {
         guard let state else { return }
-        let editOnClickID = pendingTextEditAnnotationID
-        let shouldEditOnClick = editOnClickID != nil && !didMoveSelected
 
         if isMoving {
             state.commitMoveSelected()
@@ -191,13 +169,6 @@ final class CanvasInteractionView: NSView {
         isMoving = false
         didMoveSelected = false
         moveStartPoint = nil
-        pendingTextEditAnnotationID = nil
-
-        if shouldEditOnClick,
-           let editOnClickID,
-           let annotation = state.document.annotations.first(where: { $0.id == editOnClickID }) {
-            onEditText?(annotation)
-        }
     }
 
     override func keyDown(with event: NSEvent) {
@@ -239,22 +210,10 @@ final class CanvasInteractionView: NSView {
         return CanvasGeometry.documentPoint(fromImagePixel: viewPoint, effectiveCrop: effectiveCrop)
     }
 
-    private func textAnnotation(at point: CGPoint) -> Annotation? {
-        guard let state,
-              let id = state.annotationID(at: point),
-              let annotation = state.document.annotations.first(where: { $0.id == id }),
-              case .text = annotation.kind else {
-            return nil
-        }
-
-        return annotation
-    }
-
     private func textBorderAnnotation(at point: CGPoint) -> Annotation? {
         guard let state else { return nil }
 
         return displayAnnotations(for: state).reversed().first { annotation in
-            guard canDrag(annotation, with: state.activeTool) else { return false }
             return textBorderContains(point, annotation: annotation)
         }
     }
@@ -264,7 +223,6 @@ final class CanvasInteractionView: NSView {
 
         return displayAnnotations(for: state).reversed().first { annotation in
             guard case .text = annotation.kind,
-                  canDrag(annotation, with: state.activeTool),
                   editingTextAnnotation?.id != annotation.id else {
                 return false
             }
@@ -281,7 +239,7 @@ final class CanvasInteractionView: NSView {
         guard let state else { return nil }
 
         return state.document.annotations.reversed().first { annotation in
-            guard canDrag(annotation, with: state.activeTool), annotation.isDraggableShape else { return false }
+            guard annotation.isDraggableShape else { return false }
             return AnnotationGeometry.hitTest(
                 annotation.kind,
                 point: point,
@@ -304,8 +262,7 @@ final class CanvasInteractionView: NSView {
         guard let state, scrollView?.isSpaceHeld != true else { return }
 
         for annotation in displayAnnotations(for: state) {
-            guard case .text = annotation.kind,
-                  canDrag(annotation, with: state.activeTool) else { continue }
+            guard case .text = annotation.kind else { continue }
             if editingTextAnnotation?.id != annotation.id {
                 addCursorRect(
                     viewFrame(forDocumentFrame: AnnotationGeometry.boundingBox(annotation.kind)),
@@ -321,7 +278,7 @@ final class CanvasInteractionView: NSView {
     private func addRectCursorRects() {
         guard let state, scrollView?.isSpaceHeld != true else { return }
 
-        for annotation in state.document.annotations where canDrag(annotation, with: state.activeTool) {
+        for annotation in state.document.annotations {
             guard case .rect = annotation.kind else { continue }
             addCursorRect(
                 viewFrame(
@@ -331,21 +288,6 @@ final class CanvasInteractionView: NSView {
                 ),
                 cursor: .openHand
             )
-        }
-    }
-
-    private func canDrag(_ annotation: Annotation, with tool: EditorTool) -> Bool {
-        switch (tool, annotation.kind) {
-        case (.select, .arrow), (.select, .rect), (.select, .text):
-            return true
-        case (.arrow, .arrow):
-            return true
-        case (.rectangle, .rect):
-            return true
-        case (.text, .text):
-            return true
-        default:
-            return false
         }
     }
 
@@ -401,16 +343,36 @@ final class CanvasInteractionView: NSView {
         return CGRect(origin: origin, size: frame.size)
     }
 
-    private func beginMove(_ annotation: Annotation, at point: CGPoint, editOnClick: Bool = false) {
+    private func beginMove(_ annotation: Annotation, at point: CGPoint) {
         guard let state else { return }
 
         state.cancelDraw()
         state.selectedAnnotationID = annotation.id
+        state.activeTool = .select
+        state.isDetailPanelExpanded = true
         moveStartPoint = point
         state.beginMoveSelected()
         isMoving = true
         didMoveSelected = false
-        pendingTextEditAnnotationID = editOnClick ? annotation.id : nil
+    }
+
+    private func activateEditingTool(for annotation: Annotation) {
+        guard let state else { return }
+
+        state.cancelDraw()
+        state.selectedAnnotationID = annotation.id
+        if let tool = annotation.editingTool, tool.isEnabled {
+            state.activeTool = tool
+            state.isDetailPanelExpanded = true
+        }
+        isMoving = false
+        didMoveSelected = false
+        moveStartPoint = nil
+        invalidateCursorRectsIfPossible()
+
+        if case .text = annotation.kind {
+            onEditText?(annotation)
+        }
     }
 
     private func invalidateCursorRectsIfPossible() {
@@ -454,6 +416,19 @@ final class CanvasInteractionView: NSView {
 }
 
 private extension Annotation {
+    var editingTool: EditorTool? {
+        switch kind {
+        case .arrow:
+            return .arrow
+        case .rect:
+            return .rectangle
+        case .text:
+            return .text
+        case .blur:
+            return .blur
+        }
+    }
+
     var isDraggableShape: Bool {
         switch kind {
         case .arrow, .rect:
