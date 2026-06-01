@@ -17,7 +17,7 @@ struct ComponentListView: View {
                         annotation: annotation,
                         isSelected: state.selectedAnnotationID == annotation.id
                     ) {
-                        state.selectedAnnotationID = annotation.id
+                        state.selectComponent(annotation.id)
                         onCanvasFocusRequested()
                     }
                 }

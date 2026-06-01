@@ -187,7 +187,7 @@ final class CanvasInteractionView: NSView {
             return
         }
 
-        if let delta = keyboardNudgeDelta(for: event) {
+        if let delta = Self.keyboardNudgeDelta(for: event) {
             if state.activeTool == .select {
                 state.nudgeSelected(by: delta)
             }
@@ -202,19 +202,19 @@ final class CanvasInteractionView: NSView {
         return CanvasGeometry.documentPoint(fromImagePixel: viewPoint, effectiveCrop: effectiveCrop)
     }
 
-    private func keyboardNudgeDelta(for event: NSEvent) -> CGSize? {
+    nonisolated static func keyboardNudgeDelta(for event: NSEvent) -> CGSize? {
         let ignoredModifiers: NSEvent.ModifierFlags = [.command, .control, .option]
         guard event.modifierFlags.intersection(ignoredModifiers).isEmpty else { return nil }
 
         switch event.keyCode {
         case 123:
-            return CGSize(width: -Self.keyboardNudgeDistance, height: 0)
+            return CGSize(width: -keyboardNudgeDistance, height: 0)
         case 124:
-            return CGSize(width: Self.keyboardNudgeDistance, height: 0)
+            return CGSize(width: keyboardNudgeDistance, height: 0)
         case 125:
-            return CGSize(width: 0, height: Self.keyboardNudgeDistance)
+            return CGSize(width: 0, height: keyboardNudgeDistance)
         case 126:
-            return CGSize(width: 0, height: -Self.keyboardNudgeDistance)
+            return CGSize(width: 0, height: -keyboardNudgeDistance)
         default:
             return nil
         }

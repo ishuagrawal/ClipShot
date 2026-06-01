@@ -155,6 +155,27 @@ final class SidebarModelTests: XCTestCase {
         XCTAssertEqual(state.inspectorRoute, .annotation)
     }
 
+    func testSelectingComponentReturnsToSelectMode() throws {
+        let state = makeState()
+        state.selectCursorTool(.arrow)
+        state.beginDraw(at: CGPoint(x: 10, y: 10))
+        state.updateDraw(to: CGPoint(x: 90, y: 90), shiftSnap: false)
+        let annotation = try XCTUnwrap(state.commitDraw())
+
+        state.selectCursorTool(.text)
+        state.beginDraw(at: CGPoint(x: 40, y: 40))
+        XCTAssertEqual(state.activeTool, .text)
+        XCTAssertNotNil(state.inProgressAnnotation)
+
+        state.selectComponent(annotation.id)
+
+        XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertEqual(state.activeTool, .select)
+        XCTAssertEqual(state.documentPanel, .components)
+        XCTAssertEqual(state.inspectorRoute, .annotation)
+        XCTAssertNil(state.inProgressAnnotation)
+    }
+
     func testDeselectingInComponentsReturnsToList() {
         let state = makeState()
         state.selectCursorTool(.arrow)

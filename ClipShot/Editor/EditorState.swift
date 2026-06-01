@@ -275,6 +275,14 @@ final class EditorState: ObservableObject {
         selectedAnnotationID = annotationID(at: point)
     }
 
+    func selectComponent(_ id: UUID) {
+        guard document.annotations.contains(where: { $0.id == id }) else { return }
+        cancelDraw()
+        selectedAnnotationID = id
+        activeTool = .select
+        documentPanel = .components
+    }
+
     func deselect() {
         selectedAnnotationID = nil
     }
