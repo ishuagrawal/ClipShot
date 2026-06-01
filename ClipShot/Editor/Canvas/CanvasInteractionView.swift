@@ -18,6 +18,8 @@ final class CanvasInteractionView: NSView {
     }
     weak var scrollView: CanvasScrollView?
     var onEditText: ((Annotation) -> Void)?
+    var onCommitActiveText: (() -> Void)?
+    var onHoverAnnotationChanged: ((UUID?) -> Void)?
     var editingTextAnnotation: Annotation? {
         didSet { invalidateCursorRectsIfPossible() }
     }
@@ -33,6 +35,12 @@ final class CanvasInteractionView: NSView {
     private var movingTextDraftID: UUID?
     private var isMoving = false
     private var didMoveSelected = false
+    private var hoveredAnnotationID: UUID? {
+        didSet {
+            guard oldValue != hoveredAnnotationID else { return }
+            onHoverAnnotationChanged?(hoveredAnnotationID)
+        }
+    }
     private var cursorTrackingArea: NSTrackingArea?
 
     override var isFlipped: Bool { true }
@@ -129,6 +137,7 @@ final class CanvasInteractionView: NSView {
 
         if state.activeTool.isDrawTool {
             if state.activeTool == .text {
+                onCommitActiveText?()
                 if let draft = state.beginTextDraft(at: point) {
                     onEditText?(draft)
                 }
@@ -294,7 +303,9 @@ final class CanvasInteractionView: NSView {
         switch state.activeTool {
         case .select, .padding, .background:
             return selectableAnnotation(at: point)
-        case .arrow, .rectangle, .text, .blur:
+        case .text:
+            return textBorderAnnotation(at: point) ?? shapeAnnotation(at: point)
+        case .arrow, .rectangle, .blur:
             return draggableAnnotation(at: point)
         }
     }
@@ -468,11 +479,16 @@ final class CanvasInteractionView: NSView {
 
     private func applyCursor(atWindowPoint windowPoint: CGPoint) {
         let viewPoint = convert(windowPoint, from: nil)
-        guard bounds.contains(viewPoint) else { return }
+        guard bounds.contains(viewPoint) else {
+            hoveredAnnotationID = nil
+            return
+        }
 
         let documentPoint = CanvasGeometry.documentPoint(fromImagePixel: viewPoint, effectiveCrop: effectiveCrop)
+        let annotation = annotationInteractionTarget(at: documentPoint)
+        hoveredAnnotationID = annotation?.id
 
-        if annotationInteractionTarget(at: documentPoint) != nil {
+        if annotation != nil {
             NSCursor.openHand.set()
         } else {
             baseCursor.set()

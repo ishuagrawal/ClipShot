@@ -17,6 +17,10 @@ final class CanvasOverlayView: NSView {
         didSet { updateAnnotations() }
     }
 
+    var hoveredAnnotationID: UUID? {
+        didSet { updateAnnotations() }
+    }
+
     var editingTextAnnotation: Annotation? {
         didSet { updateAnnotations() }
     }
@@ -102,7 +106,9 @@ final class CanvasOverlayView: NSView {
             configure(
                 layer,
                 with: displayAnnotation.kind,
-                selected: annotation.id == selectedAnnotationID || editingAnnotation != nil,
+                selected: annotation.id == selectedAnnotationID
+                    || annotation.id == hoveredAnnotationID
+                    || editingAnnotation != nil,
                 rendersContent: editingAnnotation == nil
             )
         }
@@ -115,7 +121,7 @@ final class CanvasOverlayView: NSView {
             configure(
                 layer,
                 with: displayAnnotation.kind,
-                selected: editingAnnotation != nil,
+                selected: inProgressAnnotation.id == hoveredAnnotationID || editingAnnotation != nil,
                 rendersContent: editingAnnotation == nil
             )
         }

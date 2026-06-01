@@ -43,6 +43,12 @@ final class CanvasCoordinator {
                 effectiveCrop: self.latestDocument?.effectiveCrop ?? .zero
             )
         }
+        interactionView.onCommitActiveText = { [weak self] in
+            self?.textEditor.finishEditing()
+        }
+        interactionView.onHoverAnnotationChanged = { [weak self] id in
+            self?.overlayView.hoveredAnnotationID = id
+        }
         scrollView.documentView = container
         scrollView.viewportSizeDidChange = { [weak self] viewportSize in
             self?.refitInitialSelectionIfNeeded(viewportSize: viewportSize)
