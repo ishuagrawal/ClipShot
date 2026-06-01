@@ -143,6 +143,39 @@ final class SidebarModelTests: XCTestCase {
         XCTAssertTrue(state.isInspectorVisible)
     }
 
+    func testTextDraftShowsTextControlsWithoutComponentListEntry() throws {
+        let state = makeState()
+        state.selectCursorTool(.text)
+        let draft = try XCTUnwrap(state.beginTextDraft(at: CGPoint(x: 20, y: 20)))
+
+        XCTAssertEqual(state.document.annotations.count, 0)
+        XCTAssertEqual(state.inProgressTextDraft?.id, draft.id)
+        XCTAssertNil(state.selectedAnnotationID)
+        XCTAssertEqual(state.activeTool, .select)
+        XCTAssertEqual(state.documentPanel, .components)
+        XCTAssertEqual(state.inspectorRoute, .drawDefaults(.text))
+        XCTAssertEqual(state.inspectorTitle, "Text")
+        XCTAssertTrue(state.isInspectorVisible)
+    }
+
+    func testUpdatingTextDraftStyleDoesNotCreateComponentEntry() throws {
+        let state = makeState()
+        let draft = try XCTUnwrap(state.beginTextDraft(at: CGPoint(x: 20, y: 20)))
+        let color = CGColor(red: 0.2, green: 0.4, blue: 0.8, alpha: 1)
+
+        state.updateTextDraftStyle(fontSize: 40, color: color)
+
+        XCTAssertEqual(state.document.annotations.count, 0)
+        XCTAssertEqual(state.inProgressTextDraft?.id, draft.id)
+        XCTAssertEqual(state.undoStack.undoCount, 0)
+        if case let .text(_, _, fontSize, draftColor) = state.inProgressTextDraft?.kind {
+            XCTAssertEqual(fontSize, 40)
+            XCTAssertEqual(draftColor, color)
+        } else {
+            XCTFail("expected text draft")
+        }
+    }
+
     func testSelectingComponentRoutesToAnnotationDetails() {
         let state = makeState()
         state.toggleDocumentPanel(.components)

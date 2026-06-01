@@ -219,6 +219,112 @@ final class CanvasTextEditorTests: XCTestCase {
         XCTAssertTrue(didClearPreview)
     }
 
+    func test_finishEditingBlankNewTextDraftNeverCreatesAnnotation() throws {
+        let container = NSView(frame: CGRect(x: 0, y: 0, width: 300, height: 200))
+        let editor = CanvasTextEditor(container: container)
+        let document = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
+            viewport: CGSize(width: 100, height: 100),
+            pageTitle: "t",
+            pageURL: "u",
+            baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80)
+        )
+        let state = EditorState(document: document)
+        state.activeTool = .text
+        let annotation = try XCTUnwrap(state.beginTextDraft(at: CGPoint(x: 5, y: 5)))
+        editor.attach(state: state)
+        editor.beginEditing(annotation, effectiveCrop: state.document.effectiveCrop)
+
+        let textField = try XCTUnwrap(container.subviews.compactMap { $0 as? NSTextField }.first)
+        XCTAssertEqual(state.document.annotations.count, 0)
+        XCTAssertEqual(state.inspectorRoute, .drawDefaults(.text))
+        XCTAssertNotNil(state.inProgressAnnotation)
+
+        textField.stringValue = "   "
+        editor.finishEditing()
+
+        XCTAssertEqual(state.document.annotations.count, 0)
+        XCTAssertNil(state.selectedAnnotationID)
+        XCTAssertNil(state.inProgressAnnotation)
+        XCTAssertEqual(state.undoStack.undoCount, 0)
+        state.performUndo()
+        XCTAssertEqual(state.document.annotations.count, 0)
+    }
+
+    func test_finishEditingNonBlankNewTextDraftCreatesFirstComponentEntry() throws {
+        let container = NSView(frame: CGRect(x: 0, y: 0, width: 300, height: 200))
+        let editor = CanvasTextEditor(container: container)
+        let document = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
+            viewport: CGSize(width: 100, height: 100),
+            pageTitle: "t",
+            pageURL: "u",
+            baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80)
+        )
+        let state = EditorState(document: document)
+        state.activeTool = .text
+        let annotation = try XCTUnwrap(state.beginTextDraft(at: CGPoint(x: 5, y: 5)))
+        editor.attach(state: state)
+        editor.beginEditing(annotation, effectiveCrop: state.document.effectiveCrop)
+
+        let textField = try XCTUnwrap(container.subviews.compactMap { $0 as? NSTextField }.first)
+        XCTAssertEqual(state.document.annotations.count, 0)
+
+        textField.stringValue = "Hello"
+        editor.finishEditing()
+
+        XCTAssertEqual(state.document.annotations.count, 1)
+        XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+        XCTAssertNil(state.inProgressAnnotation)
+        XCTAssertEqual(state.undoStack.undoCount, 1)
+        XCTAssertEqual(state.inspectorRoute, .annotation)
+        if case let .text(_, string, _, _) = state.document.annotations[0].kind {
+            XCTAssertEqual(string, "Hello")
+        } else {
+            XCTFail("expected text")
+        }
+    }
+
+    func test_finishEditingBlankExistingTextDeletesWithUndo() throws {
+        let container = NSView(frame: CGRect(x: 0, y: 0, width: 300, height: 200))
+        let editor = CanvasTextEditor(container: container)
+        let annotation = Annotation(
+            kind: .text(
+                origin: CGPoint(x: 5, y: 5),
+                string: "Text",
+                fontSize: 12,
+                color: CGColor(gray: 0, alpha: 1)
+            )
+        )
+        let document = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
+            viewport: CGSize(width: 100, height: 100),
+            pageTitle: "t",
+            pageURL: "u",
+            baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80),
+            annotations: [annotation]
+        )
+        let state = EditorState(document: document)
+        editor.attach(state: state)
+        editor.beginEditing(annotation, effectiveCrop: document.effectiveCrop)
+
+        let textField = try XCTUnwrap(container.subviews.compactMap { $0 as? NSTextField }.first)
+        textField.stringValue = ""
+        editor.finishEditing()
+
+        XCTAssertEqual(state.document.annotations.count, 0)
+        XCTAssertNil(state.selectedAnnotationID)
+        XCTAssertEqual(state.undoStack.undoCount, 1)
+
+        state.performUndo()
+        XCTAssertEqual(state.document.annotations.count, 1)
+        if case let .text(_, string, _, _) = state.document.annotations[0].kind {
+            XCTAssertEqual(string, "Text")
+        } else {
+            XCTFail("expected restored text")
+        }
+    }
+
     func test_arrowCommandsAreNotHandledWhileEditingText() throws {
         let container = NSView(frame: CGRect(x: 0, y: 0, width: 300, height: 200))
         let editor = CanvasTextEditor(container: container)
@@ -319,6 +425,22 @@ final class CanvasInteractionViewTests: XCTestCase {
         XCTAssertEqual(state.activeTool, .select)
         XCTAssertEqual(state.inspectorRoute, .annotation)
         XCTAssertNil(state.inProgressAnnotation)
+    }
+
+    func test_textToolClickStartsDraftWithoutComponentListEntry() throws {
+        let (state, view) = makeEmptyInteraction(initialTool: .text)
+        var editedAnnotation: Annotation?
+        view.onEditText = { editedAnnotation = $0 }
+
+        view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 20, y: 20)))
+
+        let draft = try XCTUnwrap(editedAnnotation)
+        XCTAssertEqual(state.document.annotations.count, 0)
+        XCTAssertEqual(state.inProgressAnnotation?.id, draft.id)
+        XCTAssertNil(state.selectedAnnotationID)
+        XCTAssertEqual(state.activeTool, .select)
+        XCTAssertEqual(state.inspectorRoute, .drawDefaults(.text))
+        XCTAssertEqual(state.undoStack.undoCount, 0)
     }
 
     func test_singleClickInsideTextToolSelectsExistingTextInsteadOfCreatingNewText() throws {
@@ -589,6 +711,54 @@ final class CanvasInteractionViewTests: XCTestCase {
         XCTAssertEqual(state.document.annotations.count, 1)
         XCTAssertNil(state.inProgressAnnotation)
         XCTAssertEqual(state.undoStack.undoCount, 0)
+    }
+
+    func test_dragEditingTextDraftBorderMovesDraftWithoutCreatingComponent() throws {
+        let (state, view) = makeEmptyInteraction(initialTool: .text)
+        var editedAnnotation: Annotation?
+        view.onEditText = { editedAnnotation = $0 }
+
+        view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 20, y: 20)))
+        view.mouseUp(with: try makeMouseEvent(type: .leftMouseUp, at: CGPoint(x: 20, y: 20)))
+
+        let draft = try XCTUnwrap(editedAnnotation)
+        let preview = Annotation(
+            id: draft.id,
+            kind: .text(
+                origin: CGPoint(x: 20, y: 20),
+                string: "Draft text",
+                fontSize: 20,
+                color: CGColor(gray: 0, alpha: 1)
+            )
+        )
+        view.editingTextAnnotation = preview
+        let point = nearRightTextBorderEdgePoint(for: preview)
+
+        XCTAssertIdentical(view.hitTest(point), view)
+
+        view.mouseDown(with: try makeMouseDown(at: point))
+        view.mouseDragged(
+            with: try makeMouseEvent(
+                type: .leftMouseDragged,
+                at: CGPoint(x: point.x + 10, y: point.y + 8)
+            )
+        )
+        view.mouseUp(
+            with: try makeMouseEvent(
+                type: .leftMouseUp,
+                at: CGPoint(x: point.x + 10, y: point.y + 8)
+            )
+        )
+
+        XCTAssertEqual(state.document.annotations.count, 0)
+        XCTAssertNil(state.selectedAnnotationID)
+        XCTAssertEqual(state.inspectorRoute, .drawDefaults(.text))
+        XCTAssertEqual(state.undoStack.undoCount, 0)
+        if case let .text(origin, _, _, _) = state.inProgressTextDraft?.kind {
+            XCTAssertEqual(origin, CGPoint(x: 30, y: 28))
+        } else {
+            XCTFail("expected text draft")
+        }
     }
 
     func test_nonDrawingToolsCaptureAnnotationSelectionTargets() {

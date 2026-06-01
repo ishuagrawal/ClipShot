@@ -151,6 +151,7 @@ final class EditorState: ObservableObject {
         case .components:
             // Select mode: a chosen annotation shows its details (with a back path to
             // the list); otherwise the full component list.
+            if inProgressTextDraft != nil { return .drawDefaults(.text) }
             return selectedAnnotation != nil ? .annotation : .componentList
         case .none:
             if selectedAnnotation != nil { return .annotation }
@@ -204,6 +205,24 @@ final class EditorState: ObservableObject {
         }
 
         inProgressAnnotation = Annotation(kind: kind)
+    }
+
+    @discardableResult
+    func beginTextDraft(at point: CGPoint) -> Annotation? {
+        let point = point.clamped(to: documentBounds)
+        let annotation = Annotation(
+            kind: .text(
+                origin: point,
+                string: "",
+                fontSize: toolStyle.textSize,
+                color: toolStyle.textColor
+            )
+        )
+        inProgressAnnotation = annotation
+        selectedAnnotationID = nil
+        activeTool = .select
+        documentPanel = .components
+        return annotation
     }
 
     func updateDraw(to point: CGPoint, shiftSnap: Bool) {
@@ -260,6 +279,67 @@ final class EditorState: ObservableObject {
 
     func cancelDraw() {
         inProgressAnnotation = nil
+    }
+
+    @discardableResult
+    func commitTextDraft(id: UUID, string: String) -> Annotation? {
+        guard let draft = inProgressAnnotation,
+              draft.id == id,
+              case let .text(origin, _, fontSize, color) = draft.kind else {
+            return nil
+        }
+
+        let annotation = Annotation(
+            id: id,
+            kind: .text(origin: origin, string: string, fontSize: fontSize, color: color)
+        )
+        inProgressAnnotation = nil
+        performCommand(AddAnnotationCommand(annotation: annotation))
+        selectedAnnotationID = annotation.id
+        activeTool = .select
+        documentPanel = .components
+        return annotation
+    }
+
+    func discardTextDraft(id: UUID) {
+        if inProgressAnnotation?.id == id {
+            inProgressAnnotation = nil
+        }
+        if selectedAnnotationID == id {
+            selectedAnnotationID = nil
+        }
+    }
+
+    func updateTextDraftStyle(fontSize: CGFloat, color: CGColor) {
+        guard var draft = inProgressTextDraft,
+              case let .text(origin, string, _, _) = draft.kind else {
+            return
+        }
+
+        draft.kind = .text(origin: origin, string: string, fontSize: fontSize, color: color)
+        inProgressAnnotation = draft
+    }
+
+    func beginMoveTextDraft(id: UUID) {
+        guard let draft = inProgressTextDraft, draft.id == id else { return }
+        moveStartKind = draft.kind
+    }
+
+    func moveTextDraft(by delta: CGSize) {
+        guard var draft = inProgressTextDraft,
+              let start = moveStartKind else {
+            return
+        }
+
+        draft.kind = AnnotationGeometry.clamped(
+            AnnotationGeometry.translated(start, by: delta),
+            to: documentBounds
+        )
+        inProgressAnnotation = draft
+    }
+
+    func commitMoveTextDraft() {
+        moveStartKind = nil
     }
 
     func annotationID(at point: CGPoint) -> UUID? {
@@ -356,6 +436,14 @@ final class EditorState: ObservableObject {
     var selectedAnnotation: Annotation? {
         guard let id = selectedAnnotationID else { return nil }
         return document.annotations.first { $0.id == id }
+    }
+
+    var inProgressTextDraft: Annotation? {
+        guard let annotation = inProgressAnnotation,
+              case .text = annotation.kind else {
+            return nil
+        }
+        return annotation
     }
 
     private func validateSelectedAnnotation() {

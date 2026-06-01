@@ -57,7 +57,7 @@ final class CanvasTextEditor: NSObject, NSTextFieldDelegate {
     func syncEditingField(with document: EditorDocument, effectiveCrop: CGRect) {
         guard let textField = field, let id = editingID else { return }
         editingEffectiveCrop = effectiveCrop
-        guard let annotation = document.annotations.first(where: { $0.id == id }),
+        guard let annotation = editingAnnotation(for: id, in: document),
               case let .text(origin, _, fontSize, color) = annotation.kind else {
             cancelEditing()
             return
@@ -82,16 +82,21 @@ final class CanvasTextEditor: NSObject, NSTextFieldDelegate {
         editingID = nil
         onEditingPreviewChanged?(nil)
 
-        guard let index = state.document.annotations.firstIndex(where: { $0.id == id }),
-              case let .text(origin, oldString, fontSize, color) = state.document.annotations[index].kind else {
+        if let index = state.document.annotations.firstIndex(where: { $0.id == id }),
+           case let .text(origin, oldString, fontSize, color) = state.document.annotations[index].kind {
+            state.selectedAnnotationID = id
+            if text.isBlank {
+                state.deleteSelectedAnnotation()
+            } else if text != oldString {
+                state.updateSelectedKind(.text(origin: origin, string: text, fontSize: fontSize, color: color))
+            }
             return
         }
 
-        state.selectedAnnotationID = id
-        if text.isEmpty {
-            state.deleteSelectedAnnotation()
-        } else if text != oldString {
-            state.updateSelectedKind(.text(origin: origin, string: text, fontSize: fontSize, color: color))
+        if text.isBlank {
+            state.discardTextDraft(id: id)
+        } else {
+            state.commitTextDraft(id: id, string: text)
         }
     }
 
@@ -153,5 +158,21 @@ final class CanvasTextEditor: NSObject, NSTextFieldDelegate {
                 )
             )
         )
+    }
+
+    private func editingAnnotation(for id: UUID, in document: EditorDocument) -> Annotation? {
+        if let annotation = document.annotations.first(where: { $0.id == id }) {
+            return annotation
+        }
+        if state?.inProgressAnnotation?.id == id {
+            return state?.inProgressAnnotation
+        }
+        return nil
+    }
+}
+
+private extension String {
+    var isBlank: Bool {
+        trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }

@@ -47,6 +47,9 @@ struct TextToolView: View {
         if case let .text(_, _, selectedSize, selectedColor) = state.selectedAnnotation?.kind {
             color = Color(cgColor: selectedColor)
             size = Double(selectedSize)
+        } else if case let .text(_, _, selectedSize, selectedColor) = state.inProgressTextDraft?.kind {
+            color = Color(cgColor: selectedColor)
+            size = Double(selectedSize)
         } else {
             color = Color(cgColor: state.toolStyle.textColor)
             size = Double(state.toolStyle.textSize)
@@ -66,6 +69,8 @@ struct TextToolView: View {
                 .text(origin: origin, string: string, fontSize: CGFloat(size), color: nextColor),
                 coalescingKey: .style
             )
+        } else if state.inProgressTextDraft != nil {
+            state.updateTextDraftStyle(fontSize: CGFloat(size), color: nextColor)
         }
     }
 }

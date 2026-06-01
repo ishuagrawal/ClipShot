@@ -109,8 +109,15 @@ final class CanvasOverlayView: NSView {
 
         if let inProgressAnnotation {
             liveIDs.insert(inProgressLayerKey)
+            let editingAnnotation = editingTextAnnotation?.id == inProgressAnnotation.id ? editingTextAnnotation : nil
+            let displayAnnotation = editingAnnotation ?? inProgressAnnotation
             let layer = annotationLayers[inProgressLayerKey] ?? makeLayer(for: inProgressLayerKey)
-            configure(layer, with: inProgressAnnotation.kind, selected: false)
+            configure(
+                layer,
+                with: displayAnnotation.kind,
+                selected: editingAnnotation != nil,
+                rendersContent: editingAnnotation == nil
+            )
         }
 
         let staleIDs = annotationLayers.keys.filter { !liveIDs.contains($0) }

@@ -30,6 +30,7 @@ final class CanvasInteractionView: NSView {
     }
 
     private var moveStartPoint: CGPoint?
+    private var movingTextDraftID: UUID?
     private var isMoving = false
     private var didMoveSelected = false
     private var cursorTrackingArea: NSTrackingArea?
@@ -128,9 +129,8 @@ final class CanvasInteractionView: NSView {
 
         if state.activeTool.isDrawTool {
             if state.activeTool == .text {
-                state.beginDraw(at: point)
-                if let committed = state.commitDraw() {
-                    onEditText?(committed)
+                if let draft = state.beginTextDraft(at: point) {
+                    onEditText?(draft)
                 }
             } else {
                 state.beginDraw(at: point)
@@ -159,7 +159,11 @@ final class CanvasInteractionView: NSView {
                 return
             }
             didMoveSelected = true
-            state.moveSelected(by: delta)
+            if movingTextDraftID != nil {
+                state.moveTextDraft(by: delta)
+            } else {
+                state.moveSelected(by: delta)
+            }
         } else if state.activeTool.isDrawTool, state.activeTool != .text {
             state.updateDraw(to: point, shiftSnap: shift)
         }
@@ -169,7 +173,11 @@ final class CanvasInteractionView: NSView {
         guard let state else { return }
 
         if isMoving {
-            state.commitMoveSelected()
+            if movingTextDraftID != nil {
+                state.commitMoveTextDraft()
+            } else {
+                state.commitMoveSelected()
+            }
             invalidateCursorRectsIfPossible()
         } else if state.activeTool.isDrawTool, state.activeTool != .text {
             if state.commitDraw() != nil {
@@ -178,6 +186,7 @@ final class CanvasInteractionView: NSView {
         }
         isMoving = false
         didMoveSelected = false
+        movingTextDraftID = nil
         moveStartPoint = nil
     }
 
@@ -302,12 +311,23 @@ final class CanvasInteractionView: NSView {
     }
 
     private func displayAnnotations(for state: EditorState) -> [Annotation] {
-        state.document.annotations.map { annotation in
+        var annotations = state.document.annotations.map { annotation in
             if let editingTextAnnotation, editingTextAnnotation.id == annotation.id {
                 return editingTextAnnotation
             }
             return annotation
         }
+
+        if let draft = state.inProgressTextDraft,
+           !annotations.contains(where: { $0.id == draft.id }) {
+            if let editingTextAnnotation, editingTextAnnotation.id == draft.id {
+                annotations.append(editingTextAnnotation)
+            } else {
+                annotations.append(draft)
+            }
+        }
+
+        return annotations
     }
 
     private func textBorderHitFrames(for annotation: Annotation) -> [CGRect] {
@@ -356,7 +376,20 @@ final class CanvasInteractionView: NSView {
     private func beginMove(_ annotation: Annotation, at point: CGPoint) {
         guard let state else { return }
 
+        if state.inProgressTextDraft?.id == annotation.id {
+            movingTextDraftID = annotation.id
+            state.selectedAnnotationID = nil
+            state.activeTool = .select
+            state.documentPanel = .components
+            moveStartPoint = point
+            state.beginMoveTextDraft(id: annotation.id)
+            isMoving = true
+            didMoveSelected = false
+            return
+        }
+
         state.cancelDraw()
+        movingTextDraftID = nil
         state.selectedAnnotationID = annotation.id
         state.activeTool = .select
         state.documentPanel = .components
@@ -368,6 +401,18 @@ final class CanvasInteractionView: NSView {
 
     private func activateEditingTool(for annotation: Annotation) {
         guard let state else { return }
+
+        if state.inProgressTextDraft?.id == annotation.id {
+            state.selectedAnnotationID = nil
+            state.activeTool = .select
+            state.documentPanel = .components
+            isMoving = false
+            didMoveSelected = false
+            movingTextDraftID = nil
+            moveStartPoint = nil
+            invalidateCursorRectsIfPossible()
+            return
+        }
 
         state.cancelDraw()
         state.selectedAnnotationID = annotation.id
