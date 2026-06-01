@@ -245,6 +245,7 @@ final class EditorState: ObservableObject {
 
         performCommand(AddAnnotationCommand(annotation: annotation))
         selectedAnnotationID = annotation.id
+        activeTool = .select
         return annotation
     }
 

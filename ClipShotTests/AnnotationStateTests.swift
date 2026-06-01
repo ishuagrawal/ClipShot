@@ -30,6 +30,7 @@ final class AnnotationStateTests: XCTestCase {
         XCTAssertNil(state.inProgressAnnotation)
         XCTAssertEqual(state.document.annotations.count, 1)
         XCTAssertEqual(state.selectedAnnotationID, committed?.id)
+        XCTAssertEqual(state.activeTool, .select)
         XCTAssertTrue(state.undoStack.canUndo)
     }
 
@@ -120,7 +121,7 @@ final class AnnotationStateTests: XCTestCase {
         state.performUndo()
 
         XCTAssertNil(state.selectedAnnotationID)
-        XCTAssertEqual(state.inspectorRoute, .drawDefaults(.arrow))
+        XCTAssertEqual(state.inspectorRoute, .hidden)
     }
 }
 
@@ -302,6 +303,20 @@ final class CanvasInteractionViewTests: XCTestCase {
         XCTAssertEqual(state.selectedAnnotationID, annotation.id)
         XCTAssertEqual(state.activeTool, .select)
         XCTAssertEqual(state.document.annotations.count, 1)
+    }
+
+    func test_drawArrowViaCanvasReturnsToSelectTool() throws {
+        let (state, view) = makeEmptyInteraction(initialTool: .arrow)
+
+        view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 10, y: 10)))
+        view.mouseDragged(with: try makeMouseEvent(type: .leftMouseDragged, at: CGPoint(x: 45, y: 35)))
+        view.mouseUp(with: try makeMouseEvent(type: .leftMouseUp, at: CGPoint(x: 45, y: 35)))
+
+        XCTAssertEqual(state.document.annotations.count, 1)
+        XCTAssertEqual(state.selectedAnnotationID, state.document.annotations.first?.id)
+        XCTAssertEqual(state.activeTool, .select)
+        XCTAssertEqual(state.inspectorRoute, .annotation)
+        XCTAssertNil(state.inProgressAnnotation)
     }
 
     func test_singleClickInsideTextToolSelectsExistingTextInsteadOfCreatingNewText() throws {
@@ -802,6 +817,25 @@ final class CanvasInteractionViewTests: XCTestCase {
         view.state = state
         view.effectiveCrop = document.effectiveCrop
         return (annotation, state, view)
+    }
+
+    private func makeEmptyInteraction(initialTool: EditorTool) -> (
+        state: EditorState,
+        view: CanvasInteractionView
+    ) {
+        let document = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
+            viewport: CGSize(width: 100, height: 100),
+            pageTitle: "t",
+            pageURL: "u",
+            baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80)
+        )
+        let state = EditorState(document: document)
+        applyInitialTool(initialTool, to: state)
+        let view = CanvasInteractionView(frame: CGRect(origin: .zero, size: Self.interactionViewSize))
+        view.state = state
+        view.effectiveCrop = document.effectiveCrop
+        return (state, view)
     }
 
     /// Migrate from the old `initialTool:` init pattern: apply a tool to a freshly-created

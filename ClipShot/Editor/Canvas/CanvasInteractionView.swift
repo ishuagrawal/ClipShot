@@ -169,7 +169,9 @@ final class CanvasInteractionView: NSView {
             state.commitMoveSelected()
             invalidateCursorRectsIfPossible()
         } else if state.activeTool.isDrawTool, state.activeTool != .text {
-            _ = state.commitDraw()
+            if state.commitDraw() != nil {
+                invalidateCursorRectsIfPossible()
+            }
         }
         isMoving = false
         didMoveSelected = false
