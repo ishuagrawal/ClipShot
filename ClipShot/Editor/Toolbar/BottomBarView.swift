@@ -7,19 +7,15 @@ struct BottomBarView: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            BarIconButton(systemName: "arrow.uturn.backward") { state.performUndo() }
+            IconButton(systemName: "arrow.uturn.backward") { state.performUndo() }
                 .accessibilityLabel("Undo")
                 .disabled(!state.undoStack.canUndo)
                 .opacity(state.undoStack.canUndo ? 1 : 0.35)
 
-            BarIconButton(systemName: "arrow.uturn.forward") { state.performRedo() }
+            IconButton(systemName: "arrow.uturn.forward") { state.performRedo() }
                 .accessibilityLabel("Redo")
                 .disabled(!state.undoStack.canRedo)
                 .opacity(state.undoStack.canRedo ? 1 : 0.35)
-
-            barDivider
-
-            ZoomControls()
 
             barDivider
 
@@ -33,26 +29,7 @@ struct BottomBarView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .background {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [Theme.raisedTop, Theme.raisedBottom],
-                        startPoint: .top, endPoint: .bottom
-                    )
-                )
-        }
-        .overlay(alignment: .top) {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Theme.topHighlight, lineWidth: 1)
-                .mask(LinearGradient(colors: [.white, .clear], startPoint: .top, endPoint: .center))
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.black.opacity(0.4), lineWidth: 1)
-                .mask(LinearGradient(colors: [.clear, .black], startPoint: .center, endPoint: .bottom))
-        }
-        .shadow(color: .black.opacity(0.55), radius: 18, y: 9)
+        .floatingBar(cornerRadius: 14)
     }
 
     private var barDivider: some View {
@@ -104,22 +81,5 @@ struct BottomBarView: View {
         let stamp = ISO8601DateFormatter().string(from: Date())
             .replacingOccurrences(of: ":", with: "-")
         return "\(base)-\(stamp).png"
-    }
-}
-
-private struct ZoomControls: View {
-    // P0 placeholder: shows fixed "100%". Live zoom binding deferred to a follow-up —
-    // wiring NSScrollView.magnification into SwiftUI adds risk to this PR.
-    var body: some View {
-        HStack(spacing: 2) {
-            BarIconButton(systemName: "minus")
-            Text("100%")
-                .font(Theme.mono(11, .semibold))
-                .foregroundStyle(Theme.textSecondary)
-                .frame(minWidth: 42)
-            BarIconButton(systemName: "plus")
-        }
-        .disabled(true)
-        .help("Use trackpad pinch or ⌘+scroll to zoom (P0)")
     }
 }
