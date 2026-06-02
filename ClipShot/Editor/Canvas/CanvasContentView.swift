@@ -16,7 +16,9 @@ final class CanvasContentView: NSView {
         self.selectionLayer = CALayer()
         super.init(frame: frameRect)
         wantsLayer = true
-        layer?.backgroundColor = NSColor(white: 0.06, alpha: 1).cgColor
+        // Transparent so the dot-grid stage shows through behind the faded
+        // full-page context ghost — the canvas reads as one continuous surface.
+        layer?.backgroundColor = .clear
 
         contextLayer.contentsGravity = .resize
         contextLayer.magnificationFilter = .trilinear

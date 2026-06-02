@@ -25,17 +25,29 @@ final class CanvasOverlayView: NSView {
         didSet { updateAnnotations() }
     }
 
+    private let artboardShadowLayer: CALayer
     private let previewLayer: CALayer
     private let annotationsLayer: CALayer
     private var annotationLayers: [UUID: CALayer] = [:]
     private let inProgressLayerKey = UUID()
 
     override init(frame frameRect: NSRect) {
+        artboardShadowLayer = CALayer()
         previewLayer = CALayer()
         annotationsLayer = CALayer()
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.backgroundColor = .clear
+
+        // Pure drop shadow under the artboard. A `shadowPath` casts a shadow
+        // regardless of the layer's (clear) content, so it lifts the bright
+        // artboard off the dotted stage / faded context without painting a fill
+        // over the selection — works whether or not padding/background is set.
+        artboardShadowLayer.backgroundColor = .clear
+        artboardShadowLayer.shadowColor = NSColor.black.cgColor
+        artboardShadowLayer.shadowOpacity = 0.5
+        artboardShadowLayer.masksToBounds = false
+        layer?.addSublayer(artboardShadowLayer)
 
         previewLayer.contentsGravity = .resize
         previewLayer.magnificationFilter = .trilinear
@@ -58,6 +70,7 @@ final class CanvasOverlayView: NSView {
 
     private func updatePreview() {
         guard let doc = document else {
+            artboardShadowLayer.isHidden = true
             previewLayer.contents = nil
             previewLayer.isHidden = true
             annotationsLayer.sublayers = nil
@@ -67,6 +80,22 @@ final class CanvasOverlayView: NSView {
 
         CATransaction.begin()
         CATransaction.setDisableActions(true)
+
+        // Lift the artboard (the bright composite region) off the stage. Shadow
+        // geometry is in document space, so blur/offset scale with the artboard
+        // as it zooms — the natural way an artboard shadow behaves.
+        let crop = doc.effectiveCrop.integral
+        artboardShadowLayer.isHidden = crop.isNull || crop.isEmpty
+        if !artboardShadowLayer.isHidden {
+            artboardShadowLayer.frame = crop
+            artboardShadowLayer.shadowPath = CGPath(
+                rect: CGRect(origin: .zero, size: crop.size), transform: nil
+            )
+            let minSide = min(crop.width, crop.height)
+            let radius = min(max(minSide * 0.03, 16), 64)
+            artboardShadowLayer.shadowRadius = radius
+            artboardShadowLayer.shadowOffset = CGSize(width: 0, height: radius * 0.32)
+        }
 
         let hasFrame = doc.padding != .zero || doc.background != .none
         if hasFrame {
