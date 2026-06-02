@@ -22,58 +22,49 @@ struct EditorView: View {
 
 private struct EditorShell: View {
     @StateObject private var state: EditorState
+    @StateObject private var canvasFocusProxy = CanvasFocusProxy()
 
     init(document: EditorDocument) {
-        _state = StateObject(wrappedValue: EditorState(document: document, initialTool: .padding))
+        _state = StateObject(wrappedValue: EditorState(document: document, openingPanel: .layout))
     }
 
     var body: some View {
-        ZStack {
-            VStack(spacing: 0) {
-                TopToolBarView(state: state)
-                Rectangle()
-                    .fill(Theme.hairline)
-                    .frame(height: 1)
-                HStack(spacing: 0) {
-                    if state.isDetailPanelVisible {
-                        ToolSidebarView(state: state)
-                            .transition(.move(edge: .leading).combined(with: .opacity))
-                    }
-                    canvasArea
+        VStack(spacing: 0) {
+            TopToolBarView(state: state)
+            Rectangle().fill(Theme.hairline).frame(height: 1)
+            HStack(spacing: 0) {
+                if state.isInspectorVisible {
+                    ToolSidebarView(
+                        state: state,
+                        onCanvasFocusRequested: canvasFocusProxy.requestKeyboardFocus
+                    )
                 }
+                canvasArea
             }
-
-            panelToggleShortcut
         }
         .frame(minWidth: 900, minHeight: 600)
-        .background(Theme.surface)
-        .animation(.spring(response: 0.32, dampingFraction: 0.86), value: state.isDetailPanelVisible)
+        .background(Theme.canvas)
     }
 
     private var canvasArea: some View {
-        ZStack(alignment: .bottom) {
-            CanvasView(state: state)
+        ZStack {
+            CanvasView(state: state, focusProxy: canvasFocusProxy)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Theme.canvasBack)
-            BottomBarView(state: state)
-                .padding(.bottom, 20)
+                .background(Theme.canvas)
+            VStack {
+                ToolPaletteView(state: state)
+                    .padding(.top, 14)
+                Spacer()
+            }
+            VStack {
+                Spacer()
+                BottomBarView(state: state)
+                    .padding(.bottom, 20)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private var panelToggleShortcut: some View {
-        Button {
-            if state.activeTool.hasDetailPanel {
-                state.toggleDetailPanel()
-            }
-        } label: {
-            Color.clear
-                .frame(width: 0, height: 0)
-        }
-        .buttonStyle(.plain)
-        .keyboardShortcut("i", modifiers: [.command])
-        .accessibilityHidden(true)
-    }
 }
 
 private struct EmptyEditorView: View {
@@ -81,13 +72,13 @@ private struct EmptyEditorView: View {
         VStack(spacing: 12) {
             Image(systemName: "crop")
                 .font(.system(size: 34, weight: .medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.textTertiary)
             Text("No capture session")
-                .font(.headline)
+                .font(Theme.title(16))
+                .foregroundStyle(Theme.textSecondary)
         }
         .frame(minWidth: 860, minHeight: 560)
-        .background(Color(red: 0.055, green: 0.057, blue: 0.06))
-        .foregroundStyle(.secondary)
+        .background(Theme.canvas)
     }
 }
 

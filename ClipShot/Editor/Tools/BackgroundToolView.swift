@@ -17,7 +17,7 @@ struct BackgroundToolView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 9) {
-                PanelTitle(text: "Style")
+                SectionLabel(text: "Style")
                 tiles
             }
             Rectangle().fill(Theme.hairline).frame(height: 1)
@@ -39,22 +39,11 @@ struct BackgroundToolView: View {
                 } label: {
                     tileSwatch(kind)
                         .frame(width: 42, height: 42)
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
-                        // Top specular highlight → reads as a raised cap.
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous))
                         .overlay(
-                            RoundedRectangle(cornerRadius: Theme.radius, style: .continuous)
-                                .stroke(Theme.topHighlight, lineWidth: 1)
-                                .mask(LinearGradient(colors: [.white, .clear], startPoint: .top, endPoint: .center))
+                            RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
+                                .stroke(selected ? Theme.accent : Theme.hairline, lineWidth: selected ? 2 : 1)
                         )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: Theme.radius, style: .continuous)
-                                .stroke(
-                                    selected ? Theme.accent : Color.black.opacity(0.45),
-                                    lineWidth: selected ? 2 : 1
-                                )
-                        )
-                        .shadow(color: selected ? Theme.accentGlow : .black.opacity(0.4),
-                                radius: selected ? 7 : 3, y: selected ? 0 : 2)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -65,16 +54,11 @@ struct BackgroundToolView: View {
 
     @ViewBuilder
     private func tileSwatch(_ kind: BackgroundStyle.Kind) -> some View {
-        let shape = RoundedRectangle(cornerRadius: Theme.radius, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
         switch kind {
         case .none:
             shape
-                .fill(
-                    LinearGradient(
-                        colors: [Theme.raisedTop, Theme.raisedBottom],
-                        startPoint: .top, endPoint: .bottom
-                    )
-                )
+                .fill(Theme.inputFill)
                 .overlay(
                     Image(systemName: "circle.slash")
                         .font(.system(size: 14))
@@ -128,7 +112,7 @@ struct BackgroundToolView: View {
                 .foregroundStyle(Theme.textTertiary)
         case .solid:
             HStack {
-                rowLabel("Color")
+                InspectorRowLabel(text: "Color")
                 ColorPicker("", selection: $solid, supportsOpacity: false)
                     .labelsHidden()
                     .onChange(of: solid) { _, _ in
@@ -139,7 +123,7 @@ struct BackgroundToolView: View {
         case .gradient:
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    rowLabel("Colors")
+                    InspectorRowLabel(text: "Colors")
                     ColorPicker("", selection: $gradientStart, supportsOpacity: false)
                         .labelsHidden()
                         .onChange(of: gradientStart) { _, _ in
@@ -154,44 +138,40 @@ struct BackgroundToolView: View {
                         }
                 }
                 HStack(spacing: 10) {
-                    rowLabel("Angle")
-                    GraphiteSlider(
-                        value: $gradientAngle,
+                    InspectorRowLabel(text: "Angle")
+                    FlatSlider(
+                        value: Binding(
+                            get: { gradientAngle },
+                            set: { newValue in
+                                gradientAngle = newValue
+                                applyGradient()
+                            }
+                        ),
                         range: 0...360,
                         accessibilityLabel: "Gradient angle",
-                        accessibilityValue: { "\(Int($0.rounded())) degrees" },
-                        onEditingChanged: { if !$0 { applyGradient() } }
+                        accessibilityValue: { "\(Int($0.rounded())) degrees" }
                     )
-                    valueLabel("\(Int(gradientAngle))°")
+                    InspectorValueLabel(text: "\(Int(gradientAngle))°")
                 }
             }
         case .blurExtend:
             HStack(spacing: 10) {
-                rowLabel("Radius")
-                GraphiteSlider(
-                    value: $blurRadius,
+                InspectorRowLabel(text: "Radius")
+                FlatSlider(
+                    value: Binding(
+                        get: { blurRadius },
+                        set: { newValue in
+                            blurRadius = newValue
+                            commit(.blurExtend(radius: CGFloat(newValue)))
+                        }
+                    ),
                     range: 0...80,
                     accessibilityLabel: "Blur radius",
-                    accessibilityValue: { "\(Int($0.rounded())) pixels" },
-                    onEditingChanged: { if !$0 { commit(.blurExtend(radius: CGFloat(blurRadius))) } }
+                    accessibilityValue: { "\(Int($0.rounded())) pixels" }
                 )
-                valueLabel("\(Int(blurRadius))")
+                InspectorValueLabel(text: "\(Int(blurRadius))")
             }
         }
-    }
-
-    private func rowLabel(_ text: String) -> some View {
-        Text(text)
-            .font(Theme.label(12))
-            .foregroundStyle(Theme.textSecondary)
-            .frame(width: 52, alignment: .leading)
-    }
-
-    private func valueLabel(_ text: String) -> some View {
-        Text(text)
-            .font(Theme.mono(12, .semibold))
-            .foregroundStyle(Theme.textPrimary)
-            .frame(width: 38, alignment: .trailing)
     }
 
     private func select(_ kind: BackgroundStyle.Kind) {
@@ -225,7 +205,8 @@ struct BackgroundToolView: View {
     private func syncControls(from style: BackgroundStyle) {
         isSyncingControls = true
         defer {
-            DispatchQueue.main.async {
+            // Re-enable writes after the onChange cascade settles, staying on the main actor.
+            Task { @MainActor in
                 isSyncingControls = false
             }
         }

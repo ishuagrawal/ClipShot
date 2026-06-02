@@ -1,20 +1,9 @@
+import CoreGraphics
 import XCTest
 @testable import ClipShot
 
 @MainActor
 final class SidebarModelTests: XCTestCase {
-
-    // MARK: EditorTool.hasDetailPanel
-
-    func testSelectHasNoDetailPanel() {
-        XCTAssertFalse(EditorTool.select.hasDetailPanel)
-    }
-
-    func testOtherToolsHaveDetailPanel() {
-        for tool in EditorTool.allCases where tool != .select {
-            XCTAssertTrue(tool.hasDetailPanel, "\(tool) should have a detail panel")
-        }
-    }
 
     // MARK: PaddingConfig box model
 
@@ -58,58 +47,182 @@ final class SidebarModelTests: XCTestCase {
         XCTAssertEqual(BackgroundStyle.Kind.allCases.count, 4)
     }
 
-    // MARK: EditorState panel state
+    // MARK: EditorState inspector model
 
     private func makeState() -> EditorState {
         EditorState(document: FixtureDocument.basicPair().document)
     }
 
-    func testSelectingPanelToolExpandsPanel() {
+    func testSelectCursorToolSetsActiveToolAndClearsPanel() {
         let state = makeState()
-        state.isDetailPanelExpanded = false
-        state.selectTool(.padding)
-        XCTAssertEqual(state.activeTool, .padding)
-        XCTAssertTrue(state.isDetailPanelExpanded)
-        XCTAssertTrue(state.isDetailPanelVisible)
+        state.toggleDocumentPanel(.layout)
+        state.selectCursorTool(.arrow)
+        XCTAssertEqual(state.activeTool, .arrow)
+        XCTAssertEqual(state.documentPanel, .none)
     }
 
-    func testInitialPanelToolIsVisibleImmediately() {
+    func testPressingSelectWhilePanelOpenClosesPanel() {
+        let state = makeState()
+        state.toggleDocumentPanel(.layout)
+        state.selectCursorTool(.select)
+        XCTAssertEqual(state.documentPanel, .none)
+        XCTAssertEqual(state.activeTool, .select)
+    }
+
+    func testToggleDocumentPanelTwiceReturnsToNone() {
+        let state = makeState()
+        state.toggleDocumentPanel(.layout)
+        XCTAssertEqual(state.documentPanel, .layout)
+        state.toggleDocumentPanel(.layout)
+        XCTAssertEqual(state.documentPanel, .none)
+    }
+
+    func testOpeningDocumentPanelResetsCursorToSelect() {
+        let state = makeState()
+        state.selectCursorTool(.rectangle)
+        state.toggleDocumentPanel(.background)
+        XCTAssertEqual(state.activeTool, .select)
+        XCTAssertEqual(state.documentPanel, .background)
+    }
+
+    func testInspectorHiddenWhenSelectIdleNoPanel() {
+        let state = makeState()
+        XCTAssertEqual(state.inspectorRoute, .hidden)
+        XCTAssertFalse(state.isInspectorVisible)
+    }
+
+    func testInspectorRouteLayoutWhenPanelLayout() {
+        let state = makeState()
+        state.toggleDocumentPanel(.layout)
+        XCTAssertEqual(state.inspectorRoute, .layout)
+        XCTAssertEqual(state.inspectorTitle, "Layout")
+    }
+
+    func testInspectorRouteDrawDefaultsWhenDrawToolIdle() {
+        let state = makeState()
+        state.selectCursorTool(.arrow)
+        XCTAssertEqual(state.inspectorRoute, .drawDefaults(.arrow))
+        XCTAssertEqual(state.inspectorTitle, "Arrow")
+    }
+
+    func testInspectorRouteAnnotationWhenSelected() {
+        let state = makeState()
+        state.selectCursorTool(.arrow)
+        state.beginDraw(at: CGPoint(x: 10, y: 10))
+        state.updateDraw(to: CGPoint(x: 90, y: 90), shiftSnap: false)
+        _ = state.commitDraw()
+        XCTAssertNotNil(state.selectedAnnotationID)
+        XCTAssertEqual(state.inspectorRoute, .annotation)
+        XCTAssertEqual(state.inspectorTitle, "Arrow")
+    }
+
+    func testDismissInspectorClearsEverything() {
+        let state = makeState()
+        state.toggleDocumentPanel(.layout)
+        state.dismissInspector()
+        XCTAssertEqual(state.documentPanel, .none)
+        XCTAssertEqual(state.activeTool, .select)
+        XCTAssertNil(state.selectedAnnotationID)
+        XCTAssertEqual(state.inspectorRoute, .hidden)
+    }
+
+    func testOpeningPanelInitSeedsLayout() {
         let state = EditorState(
             document: FixtureDocument.basicPair().document,
-            initialTool: .padding
+            openingPanel: .layout
         )
-        XCTAssertEqual(state.activeTool, .padding)
-        XCTAssertTrue(state.isDetailPanelVisible)
+        XCTAssertEqual(state.inspectorRoute, .layout)
+        XCTAssertTrue(state.isInspectorVisible)
     }
 
-    func testReselectingActiveToolTogglesPanel() {
+    func testComponentsPanelShowsListWhenNothingSelected() {
         let state = makeState()
-        state.selectTool(.padding)
-        state.selectTool(.padding)
-        XCTAssertFalse(state.isDetailPanelExpanded)
-        XCTAssertFalse(state.isDetailPanelVisible)
+        state.toggleDocumentPanel(.components)
+        XCTAssertEqual(state.inspectorRoute, .componentList)
+        XCTAssertEqual(state.inspectorTitle, "Components")
+        XCTAssertTrue(state.isInspectorVisible)
     }
 
-    func testSelectToolHasNoVisiblePanel() {
+    func testTextDraftShowsTextControlsWithoutComponentListEntry() throws {
         let state = makeState()
-        state.selectTool(.padding)
-        state.selectTool(.select)
+        state.selectCursorTool(.text)
+        let draft = try XCTUnwrap(state.beginTextDraft(at: CGPoint(x: 20, y: 20)))
+
+        XCTAssertEqual(state.document.annotations.count, 0)
+        XCTAssertEqual(state.inProgressTextDraft?.id, draft.id)
+        XCTAssertNil(state.selectedAnnotationID)
+        XCTAssertEqual(state.activeTool, .text)
+        XCTAssertEqual(state.documentPanel, .none)
+        XCTAssertEqual(state.inspectorRoute, .drawDefaults(.text))
+        XCTAssertEqual(state.inspectorTitle, "Text")
+        XCTAssertTrue(state.isInspectorVisible)
+    }
+
+    func testUpdatingTextDraftStyleDoesNotCreateComponentEntry() throws {
+        let state = makeState()
+        let draft = try XCTUnwrap(state.beginTextDraft(at: CGPoint(x: 20, y: 20)))
+        let color = CGColor(red: 0.2, green: 0.4, blue: 0.8, alpha: 1)
+
+        state.updateTextDraftStyle(fontSize: 40, color: color)
+
+        XCTAssertEqual(state.document.annotations.count, 0)
+        XCTAssertEqual(state.inProgressTextDraft?.id, draft.id)
+        XCTAssertEqual(state.undoStack.undoCount, 0)
+        if case let .text(_, _, fontSize, draftColor) = state.inProgressTextDraft?.kind {
+            XCTAssertEqual(fontSize, 40)
+            XCTAssertEqual(draftColor, color)
+        } else {
+            XCTFail("expected text draft")
+        }
+    }
+
+    func testSelectingComponentRoutesToAnnotationDetails() {
+        let state = makeState()
+        state.toggleDocumentPanel(.components)
+        state.selectCursorTool(.arrow)
+        state.beginDraw(at: CGPoint(x: 10, y: 10))
+        state.updateDraw(to: CGPoint(x: 90, y: 90), shiftSnap: false)
+        _ = state.commitDraw()
+        // commitDraw selects the new annotation inside the components panel.
+        XCTAssertEqual(state.documentPanel, .components)
+        XCTAssertEqual(state.inspectorRoute, .annotation)
+    }
+
+    func testSelectingComponentReturnsToSelectMode() throws {
+        let state = makeState()
+        state.selectCursorTool(.arrow)
+        state.beginDraw(at: CGPoint(x: 10, y: 10))
+        state.updateDraw(to: CGPoint(x: 90, y: 90), shiftSnap: false)
+        let annotation = try XCTUnwrap(state.commitDraw())
+
+        state.selectCursorTool(.text)
+        state.beginDraw(at: CGPoint(x: 40, y: 40))
+        XCTAssertEqual(state.activeTool, .text)
+        XCTAssertNotNil(state.inProgressAnnotation)
+
+        state.selectComponent(annotation.id)
+
+        XCTAssertEqual(state.selectedAnnotationID, annotation.id)
         XCTAssertEqual(state.activeTool, .select)
-        XCTAssertFalse(state.isDetailPanelVisible)
+        XCTAssertEqual(state.documentPanel, .components)
+        XCTAssertEqual(state.inspectorRoute, .annotation)
+        XCTAssertNil(state.inProgressAnnotation)
     }
 
-    func testDisabledToolIsIgnored() {
+    func testDeselectingInComponentsReturnsToList() {
         let state = makeState()
-        state.selectTool(.arrow)
+        state.selectCursorTool(.arrow)
+        state.beginDraw(at: CGPoint(x: 10, y: 10))
+        state.updateDraw(to: CGPoint(x: 90, y: 90), shiftSnap: false)
+        _ = state.commitDraw()
+        XCTAssertEqual(state.inspectorRoute, .annotation)
+        state.deselect()
+        XCTAssertEqual(state.inspectorRoute, .componentList)
+    }
+
+    func testDisabledDrawToolIsIgnored() {
+        let state = makeState()
+        state.selectCursorTool(.blur)
         XCTAssertEqual(state.activeTool, .select)
-    }
-
-    func testToggleDetailPanelFlipsExpansion() {
-        let state = makeState()
-        state.selectTool(.background)
-        state.toggleDetailPanel()
-        XCTAssertFalse(state.isDetailPanelExpanded)
-        state.toggleDetailPanel()
-        XCTAssertTrue(state.isDetailPanelExpanded)
     }
 }

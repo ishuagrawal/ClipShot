@@ -1,78 +1,64 @@
 import SwiftUI
 
-/// Top tool bar: horizontal tabs, one per tool that exposes a sidebar panel. Selecting a
-/// tab activates the tool and swaps the left sidebar's controls. A teal indicator slides
-/// under the active tab. Built to extend — annotation tools drop in as they ship.
+/// Slim top bar: Select plus the document-settings toggles on the left, page title on
+/// the right. Drawing tools live in the floating `ToolPaletteView`, not here.
 struct TopToolBarView: View {
     @ObservedObject var state: EditorState
     @Namespace private var indicator
 
-    /// Tools shown as tabs: those shipped *and* carrying a detail panel (Layout, Background).
-    private var tabs: [EditorTool] {
-        EditorTool.allCases.filter { $0.isEnabled && $0.hasDetailPanel }
-    }
-
     var body: some View {
         HStack(spacing: 4) {
-            ForEach(tabs) { tool in
-                ToolTab(
-                    tool: tool,
-                    label: Self.tabLabel(tool),
-                    isActive: state.activeTool == tool,
-                    indicator: indicator
-                ) {
-                    state.selectTool(tool)
-                }
+            DocToggle(label: "Select", symbol: "cursorarrow",
+                      isActive: state.documentPanel == .components, indicator: indicator) {
+                state.toggleDocumentPanel(.components)
             }
-            Spacer(minLength: 0)
+            DocToggle(label: "Layout", symbol: "square.dashed",
+                      isActive: state.documentPanel == .layout, indicator: indicator) {
+                state.toggleDocumentPanel(.layout)
+            }
+            DocToggle(label: "Background", symbol: "paintpalette",
+                      isActive: state.documentPanel == .background, indicator: indicator) {
+                state.toggleDocumentPanel(.background)
+            }
+            Spacer(minLength: 12)
+            Text(state.document.pageTitle)
+                .font(Theme.label(12))
+                .foregroundStyle(Theme.textTertiary)
+                .lineLimit(1)
+                .truncationMode(.middle)
         }
-        .padding(.horizontal, 14)
-        .frame(height: 50)
+        .padding(.horizontal, 16)
+        .frame(height: 48)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.surface)
-        .animation(.spring(response: 0.30, dampingFraction: 0.82), value: state.activeTool)
-    }
-
-    /// Bar labels lean toward the editor verb rather than the model field name.
-    static func tabLabel(_ tool: EditorTool) -> String {
-        switch tool {
-        case .padding:    return "Layout"
-        case .background: return "Background"
-        default:          return tool.displayName
-        }
+        .animation(.spring(response: 0.30, dampingFraction: 0.82), value: state.documentPanel)
     }
 }
 
-private struct ToolTab: View {
-    let tool: EditorTool
+private struct DocToggle: View {
     let label: String
+    let symbol: String
     let isActive: Bool
     let indicator: Namespace.ID
     let onTap: () -> Void
-
     @State private var hovering = false
 
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 7) {
-                Image(systemName: tool.symbolName)
-                    .font(.system(size: 13, weight: .semibold))
-                Text(label)
-                    .font(Theme.label(12.5, isActive ? .semibold : .medium))
+                Image(systemName: symbol).font(.system(size: 12.5, weight: .medium))
+                Text(label).font(Theme.label(12.5, isActive ? .semibold : .medium))
             }
-            .foregroundStyle(
-                isActive ? Theme.accentText
-                : (hovering ? Theme.textPrimary : Theme.textSecondary)
-            )
+            .foregroundStyle(isActive ? Theme.accentText : (hovering ? Theme.textPrimary : Theme.textSecondary))
             .padding(.horizontal, 12)
-            .frame(height: 34)
+            .frame(height: 32)
             .background {
                 if isActive {
-                    RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous)
+                    RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
                         .fill(Theme.accentDim)
                 } else if hovering {
-                    RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous)
-                        .fill(Color.white.opacity(0.04))
+                    RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
+                        .fill(Theme.surfaceHover)
                 }
             }
             .overlay(alignment: .bottom) {
@@ -80,10 +66,9 @@ private struct ToolTab: View {
                     Capsule()
                         .fill(Theme.accent)
                         .frame(height: 2)
-                        .padding(.horizontal, 6)
-                        .offset(y: 8)
-                        .shadow(color: Theme.accentGlow, radius: 4)
-                        .matchedGeometryEffect(id: "tab-underline", in: indicator)
+                        .padding(.horizontal, 8)
+                        .offset(y: 7)
+                        .matchedGeometryEffect(id: "doc-underline", in: indicator)
                 }
             }
             .contentShape(Rectangle())
@@ -91,8 +76,8 @@ private struct ToolTab: View {
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
+        .help(label)
         .accessibilityLabel(label)
         .accessibilityAddTraits(isActive ? [.isSelected] : [])
-        .help(label)
     }
 }

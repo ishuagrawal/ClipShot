@@ -3,14 +3,7 @@ import AppKit
 /// NSScrollView subclass that provides:
 /// - native pinch-to-zoom (via `allowsMagnification = true`)
 /// - cmd+scroll zoom centered on the cursor
-/// - hold Space to temporarily switch to a hand/pan cursor regardless of active tool
 final class CanvasScrollView: NSScrollView {
-
-    var isSpaceHeld: Bool = false {
-        didSet {
-            window?.invalidateCursorRects(for: self)
-        }
-    }
 
     var viewportSizeDidChange: ((CGSize) -> Void)?
     var userInteractionDidStart: (() -> Void)?
@@ -156,31 +149,6 @@ final class CanvasScrollView: NSScrollView {
 
         lastReportedViewportSize = size
         viewportSizeDidChange?(size)
-    }
-
-    // MARK: - Space-hold pan
-
-    override func keyDown(with event: NSEvent) {
-        if event.charactersIgnoringModifiers == " " {
-            if !isSpaceHeld { isSpaceHeld = true }
-            return
-        }
-        super.keyDown(with: event)
-    }
-
-    override func keyUp(with event: NSEvent) {
-        if event.charactersIgnoringModifiers == " " {
-            isSpaceHeld = false
-            return
-        }
-        super.keyUp(with: event)
-    }
-
-    override func resetCursorRects() {
-        super.resetCursorRects()
-        if isSpaceHeld {
-            addCursorRect(bounds, cursor: .openHand)
-        }
     }
 
     override var acceptsFirstResponder: Bool { true }

@@ -11,6 +11,8 @@ final class CanvasCoordinator {
     let scrollView: CanvasScrollView
     let contentView: CanvasContentView
     let overlayView: CanvasOverlayView
+    let interactionView: CanvasInteractionView
+    let textEditor: CanvasTextEditor
     private let container: CanvasDocumentView
     private var didApplyInitialZoom = false
     private var initialPlacement: CanvasInitialPlacement?
@@ -24,8 +26,31 @@ final class CanvasCoordinator {
         container.layer?.backgroundColor = .clear
         contentView = CanvasContentView(frame: .zero)
         overlayView = CanvasOverlayView(frame: .zero)
+        interactionView = CanvasInteractionView(frame: .zero)
+        textEditor = CanvasTextEditor(container: container)
+        textEditor.onEditingPreviewChanged = { [weak self] annotation in
+            self?.overlayView.editingTextAnnotation = annotation
+            self?.interactionView.editingTextAnnotation = annotation
+        }
         container.addSubview(contentView)
         container.addSubview(overlayView)
+        container.addSubview(interactionView)
+        interactionView.scrollView = scrollView
+        interactionView.onEditText = { [weak self] annotation in
+            guard let self else { return }
+            self.textEditor.beginEditing(
+                annotation,
+                effectiveCrop: self.latestDocument?.effectiveCrop ?? .zero
+            )
+        }
+        interactionView.onCommitActiveText = { [weak self] in
+            guard let self, self.textEditor.isEditing else { return false }
+            self.textEditor.finishEditing()
+            return true
+        }
+        interactionView.onHoverAnnotationChanged = { [weak self] id in
+            self?.overlayView.hoveredAnnotationID = id
+        }
         scrollView.documentView = container
         scrollView.viewportSizeDidChange = { [weak self] viewportSize in
             self?.refitInitialSelectionIfNeeded(viewportSize: viewportSize)
@@ -36,11 +61,22 @@ final class CanvasCoordinator {
     }
 
     /// Push the latest document into the view tree. Called on every SwiftUI update.
-    func update(document: EditorDocument) {
+    func update(state: EditorState) {
+        let document = state.document
         latestDocument = document
         let imageBounds = document.imageBounds
         let placement = initialPlacement ?? CanvasInitialPlacement.default(imageBounds: imageBounds)
         apply(document: document, placement: placement)
+        overlayView.inProgressAnnotation = state.inProgressAnnotation
+        overlayView.selectedAnnotationID = state.selectedAnnotationID
+        interactionView.state = state
+        interactionView.effectiveCrop = document.effectiveCrop
+        textEditor.attach(state: state)
+        if textEditor.isEditing, state.activeTool != .text {
+            textEditor.finishEditing()
+        }
+        textEditor.imageFrameOrigin = contentView.frame.origin
+        textEditor.syncEditingField(with: document, effectiveCrop: document.effectiveCrop)
 
         if !didApplyInitialZoom {
             didApplyInitialZoom = true
@@ -63,6 +99,7 @@ final class CanvasCoordinator {
         contentView.frame = placement.imageFrame
         overlayView.resizeToDocument(document)   // sizes overlay frame
         overlayView.frame = placement.imageFrame
+        interactionView.frame = placement.imageFrame
     }
 
     private func refitInitialSelectionIfNeeded(viewportSize: CGSize, force: Bool = false) {

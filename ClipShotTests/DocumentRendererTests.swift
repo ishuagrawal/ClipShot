@@ -115,15 +115,164 @@ final class DocumentRendererTests: XCTestCase {
         XCTAssertEqual(buffer.pixels[3], 255, "blur-extend margin must be opaque")
     }
 
+    func test_render_blurExtendBackground_usesCurrentScreenshotForSameSizedCaptures() throws {
+        let red = TestImage.solid(.red, size: CGSize(width: 91, height: 91))
+        let blue = TestImage.solid(.blue, size: CGSize(width: 91, height: 91))
+        _ = DocumentRenderer.render(
+            document(
+                screenshot: red,
+                selection: CGRect(x: 25, y: 25, width: 41, height: 41),
+                padding: 25,
+                background: .blurExtend(radius: 7)
+            )
+        )
+
+        let image = try XCTUnwrap(
+            DocumentRenderer.render(
+                document(
+                    screenshot: blue,
+                    selection: CGRect(x: 25, y: 25, width: 41, height: 41),
+                    padding: 25,
+                    background: .blurExtend(radius: 7)
+                )
+            )
+        )
+        let buffer = try XCTUnwrap(PixelBuffer.decode(image))
+
+        XCTAssertLessThan(Int(buffer.pixels[0]), 20)
+        XCTAssertLessThan(Int(buffer.pixels[1]), 20)
+        XCTAssertGreaterThan(Int(buffer.pixels[2]), 235)
+    }
+
+    func test_render_blurExtendBackground_drawsUprightInPadding() throws {
+        let image = try XCTUnwrap(
+            DocumentRenderer.render(
+                document(
+                    screenshot: verticalSplitImage(size: CGSize(width: 73, height: 73)),
+                    selection: CGRect(x: 20, y: 20, width: 33, height: 33),
+                    padding: 20,
+                    background: .blurExtend(radius: 0)
+                )
+            )
+        )
+        let buffer = try XCTUnwrap(PixelBuffer.decode(image))
+
+        XCTAssertGreaterThan(Int(buffer.pixels[0]), 235)
+        XCTAssertLessThan(Int(buffer.pixels[1]), 20)
+        XCTAssertLessThan(Int(buffer.pixels[2]), 20)
+    }
+
+    func test_render_arrow_overridesScreenshotPixels() throws {
+        var doc = paddedDoc(padding: 0, background: .none)
+        doc.annotations = [
+            Annotation(
+                kind: .arrow(
+                    from: CGPoint(x: 5, y: 5),
+                    to: CGPoint(x: 70, y: 50),
+                    color: CGColor(red: 0, green: 0, blue: 1, alpha: 1),
+                    weight: 8
+                )
+            )
+        ]
+
+        let image = try XCTUnwrap(DocumentRenderer.render(doc))
+        let buffer = try XCTUnwrap(PixelBuffer.decode(image))
+        let midX = 37
+        let midY = 27
+        let index = midY * buffer.bytesPerRow + midX * 4
+
+        XCTAssertEqual(Int(buffer.pixels[index + 3]), 255)
+        XCTAssertLessThan(Int(buffer.pixels[index]), 80)
+        XCTAssertGreaterThan(Int(buffer.pixels[index + 2]), 150)
+    }
+
+    func test_render_rect_strokeChangesEdgePixels() throws {
+        var doc = paddedDoc(padding: 0, background: .none)
+        doc.annotations = [
+            Annotation(
+                kind: .rect(
+                    frame: CGRect(x: 10, y: 10, width: 50, height: 30),
+                    stroke: CGColor(red: 0, green: 1, blue: 0, alpha: 1),
+                    fill: nil,
+                    weight: 4,
+                    cornerRadius: 0
+                )
+            )
+        ]
+
+        let image = try XCTUnwrap(DocumentRenderer.render(doc))
+        let buffer = try XCTUnwrap(PixelBuffer.decode(image))
+        let index = 10 * buffer.bytesPerRow + 30 * 4
+
+        XCTAssertGreaterThan(Int(buffer.pixels[index + 1]), 150)
+    }
+
+    func test_render_annotationsDoNotChangeOutputSize() throws {
+        var doc = paddedDoc(
+            padding: 10,
+            background: .solidColor(CGColor(red: 0, green: 0, blue: 0, alpha: 1))
+        )
+        let before = try XCTUnwrap(DocumentRenderer.render(doc))
+        doc.annotations = [
+            Annotation(
+                kind: .text(
+                    origin: CGPoint(x: 5, y: 5),
+                    string: "Hi",
+                    fontSize: 18,
+                    color: CGColor(gray: 1, alpha: 1)
+                )
+            )
+        ]
+        let after = try XCTUnwrap(DocumentRenderer.render(doc))
+
+        XCTAssertEqual(before.width, after.width)
+        XCTAssertEqual(before.height, after.height)
+    }
+
     private func paddedDoc(padding: CGFloat, background: BackgroundStyle) -> EditorDocument {
-        EditorDocument(
+        document(
             screenshot: TestImage.solid(.red, size: CGSize(width: 200, height: 200)),
-            viewport: CGSize(width: 200, height: 200),
+            selection: CGRect(x: 50, y: 50, width: 80, height: 60),
+            padding: padding,
+            background: background
+        )
+    }
+
+    private func document(
+        screenshot: CGImage,
+        selection: CGRect,
+        padding: CGFloat,
+        background: BackgroundStyle
+    ) -> EditorDocument {
+        EditorDocument(
+            screenshot: screenshot,
+            viewport: CGSize(width: screenshot.width, height: screenshot.height),
             pageTitle: "t",
             pageURL: "u",
-            baseSelection: CGRect(x: 50, y: 50, width: 80, height: 60),
+            baseSelection: selection,
             padding: PaddingConfig(top: padding, right: padding, bottom: padding, left: padding),
             background: background
         )
+    }
+
+    private func verticalSplitImage(size: CGSize) -> CGImage {
+        let width = Int(size.width)
+        let height = Int(size.height)
+        let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
+        let context = CGContext(
+            data: nil,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * 4,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                | CGBitmapInfo.byteOrder32Big.rawValue
+        )!
+        context.setFillColor(CGColor(red: 1, green: 0, blue: 0, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height / 2))
+        context.setFillColor(CGColor(red: 0, green: 0, blue: 1, alpha: 1))
+        context.fill(CGRect(x: 0, y: height / 2, width: width, height: height - height / 2))
+        return context.makeImage()!
     }
 }
