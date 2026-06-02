@@ -84,11 +84,20 @@ final class CanvasTextEditor: NSObject, NSTextFieldDelegate {
 
         if let index = state.document.annotations.firstIndex(where: { $0.id == id }),
            case let .text(origin, oldString, fontSize, color) = state.document.annotations[index].kind {
+            let requestedTool = state.activeTool
+            let requestedPanel = state.documentPanel
             state.selectedAnnotationID = id
             if text.isBlank {
                 state.deleteSelectedAnnotation()
+                state.activeTool = requestedTool == .text ? .select : requestedTool
+                state.documentPanel = requestedTool == .text ? .components : requestedPanel
             } else if text != oldString {
+                state.activeTool = .select
+                state.documentPanel = .components
                 state.updateSelectedKind(.text(origin: origin, string: text, fontSize: fontSize, color: color))
+            } else {
+                state.activeTool = .select
+                state.documentPanel = .components
             }
             return
         }
@@ -101,7 +110,11 @@ final class CanvasTextEditor: NSObject, NSTextFieldDelegate {
     }
 
     func controlTextDidEndEditing(_ obj: Notification) {
-        finishEditing()
+        let id = editingID
+        Task { @MainActor [weak self] in
+            guard let self, self.editingID == id else { return }
+            self.finishEditing()
+        }
     }
 
     func controlTextDidChange(_ obj: Notification) {

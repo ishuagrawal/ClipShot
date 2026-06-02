@@ -44,7 +44,9 @@ final class CanvasCoordinator {
             )
         }
         interactionView.onCommitActiveText = { [weak self] in
-            self?.textEditor.finishEditing()
+            guard let self, self.textEditor.isEditing else { return false }
+            self.textEditor.finishEditing()
+            return true
         }
         interactionView.onHoverAnnotationChanged = { [weak self] id in
             self?.overlayView.hoveredAnnotationID = id
@@ -70,6 +72,9 @@ final class CanvasCoordinator {
         interactionView.state = state
         interactionView.effectiveCrop = document.effectiveCrop
         textEditor.attach(state: state)
+        if textEditor.isEditing, state.activeTool != .text {
+            textEditor.finishEditing()
+        }
         textEditor.imageFrameOrigin = contentView.frame.origin
         textEditor.syncEditingField(with: document, effectiveCrop: document.effectiveCrop)
 

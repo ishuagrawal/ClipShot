@@ -295,14 +295,9 @@ final class EditorState: ObservableObject {
         )
         inProgressAnnotation = nil
         performCommand(AddAnnotationCommand(annotation: annotation))
-        if activeTool == .text {
-            selectedAnnotationID = nil
-            documentPanel = .none
-        } else {
-            selectedAnnotationID = annotation.id
-            activeTool = .select
-            documentPanel = .components
-        }
+        selectedAnnotationID = annotation.id
+        activeTool = .select
+        documentPanel = .components
         return annotation
     }
 

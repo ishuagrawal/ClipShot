@@ -9,6 +9,7 @@ final class CanvasInteractionView: NSView {
     private nonisolated static let textBorderHaloOutset: CGFloat = 3
     private nonisolated static let textBorderOuterHitTolerance: CGFloat = 10
     private nonisolated static let textBorderInnerHitTolerance: CGFloat = 5
+    private nonisolated static let textSelectionMinimumHitSize: CGFloat = 32
     private nonisolated static let selectionDragActivationDistance: CGFloat = 3
     private nonisolated static let shapeDragHitTolerance: CGFloat = 10
     private nonisolated static let keyboardNudgeDistance: CGFloat = 8
@@ -18,7 +19,7 @@ final class CanvasInteractionView: NSView {
     }
     weak var scrollView: CanvasScrollView?
     var onEditText: ((Annotation) -> Void)?
-    var onCommitActiveText: (() -> Void)?
+    var onCommitActiveText: (() -> Bool)?
     var onHoverAnnotationChanged: ((UUID?) -> Void)?
     var editingTextAnnotation: Annotation? {
         didSet { invalidateCursorRectsIfPossible() }
@@ -50,47 +51,32 @@ final class CanvasInteractionView: NSView {
         window?.makeFirstResponder(self)
     }
 
-    private var shouldCapture: Bool {
-        guard let state else { return false }
-        switch state.activeTool {
-        case .select:
-            // In select mode with a document panel open, fall through to annotation-only
-            // hit testing (same behaviour as the old .padding / .background tool).
-            return state.documentPanel == .none
-        case .arrow, .rectangle, .text:
-            return true
-        case .padding, .background, .blur:
-            return false
-        }
-    }
-
     override func hitTest(_ point: NSPoint) -> NSView? {
-        if shouldCapture {
-            return super.hitTest(point)
-        }
-
-        let documentPoint = CanvasGeometry.documentPoint(fromImagePixel: point, effectiveCrop: effectiveCrop)
-        return annotationInteractionTarget(at: documentPoint) == nil ? nil : self
+        // Own every pointer interaction whenever a tool is active. Pan and zoom arrive as
+        // scroll-wheel / pinch events, which bypass hit-testing, so there is nothing to fall
+        // through to. The old fall-through path mis-converted `point` (it is in superview
+        // space, not image-pixel space), which broke annotation dragging once the canvas was
+        // offset by the zoom-to-selection fit. `mouseDown` decides what the click means.
+        // An active text field is a later sibling (higher z-order) and still wins its own area.
+        guard state != nil else { return nil }
+        return self
     }
 
     override func resetCursorRects() {
         super.resetCursorRects()
         guard let state else { return }
 
-        if shouldCapture {
-            let cursor: NSCursor
-            switch state.activeTool {
-            case .arrow, .rectangle:
-                cursor = .crosshair
-            case .text:
-                cursor = .iBeam
-            default:
-                cursor = .arrow
-            }
-            addCursorRect(bounds, cursor: cursor)
+        switch state.activeTool {
+        case .arrow, .rectangle:
+            addCursorRect(bounds, cursor: .crosshair)
+        case .text:
+            addCursorRect(bounds, cursor: .iBeam)
+        case .select:
+            addTextBorderCursorRects()
+            addShapeCursorRects()
+        case .padding, .background, .blur:
+            break
         }
-        addTextBorderCursorRects()
-        addRectCursorRects()
     }
 
     override func updateTrackingAreas() {
@@ -126,33 +112,27 @@ final class CanvasInteractionView: NSView {
         requestKeyboardFocus()
         let point = documentPoint(for: event)
 
-        if let annotation = annotationInteractionTarget(at: point) {
-            if event.clickCount >= 2 {
-                activateEditingTool(for: annotation)
+        switch state.activeTool {
+        case .select, .padding, .background:
+            if let annotation = annotationInteractionTarget(at: point) {
+                if event.clickCount >= 2 {
+                    activateEditingTool(for: annotation)
+                    return
+                }
+                beginMove(annotation, at: point)
                 return
             }
-            beginMove(annotation, at: point)
-            return
-        }
+            state.deselect()
 
-        if state.activeTool.isDrawTool {
-            if state.activeTool == .text {
-                onCommitActiveText?()
-                if let draft = state.beginTextDraft(at: point) {
-                    onEditText?(draft)
-                }
-            } else {
-                state.beginDraw(at: point)
+        case .text:
+            let hadActiveText = onCommitActiveText?() ?? false
+            guard !hadActiveText || state.activeTool == .text else { return }
+            if let draft = state.beginTextDraft(at: point) {
+                onEditText?(draft)
             }
-            return
-        }
 
-        state.selectAnnotation(at: point)
-        if state.selectedAnnotationID != nil {
-            moveStartPoint = point
-            state.beginMoveSelected()
-            isMoving = true
-            didMoveSelected = false
+        case .arrow, .rectangle, .blur:
+            state.beginDraw(at: point)
         }
     }
 
@@ -173,7 +153,7 @@ final class CanvasInteractionView: NSView {
             } else {
                 state.moveSelected(by: delta)
             }
-        } else if state.activeTool.isDrawTool, state.activeTool != .text {
+        } else if state.activeTool == .arrow || state.activeTool == .rectangle {
             state.updateDraw(to: point, shiftSnap: shift)
         }
     }
@@ -188,7 +168,7 @@ final class CanvasInteractionView: NSView {
                 state.commitMoveSelected()
             }
             invalidateCursorRectsIfPossible()
-        } else if state.activeTool.isDrawTool, state.activeTool != .text {
+        } else if state.activeTool == .arrow || state.activeTool == .rectangle {
             if state.commitDraw() != nil {
                 invalidateCursorRectsIfPossible()
             }
@@ -238,36 +218,15 @@ final class CanvasInteractionView: NSView {
         }
     }
 
-    private func textBorderAnnotation(at point: CGPoint) -> Annotation? {
+    private func selectableAnnotation(at point: CGPoint) -> Annotation? {
         guard let state else { return nil }
 
         return displayAnnotations(for: state).reversed().first { annotation in
-            return textBorderContains(point, annotation: annotation)
-        }
-    }
-
-    private func inactiveTextBodyAnnotation(at point: CGPoint) -> Annotation? {
-        guard let state else { return nil }
-
-        return displayAnnotations(for: state).reversed().first { annotation in
-            guard case .text = annotation.kind,
-                  editingTextAnnotation?.id != annotation.id else {
-                return false
+            if case .text = annotation.kind {
+                return textBorderContains(point, annotation: annotation)
+                    || textSelectionContains(point, annotation: annotation)
             }
 
-            return AnnotationGeometry.boundingBox(annotation.kind).containsIncludingMaxEdges(point)
-        }
-    }
-
-    private func draggableTextAnnotation(at point: CGPoint) -> Annotation? {
-        textBorderAnnotation(at: point) ?? inactiveTextBodyAnnotation(at: point)
-    }
-
-    private func shapeAnnotation(at point: CGPoint) -> Annotation? {
-        guard let state else { return nil }
-
-        return state.document.annotations.reversed().first { annotation in
-            guard annotation.isDraggableShape else { return false }
             return AnnotationGeometry.hitTest(
                 annotation.kind,
                 point: point,
@@ -276,37 +235,14 @@ final class CanvasInteractionView: NSView {
         }
     }
 
-    private func selectableAnnotation(at point: CGPoint) -> Annotation? {
-        guard let state else { return nil }
-
-        return displayAnnotations(for: state).reversed().first { annotation in
-            textBorderContains(point, annotation: annotation)
-            || AnnotationGeometry.hitTest(
-                annotation.kind,
-                point: point,
-                tolerance: Self.shapeDragHitTolerance
-            )
-        }
-    }
-
-    private func draggableAnnotation(at point: CGPoint) -> Annotation? {
-        if state?.activeTool == .select {
-            return selectableAnnotation(at: point)
-        }
-
-        return draggableTextAnnotation(at: point) ?? shapeAnnotation(at: point)
-    }
-
     private func annotationInteractionTarget(at point: CGPoint) -> Annotation? {
         guard let state else { return nil }
 
         switch state.activeTool {
         case .select, .padding, .background:
             return selectableAnnotation(at: point)
-        case .text:
-            return textBorderAnnotation(at: point) ?? shapeAnnotation(at: point)
-        case .arrow, .rectangle, .blur:
-            return draggableAnnotation(at: point)
+        case .arrow, .rectangle, .text, .blur:
+            return nil
         }
     }
 
@@ -316,14 +252,20 @@ final class CanvasInteractionView: NSView {
         return textBorderHitFrames(for: annotation).contains { $0.containsIncludingMaxEdges(point) }
     }
 
+    private func textSelectionContains(_ point: CGPoint, annotation: Annotation) -> Bool {
+        guard case .text = annotation.kind else { return false }
+
+        return textSelectionHitFrame(for: annotation).containsIncludingMaxEdges(point)
+    }
+
     private func addTextBorderCursorRects() {
         guard let state else { return }
 
         for annotation in displayAnnotations(for: state) {
             guard case .text = annotation.kind else { continue }
-            if editingTextAnnotation?.id != annotation.id {
+            if editingTextAnnotation?.id != annotation.id, state.activeTool == .select {
                 addCursorRect(
-                    viewFrame(forDocumentFrame: AnnotationGeometry.boundingBox(annotation.kind)),
+                    viewFrame(forDocumentFrame: textSelectionHitFrame(for: annotation)),
                     cursor: .openHand
                 )
             }
@@ -333,11 +275,11 @@ final class CanvasInteractionView: NSView {
         }
     }
 
-    private func addRectCursorRects() {
+    private func addShapeCursorRects() {
         guard let state else { return }
 
         for annotation in state.document.annotations {
-            guard case .rect = annotation.kind else { continue }
+            guard !annotation.kind.isText else { continue }
             addCursorRect(
                 viewFrame(
                     forDocumentFrame: AnnotationGeometry
@@ -404,6 +346,22 @@ final class CanvasInteractionView: NSView {
         ]
     }
 
+    private func textSelectionHitFrame(for annotation: Annotation) -> CGRect {
+        let frame = AnnotationGeometry
+            .boundingBox(annotation.kind)
+            .insetBy(dx: -Self.textBorderHaloOutset, dy: -Self.textBorderHaloOutset)
+        let minSize = Self.textSelectionMinimumHitSize
+        let width = max(frame.width, minSize)
+        let height = max(frame.height, minSize)
+
+        return CGRect(
+            x: frame.midX - width / 2,
+            y: frame.midY - height / 2,
+            width: width,
+            height: height
+        )
+    }
+
     private func viewFrame(forDocumentFrame frame: CGRect) -> CGRect {
         let origin = CanvasGeometry.imagePixel(
             fromDocumentPoint: frame.origin,
@@ -455,7 +413,11 @@ final class CanvasInteractionView: NSView {
 
         state.cancelDraw()
         state.selectedAnnotationID = annotation.id
-        state.activeTool = .select
+        if case .text = annotation.kind {
+            state.activeTool = .text
+        } else {
+            state.activeTool = .select
+        }
         state.documentPanel = .components
         isMoving = false
         didMoveSelected = false
@@ -508,14 +470,10 @@ final class CanvasInteractionView: NSView {
     }
 }
 
-private extension Annotation {
-    var isDraggableShape: Bool {
-        switch kind {
-        case .arrow, .rect:
-            return true
-        case .text, .blur:
-            return false
-        }
+private extension Annotation.Kind {
+    var isText: Bool {
+        if case .text = self { return true }
+        return false
     }
 }
 
