@@ -1,33 +1,26 @@
 import AppKit
 
-/// Hosts the full screenshot at 1:1 pixel size. The page context is faded, while
-/// the selected region is drawn again at full opacity in the same document space.
+/// Hosts the selected region of the screenshot at 1:1 pixel size. The surrounding
+/// page is not drawn — only the selection shows, on the dark canvas backdrop. The
+/// full screenshot stays in `EditorDocument.screenshot` for tools that need it.
 final class CanvasContentView: NSView {
 
     var document: EditorDocument? {
         didSet { updateFrameAndLayer() }
     }
 
-    private let contextLayer: CALayer
     private let selectionLayer: CALayer
 
     override init(frame frameRect: NSRect) {
-        self.contextLayer = CALayer()
         self.selectionLayer = CALayer()
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.backgroundColor = NSColor(white: 0.06, alpha: 1).cgColor
 
-        contextLayer.contentsGravity = .resize
-        contextLayer.magnificationFilter = .trilinear
-        contextLayer.minificationFilter = .trilinear
-        contextLayer.opacity = 0.06
-
         selectionLayer.contentsGravity = .resize
         selectionLayer.magnificationFilter = .trilinear
         selectionLayer.minificationFilter = .trilinear
 
-        layer?.addSublayer(contextLayer)
         layer?.addSublayer(selectionLayer)
     }
 
@@ -39,7 +32,6 @@ final class CanvasContentView: NSView {
     private func updateFrameAndLayer() {
         guard let doc = document else {
             frame = .zero
-            contextLayer.contents = nil
             selectionLayer.contents = nil
             return
         }
@@ -47,8 +39,6 @@ final class CanvasContentView: NSView {
 
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        contextLayer.frame = bounds
-        contextLayer.contents = doc.screenshot
 
         let selection = doc.baseSelection.integral.intersection(doc.imageBounds)
         if selection.isNull || selection.isEmpty {

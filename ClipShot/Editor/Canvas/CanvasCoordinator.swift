@@ -75,14 +75,6 @@ final class CanvasCoordinator {
         scrollView.setMagnificationFromControl(value)
     }
 
-    /// Fit the whole image edge-to-edge in the viewport.
-    func fitImageToCanvas() {
-        guard let document = latestDocument else { return }
-        isTrackingInitialSelectionFit = false
-        let placement = initialPlacement ?? CanvasInitialPlacement.default(imageBounds: document.imageBounds)
-        scrollView.magnify(toFitCenteredOn: placement.imageFrame)
-    }
-
     /// Fill the viewport with the selected screenshot region (edge-to-edge, no margin).
     func fitSelectionToCanvas() {
         guard let document = latestDocument else { return }
