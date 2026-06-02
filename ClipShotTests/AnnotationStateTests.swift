@@ -1332,9 +1332,9 @@ final class CanvasInteractionViewTests: XCTestCase {
         case .arrow, .rectangle, .text, .blur:
             state.selectCursorTool(tool)
         case .padding:
-            state.toggleDocumentPanel(.layout)
+            state.toggleDocumentPanel(.canvas)
         case .background:
-            state.toggleDocumentPanel(.background)
+            state.toggleDocumentPanel(.canvas)
         }
     }
 

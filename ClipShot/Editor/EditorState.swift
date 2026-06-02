@@ -59,14 +59,13 @@ enum EditorTool: String, CaseIterable, Identifiable {
 }
 
 enum DocumentPanel: Equatable {
-    case none, components, layout, background
+    case none, components, canvas
 }
 
 enum InspectorRoute: Equatable {
     case hidden
     case componentList
-    case layout
-    case background
+    case canvas
     case annotation
     case drawDefaults(EditorTool)
 }
@@ -146,8 +145,7 @@ final class EditorState: ObservableObject {
 
     var inspectorRoute: InspectorRoute {
         switch documentPanel {
-        case .layout: return .layout
-        case .background: return .background
+        case .canvas: return .canvas
         case .components:
             // Select mode: a chosen annotation shows its details (with a back path to
             // the list); otherwise the full component list.
@@ -166,8 +164,7 @@ final class EditorState: ObservableObject {
         switch inspectorRoute {
         case .hidden: return ""
         case .componentList: return "Components"
-        case .layout: return "Layout"
-        case .background: return "Background"
+        case .canvas: return "Canvas"
         case .drawDefaults(let tool): return tool.displayName
         case .annotation:
             switch selectedAnnotation?.kind {

@@ -55,7 +55,7 @@ final class SidebarModelTests: XCTestCase {
 
     func testSelectCursorToolSetsActiveToolAndClearsPanel() {
         let state = makeState()
-        state.toggleDocumentPanel(.layout)
+        state.toggleDocumentPanel(.canvas)
         state.selectCursorTool(.arrow)
         XCTAssertEqual(state.activeTool, .arrow)
         XCTAssertEqual(state.documentPanel, .none)
@@ -63,7 +63,7 @@ final class SidebarModelTests: XCTestCase {
 
     func testPressingSelectWhilePanelOpenClosesPanel() {
         let state = makeState()
-        state.toggleDocumentPanel(.layout)
+        state.toggleDocumentPanel(.canvas)
         state.selectCursorTool(.select)
         XCTAssertEqual(state.documentPanel, .none)
         XCTAssertEqual(state.activeTool, .select)
@@ -71,18 +71,18 @@ final class SidebarModelTests: XCTestCase {
 
     func testToggleDocumentPanelTwiceReturnsToNone() {
         let state = makeState()
-        state.toggleDocumentPanel(.layout)
-        XCTAssertEqual(state.documentPanel, .layout)
-        state.toggleDocumentPanel(.layout)
+        state.toggleDocumentPanel(.canvas)
+        XCTAssertEqual(state.documentPanel, .canvas)
+        state.toggleDocumentPanel(.canvas)
         XCTAssertEqual(state.documentPanel, .none)
     }
 
     func testOpeningDocumentPanelResetsCursorToSelect() {
         let state = makeState()
         state.selectCursorTool(.rectangle)
-        state.toggleDocumentPanel(.background)
+        state.toggleDocumentPanel(.canvas)
         XCTAssertEqual(state.activeTool, .select)
-        XCTAssertEqual(state.documentPanel, .background)
+        XCTAssertEqual(state.documentPanel, .canvas)
     }
 
     func testInspectorHiddenWhenSelectIdleNoPanel() {
@@ -91,11 +91,11 @@ final class SidebarModelTests: XCTestCase {
         XCTAssertFalse(state.isInspectorVisible)
     }
 
-    func testInspectorRouteLayoutWhenPanelLayout() {
+    func testInspectorRouteCanvasWhenPanelCanvas() {
         let state = makeState()
-        state.toggleDocumentPanel(.layout)
-        XCTAssertEqual(state.inspectorRoute, .layout)
-        XCTAssertEqual(state.inspectorTitle, "Layout")
+        state.toggleDocumentPanel(.canvas)
+        XCTAssertEqual(state.inspectorRoute, .canvas)
+        XCTAssertEqual(state.inspectorTitle, "Canvas")
     }
 
     func testInspectorRouteDrawDefaultsWhenDrawToolIdle() {
@@ -118,7 +118,7 @@ final class SidebarModelTests: XCTestCase {
 
     func testDismissInspectorClearsEverything() {
         let state = makeState()
-        state.toggleDocumentPanel(.layout)
+        state.toggleDocumentPanel(.canvas)
         state.dismissInspector()
         XCTAssertEqual(state.documentPanel, .none)
         XCTAssertEqual(state.activeTool, .select)
@@ -126,12 +126,12 @@ final class SidebarModelTests: XCTestCase {
         XCTAssertEqual(state.inspectorRoute, .hidden)
     }
 
-    func testOpeningPanelInitSeedsLayout() {
+    func testOpeningPanelInitSeedsCanvas() {
         let state = EditorState(
             document: FixtureDocument.basicPair().document,
-            openingPanel: .layout
+            openingPanel: .canvas
         )
-        XCTAssertEqual(state.inspectorRoute, .layout)
+        XCTAssertEqual(state.inspectorRoute, .canvas)
         XCTAssertTrue(state.isInspectorVisible)
     }
 

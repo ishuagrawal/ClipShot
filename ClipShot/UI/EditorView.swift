@@ -26,7 +26,7 @@ private struct EditorShell: View {
     @StateObject private var zoomController = CanvasZoomController()
 
     init(document: EditorDocument) {
-        _state = StateObject(wrappedValue: EditorState(document: document, openingPanel: .layout))
+        _state = StateObject(wrappedValue: EditorState(document: document, openingPanel: .canvas))
     }
 
     var body: some View {
