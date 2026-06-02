@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Zoom cluster for the bottom status bar: zoom out / percentage dropdown / zoom in,
-/// then the framing presets (fill selection, reset to center).
+/// then the framing presets (reset to center, fill selection).
 /// No floating chrome — it sits inside the status bar.
 struct ZoomControlsView: View {
     @ObservedObject var zoom: CanvasZoomController
@@ -24,13 +24,13 @@ struct ZoomControlsView: View {
 
             separator
 
-            IconButton(systemName: "viewfinder") { zoom.fitToSelection() }
-                .help("Fill selected area")
-                .accessibilityLabel("Fill selected area")
-
             IconButton(systemName: "scope") { zoom.resetToCenter() }
                 .help("Reset to center")
                 .accessibilityLabel("Reset to center")
+
+            IconButton(systemName: "viewfinder") { zoom.fitToSelection() }
+                .help("Fill selected area")
+                .accessibilityLabel("Fill selected area")
         }
     }
 
