@@ -65,11 +65,13 @@ private final class CanvasKeyMonitor {
 struct CanvasView: NSViewRepresentable {
     @ObservedObject var state: EditorState
     @ObservedObject var focusProxy: CanvasFocusProxy
+    @ObservedObject var zoomController: CanvasZoomController
 
     func makeCoordinator() -> CanvasCoordinator { CanvasCoordinator() }
 
     func makeNSView(context: Context) -> CanvasScrollView {
         focusProxy.attach(context.coordinator.interactionView, state: state)
+        zoomController.attach(context.coordinator)
         context.coordinator.update(state: state)
         return context.coordinator.scrollView
     }
@@ -78,6 +80,7 @@ struct CanvasView: NSViewRepresentable {
         // SwiftUI re-invokes this whenever the observed EditorState changes
         // (e.g. document mutated). All on the main actor — safe to touch AppKit.
         focusProxy.attach(context.coordinator.interactionView, state: state)
+        zoomController.attach(context.coordinator)
         context.coordinator.update(state: state)
     }
 }

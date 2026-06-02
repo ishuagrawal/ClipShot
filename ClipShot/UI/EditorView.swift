@@ -23,6 +23,7 @@ struct EditorView: View {
 private struct EditorShell: View {
     @StateObject private var state: EditorState
     @StateObject private var canvasFocusProxy = CanvasFocusProxy()
+    @StateObject private var zoomController = CanvasZoomController()
 
     init(document: EditorDocument) {
         _state = StateObject(wrappedValue: EditorState(document: document, openingPanel: .layout))
@@ -41,14 +42,27 @@ private struct EditorShell: View {
                 }
                 canvasArea
             }
+            Rectangle().fill(Theme.hairline).frame(height: 1)
+            statusBar
         }
         .frame(minWidth: 900, minHeight: 600)
         .background(Theme.canvas)
     }
 
+    private var statusBar: some View {
+        HStack(spacing: 0) {
+            Spacer(minLength: 12)
+            ZoomControlsView(zoom: zoomController)
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 36)
+        .frame(maxWidth: .infinity)
+        .background(Theme.surface)
+    }
+
     private var canvasArea: some View {
         ZStack {
-            CanvasView(state: state, focusProxy: canvasFocusProxy)
+            CanvasView(state: state, focusProxy: canvasFocusProxy, zoomController: zoomController)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Theme.canvas)
             VStack {
