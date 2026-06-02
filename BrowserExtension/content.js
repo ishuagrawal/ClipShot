@@ -119,6 +119,9 @@
   let hintElement = null;
   let hudElement = null;
   let capturePending = false;
+  let pendingSelectionFrame = 0;
+  let candidatesAreQuick = false;
+  let activeScanCache = null;
   const hudFlashTimers = new Map();
   const placedChipRects = [];
 
@@ -179,7 +182,8 @@
 
     const x = Math.min(Math.max(window.innerWidth / 2, 0), window.innerWidth - 1);
     const y = Math.min(Math.max(window.innerHeight / 2, 0), window.innerHeight - 1);
-    updateSelectionAt(x, y, true);
+    renderQuickSelectionAt(x, y);
+    scheduleSelectionUpdate(x, y, true);
   }
 
   function stop() {
@@ -196,6 +200,9 @@
     soloMode = false;
     lastPointer = null;
     capturePending = false;
+    cancelPendingSelectionUpdate();
+    candidatesAreQuick = false;
+    activeScanCache = null;
     render();
 
     window.removeEventListener("mousemove", handleMouseMove, true);
@@ -688,6 +695,7 @@
       return;
     }
 
+    cancelPendingSelectionUpdate();
     updateSelectionAt(event.clientX, event.clientY, false);
   }
 
@@ -829,10 +837,14 @@
       return;
     }
 
-    updateSelectionAt(lastPointer.x, lastPointer.y, true);
+    scheduleSelectionUpdate(lastPointer.x, lastPointer.y, true);
   }
 
   function updateSelectionAt(x, y, force) {
+    return withScanCache(() => updateSelectionAtUncached(x, y, force));
+  }
+
+  function updateSelectionAtUncached(x, y, force) {
     lastPointer = { x, y };
     previewIndex = -1;
     previewDirection = null;
@@ -844,17 +856,19 @@
       selectedIndex = 0;
       previewIndex = -1;
       previewDirection = null;
+      candidatesAreQuick = false;
       render();
       showHint("Move over page content   esc cancel");
       return;
     }
 
-    if (force || nextRoot !== rootElement) {
+    if (force || nextRoot !== rootElement || candidatesAreQuick) {
       rootElement = nextRoot;
       candidates = collectCandidates(rootElement);
       selectedIndex = 0;
       previewIndex = -1;
       previewDirection = null;
+      candidatesAreQuick = false;
     }
 
     selectPreviewCandidateAtPoint(x, y);
@@ -864,6 +878,86 @@
       showDefaultHint();
     } else {
       showHint("No component boxes here   esc cancel");
+    }
+  }
+
+  function scheduleSelectionUpdate(x, y, force) {
+    lastPointer = { x, y };
+    cancelPendingSelectionUpdate();
+    pendingSelectionFrame = window.requestAnimationFrame(() => {
+      pendingSelectionFrame = 0;
+      if (active) {
+        updateSelectionAt(x, y, force);
+      }
+    });
+  }
+
+  function cancelPendingSelectionUpdate() {
+    if (!pendingSelectionFrame) {
+      return;
+    }
+
+    window.cancelAnimationFrame(pendingSelectionFrame);
+    pendingSelectionFrame = 0;
+  }
+
+  function renderQuickSelectionAt(x, y) {
+    withScanCache(() => {
+      lastPointer = { x, y };
+      previewIndex = -1;
+      previewDirection = null;
+
+      const nextRoot = findComponentRoot(x, y);
+      const rect = nextRoot ? getVisibleRect(nextRoot) : null;
+      if (!nextRoot || !rect) {
+        rootElement = null;
+        candidates = [];
+        selectedIndex = 0;
+        candidatesAreQuick = false;
+        render();
+        showHint("Move over page content   esc cancel");
+        return;
+      }
+
+      rootElement = nextRoot;
+      candidates = [makeQuickCandidate(nextRoot, rect)];
+      selectedIndex = 0;
+      candidatesAreQuick = true;
+      render();
+      showHint("Finding component boxes...");
+    });
+  }
+
+  function makeQuickCandidate(element, rect) {
+    return {
+      element,
+      rect,
+      domIndex: 0,
+      depth: 0,
+      area: rect.width * rect.height,
+      captureScore: 1_000,
+      semanticScore: candidateSemanticScore(element),
+      preview: true
+    };
+  }
+
+  function withScanCache(work) {
+    if (activeScanCache) {
+      return work();
+    }
+
+    activeScanCache = {
+      accessibleNames: new WeakMap(),
+      rects: new WeakMap(),
+      styles: new WeakMap(),
+      text: new WeakMap(),
+      visibleChildCounts: new WeakMap()
+    };
+
+    try {
+      return work();
+    } finally {
+      activeScanCache = null;
     }
   }
 
@@ -1069,17 +1163,24 @@
       return null;
     }
 
-    const style = window.getComputedStyle(element);
+    const rectCache = activeScanCache?.rects;
+    if (rectCache?.has(element)) {
+      return rectCache.get(element);
+    }
+
+    const style = computedStyleFor(element);
     if (
       style.display === "none" ||
       style.visibility === "hidden" ||
       Number(style.opacity) === 0
     ) {
+      rectCache?.set(element, null);
       return null;
     }
 
     const rect = element.getBoundingClientRect();
     if (rect.width < MIN_BOX_WIDTH || rect.height < MIN_BOX_HEIGHT) {
+      rectCache?.set(element, null);
       return null;
     }
 
@@ -1093,14 +1194,28 @@
     clipped.height = clipped.bottom - clipped.top;
 
     if (clipped.width < MIN_BOX_WIDTH || clipped.height < MIN_BOX_HEIGHT) {
+      rectCache?.set(element, null);
       return null;
     }
 
     if (isTooSmallSelectionRect(clipped)) {
+      rectCache?.set(element, null);
       return null;
     }
 
+    rectCache?.set(element, clipped);
     return clipped;
+  }
+
+  function computedStyleFor(element) {
+    const styleCache = activeScanCache?.styles;
+    if (styleCache?.has(element)) {
+      return styleCache.get(element);
+    }
+
+    const style = window.getComputedStyle(element);
+    styleCache?.set(element, style);
+    return style;
   }
 
   function isTooSmallSelectionRect(rect) {
@@ -1877,6 +1992,7 @@
     }
 
     capturePending = true;
+    cancelPendingSelectionUpdate();
     const rect = {
       left: selected.rect.left,
       top: selected.rect.top,
@@ -1887,7 +2003,7 @@
     overlayHost.style.display = "none";
     void overlayHost.offsetHeight;
 
-    afterOverlayHiddenPaint(() => requestCapture(rect, buildSessionSnapshot(rect)));
+    afterOverlayHiddenPaint(() => requestCapture(rect, withScanCache(() => buildSessionSnapshot(rect))));
   }
 
   function requestCapture(rect, session) {
@@ -2131,6 +2247,11 @@
   }
 
   function visibleChildCount(element) {
+    const countCache = activeScanCache?.visibleChildCounts;
+    if (countCache?.has(element)) {
+      return countCache.get(element);
+    }
+
     let count = 0;
     for (const child of element.children) {
       if (getVisibleRect(child)) {
@@ -2140,6 +2261,7 @@
         break;
       }
     }
+    countCache?.set(element, count);
     return count;
   }
 
@@ -2178,7 +2300,7 @@
       return false;
     }
 
-    const style = window.getComputedStyle(element);
+    const style = computedStyleFor(element);
     const rootArea = Math.max(1, rootRect.width * rootRect.height);
     const area = rect.width * rect.height;
     return style.display.startsWith("inline") && area / rootArea < 0.18;
@@ -2189,7 +2311,7 @@
       return false;
     }
 
-    const text = (element.innerText || element.textContent || "").replace(/\s+/g, " ").trim();
+    const text = textForElement(element);
     if (text.length >= 80) {
       return true;
     }
@@ -2222,14 +2344,32 @@
   }
 
   function accessibleName(element) {
+    const nameCache = activeScanCache?.accessibleNames;
+    if (nameCache?.has(element)) {
+      return nameCache.get(element);
+    }
+
     const explicitName =
       element.getAttribute("aria-label") ||
       element.getAttribute("title") ||
       element.getAttribute("alt") ||
       element.getAttribute("placeholder");
 
-    const text = explicitName || element.innerText || element.textContent || "";
-    return text.replace(/\s+/g, " ").trim().slice(0, 72);
+    const text = explicitName || textForElement(element);
+    const name = text.replace(/\s+/g, " ").trim().slice(0, 72);
+    nameCache?.set(element, name);
+    return name;
+  }
+
+  function textForElement(element) {
+    const textCache = activeScanCache?.text;
+    if (textCache?.has(element)) {
+      return textCache.get(element);
+    }
+
+    const text = (element.innerText || element.textContent || "").replace(/\s+/g, " ").trim();
+    textCache?.set(element, text);
+    return text;
   }
 
   function roleOf(element) {
