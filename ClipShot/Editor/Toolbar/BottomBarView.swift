@@ -17,8 +17,6 @@ struct BottomBarView: View {
                 .disabled(!state.undoStack.canRedo)
                 .opacity(state.undoStack.canRedo ? 1 : 0.35)
 
-            barDivider
-
             Button("Copy") { copyToClipboard() }
                 .buttonStyle(GhostButtonStyle())
 
@@ -28,10 +26,6 @@ struct BottomBarView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .floatingBar(cornerRadius: 14)
-    }
-
-    private var barDivider: some View {
-        Rectangle().fill(Theme.hairline).frame(width: 1, height: 16)
     }
 
     private func copyToClipboard() {

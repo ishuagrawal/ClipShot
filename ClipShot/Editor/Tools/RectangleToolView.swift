@@ -13,7 +13,6 @@ struct RectangleToolView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            SectionLabel(text: "Rectangle")
             HStack(spacing: 10) {
                 InspectorRowLabel(text: "Stroke")
                 ColorPicker("", selection: $stroke, supportsOpacity: false)

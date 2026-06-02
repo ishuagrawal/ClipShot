@@ -10,7 +10,6 @@ struct TextToolView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            SectionLabel(text: "Text")
             HStack(spacing: 10) {
                 InspectorRowLabel(text: "Color")
                 ColorPicker("", selection: $color, supportsOpacity: false)
