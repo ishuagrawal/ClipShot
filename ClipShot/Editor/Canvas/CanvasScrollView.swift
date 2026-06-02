@@ -141,11 +141,13 @@ final class CanvasScrollView: NSScrollView {
     override func magnify(with event: NSEvent) {
         userInteractionDidStart?()
         super.magnify(with: event)
+        magnificationDidChange?(magnification)
     }
 
     override func smartMagnify(with event: NSEvent) {
         userInteractionDidStart?()
         super.smartMagnify(with: event)
+        magnificationDidChange?(magnification)
     }
 
     private func centerDocumentPoint(_ point: CGPoint) {
