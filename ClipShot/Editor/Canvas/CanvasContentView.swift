@@ -1,7 +1,7 @@
 import AppKit
 
 /// Hosts the selected region of the screenshot at 1:1 pixel size. The surrounding
-/// page is not drawn — only the selection shows, on the dark canvas backdrop. The
+/// page is not drawn — only the selection layer is visible. The
 /// full screenshot stays in `EditorDocument.screenshot` for tools that need it.
 final class CanvasContentView: NSView {
 
@@ -15,7 +15,7 @@ final class CanvasContentView: NSView {
         self.selectionLayer = CALayer()
         super.init(frame: frameRect)
         wantsLayer = true
-        layer?.backgroundColor = NSColor(white: 0.06, alpha: 1).cgColor
+        layer?.backgroundColor = .clear
 
         selectionLayer.contentsGravity = .resize
         selectionLayer.magnificationFilter = .trilinear
