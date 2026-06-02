@@ -1,15 +1,5 @@
 import AppKit
 
-/// Visual tokens for the editing stage (the surface the artboard floats on).
-enum CanvasStage {
-    /// Cool near-black void, a touch lighter than pure black so the dot grid reads.
-    static let background = NSColor(red: 0.055, green: 0.063, blue: 0.075, alpha: 1)   // #0E1013
-    /// Dots: faint cool-white, anchored to document space so they pan with the canvas.
-    static let dot = NSColor(white: 1, alpha: 0.07)
-    static let dotSpacing: CGFloat = 22
-    static let dotRadius: CGFloat = 1.1
-}
-
 /// NSScrollView subclass that provides:
 /// - native pinch-to-zoom (via `allowsMagnification = true`)
 /// - cmd+scroll zoom centered on the cursor
@@ -36,9 +26,7 @@ final class CanvasScrollView: NSScrollView {
 
     private func configure() {
         // Centering clip view so content smaller than the viewport is centered
-        // instead of pinned to a corner. It also paints the dot-grid stage.
-        // Dots are anchored to document space, so AppKit's copy-on-scroll shifts
-        // them to the correct position and only repaints the newly exposed strip.
+        // instead of pinned to a corner.
         contentView = CenteringClipView()
         allowsMagnification = true
         minMagnification = 0.05
@@ -48,7 +36,7 @@ final class CanvasScrollView: NSScrollView {
         hasVerticalScroller = false
         autohidesScrollers = true
         drawsBackground = true
-        backgroundColor = CanvasStage.background
+        backgroundColor = NSColor(white: 0.04, alpha: 1)
         horizontalScrollElasticity = .none
         verticalScrollElasticity = .none
     }
@@ -75,7 +63,6 @@ final class CanvasScrollView: NSScrollView {
         setMagnification(targetMagnification, centeredAt: center)
         layoutSubtreeIfNeeded()
         centerDocumentPoint(center)
-        contentView.needsDisplay = true
     }
 
     nonisolated static func fitMagnification(
@@ -124,19 +111,16 @@ final class CanvasScrollView: NSScrollView {
         let pointInDocument = documentView?.convert(event.locationInWindow, from: nil)
             ?? convert(event.locationInWindow, from: nil)
         setMagnification(newMag, centeredAt: pointInDocument)
-        contentView.needsDisplay = true
     }
 
     override func magnify(with event: NSEvent) {
         userInteractionDidStart?()
         super.magnify(with: event)
-        contentView.needsDisplay = true
     }
 
     override func smartMagnify(with event: NSEvent) {
         userInteractionDidStart?()
         super.smartMagnify(with: event)
-        contentView.needsDisplay = true
     }
 
     private func centerDocumentPoint(_ point: CGPoint) {
@@ -171,41 +155,8 @@ final class CanvasScrollView: NSScrollView {
 }
 
 /// Clip view that centers the document view when it is smaller than the visible
-/// area in either axis (instead of NSClipView's default corner pinning), and
-/// paints the dot-grid stage behind the document.
+/// area in either axis, instead of NSClipView's default corner pinning.
 private final class CenteringClipView: NSClipView {
-    /// Paint the stage and a dot grid behind the document view. Dots are anchored
-    /// to document space (origin 0,0) so they pan with the canvas, and their size
-    /// is divided by magnification so they stay screen-constant across zoom.
-    override func draw(_ dirtyRect: NSRect) {
-        CanvasStage.background.setFill()
-        dirtyRect.fill()
-
-        let mag = enclosingScrollView?.magnification ?? 1
-        guard mag > 0 else { return }
-        let spacing = CanvasStage.dotSpacing / mag
-        let radius = CanvasStage.dotRadius / mag
-        // Below ~0.5pt the dots collapse into noise; skip rather than draw mush.
-        guard spacing.isFinite, spacing > 0.5, radius > 0 else { return }
-
-        let startX = (dirtyRect.minX / spacing).rounded(.down) * spacing
-        let startY = (dirtyRect.minY / spacing).rounded(.down) * spacing
-
-        let path = NSBezierPath()
-        var y = startY
-        while y <= dirtyRect.maxY {
-            var x = startX
-            while x <= dirtyRect.maxX {
-                path.appendOval(in: NSRect(x: x - radius, y: y - radius,
-                                           width: radius * 2, height: radius * 2))
-                x += spacing
-            }
-            y += spacing
-        }
-        CanvasStage.dot.setFill()
-        path.fill()
-    }
-
     override func constrainBoundsRect(_ proposedBounds: NSRect) -> NSRect {
         var rect = super.constrainBoundsRect(proposedBounds)
         guard let documentView else { return rect }
