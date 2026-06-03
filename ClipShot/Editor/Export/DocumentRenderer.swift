@@ -39,7 +39,13 @@ enum DocumentRenderer {
         )
 
         drawBackground(doc.background, in: ctx, outputRect: outputRect, screenshot: doc.screenshot)
-        drawScreenshot(doc.screenshot, selectionPx: selectionPx, dest: dest, in: ctx)
+        drawScreenshot(
+            doc.screenshot,
+            selectionPx: selectionPx,
+            dest: dest,
+            cornerRadii: doc.selectionCornerRadii,
+            in: ctx
+        )
         drawAnnotations(doc.annotations, in: ctx)
 
         return ctx.makeImage()
@@ -215,6 +221,7 @@ enum DocumentRenderer {
         _ screenshot: CGImage,
         selectionPx: CGRect,
         dest: CGRect,
+        cornerRadii: SelectionCornerRadii,
         in ctx: CGContext
     ) {
         guard !selectionPx.isNull, !selectionPx.isEmpty,
@@ -222,6 +229,11 @@ enum DocumentRenderer {
         // CGContextDrawImage renders upside-down in a y-flipped context. Locally
         // re-flip around the destination rect so the screenshot stays upright.
         ctx.saveGState()
+        let radii = cornerRadii.clamped(to: dest.size)
+        if !radii.isZero {
+            ctx.addPath(radii.path(in: dest))
+            ctx.clip()
+        }
         ctx.translateBy(x: dest.minX, y: dest.maxY)
         ctx.scaleBy(x: 1, y: -1)
         ctx.draw(cropped, in: CGRect(origin: .zero, size: dest.size))

@@ -2029,9 +2029,11 @@
   }
 
   function buildSessionSnapshot(selectedRect) {
+    const selected = candidates[selectedIndex];
     return {
       selectedIndex,
       selectedRect,
+      selectedBorderRadii: selectedBorderRadiiForCandidate(selected),
       viewport: {
         width: window.innerWidth,
         height: window.innerHeight,
@@ -2067,6 +2069,128 @@
 
   function candidateLabel(element) {
     return accessibleName(element) || describeElement(element);
+  }
+
+  function selectedBorderRadiiForCandidate(candidate) {
+    if (!candidate?.element || !candidate.rect) {
+      return null;
+    }
+
+    const direct = borderRadiiForElement(candidate.element, candidate.rect);
+    if (hasVisibleBorderRadii(direct)) {
+      return direct;
+    }
+
+    let ancestor = candidate.element.parentElement;
+    while (ancestor && ancestor !== document.body && ancestor !== document.documentElement) {
+      const rect = getVisibleRect(ancestor);
+      if (rect && canShareBorderRadii(rect, candidate.rect)) {
+        const radii = borderRadiiForElement(ancestor, rect);
+        if (hasVisibleBorderRadii(radii)) {
+          return radii;
+        }
+      }
+      ancestor = ancestor.parentElement;
+    }
+
+    const queue = Array.from(candidate.element.children);
+    let scanned = 0;
+    while (queue.length && scanned < 80) {
+      const element = queue.shift();
+      scanned += 1;
+
+      const rect = getVisibleRect(element);
+      if (rect && canShareBorderRadii(rect, candidate.rect)) {
+        const radii = borderRadiiForElement(element, rect);
+        if (hasVisibleBorderRadii(radii)) {
+          return radii;
+        }
+      }
+
+      queue.push(...element.children);
+    }
+
+    return null;
+  }
+
+  function borderRadiiForElement(element, rect) {
+    const style = computedStyleFor(element);
+    const radii = {
+      topLeft: parseBorderRadius(style.borderTopLeftRadius, rect),
+      topRight: parseBorderRadius(style.borderTopRightRadius, rect),
+      bottomRight: parseBorderRadius(style.borderBottomRightRadius, rect),
+      bottomLeft: parseBorderRadius(style.borderBottomLeftRadius, rect)
+    };
+
+    return normalizeBorderRadii(radii, rect);
+  }
+
+  function parseBorderRadius(value, rect) {
+    const tokens = String(value || "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    const widthToken = tokens[0] || "0";
+    const heightToken = tokens[1] || widthToken;
+
+    return {
+      width: cssLengthToPixels(widthToken, rect.width),
+      height: cssLengthToPixels(heightToken, rect.height)
+    };
+  }
+
+  function cssLengthToPixels(token, basis) {
+    if (token.endsWith("%")) {
+      const percent = Number.parseFloat(token);
+      return Number.isFinite(percent) ? Math.max(0, basis * percent / 100) : 0;
+    }
+
+    const pixels = Number.parseFloat(token);
+    return Number.isFinite(pixels) ? Math.max(0, pixels) : 0;
+  }
+
+  function normalizeBorderRadii(radii, rect) {
+    const ratioFor = (available, used) => used > 0 ? available / used : 1;
+    const scale = Math.min(
+      1,
+      ratioFor(rect.width, radii.topLeft.width + radii.topRight.width),
+      ratioFor(rect.width, radii.bottomLeft.width + radii.bottomRight.width),
+      ratioFor(rect.height, radii.topLeft.height + radii.bottomLeft.height),
+      ratioFor(rect.height, radii.topRight.height + radii.bottomRight.height)
+    );
+
+    if (scale >= 1) {
+      return radii;
+    }
+
+    const scaled = (radius) => ({
+      width: radius.width * scale,
+      height: radius.height * scale
+    });
+
+    return {
+      topLeft: scaled(radii.topLeft),
+      topRight: scaled(radii.topRight),
+      bottomRight: scaled(radii.bottomRight),
+      bottomLeft: scaled(radii.bottomLeft)
+    };
+  }
+
+  function hasVisibleBorderRadii(radii) {
+    return !!radii && Object.values(radii).some((radius) => {
+      return radius.width > 0.5 || radius.height > 0.5;
+    });
+  }
+
+  function canShareBorderRadii(sourceRect, targetRect) {
+    if (nearSameRect(sourceRect, targetRect)) {
+      return true;
+    }
+
+    const sourceArea = Math.max(1, sourceRect.width * sourceRect.height);
+    const targetArea = Math.max(1, targetRect.width * targetRect.height);
+    const areaRatio = Math.min(sourceArea, targetArea) / Math.max(sourceArea, targetArea);
+    return areaRatio >= 0.84 && intersectionRatio(sourceRect, targetRect) >= 0.98;
   }
 
   function afterOverlayHiddenPaint(callback) {
@@ -2107,7 +2231,8 @@
         pageTitle: tab.title || sessionSnapshot.page?.title || document.title || "",
         pageURL: tab.url || sessionSnapshot.page?.url || window.location.href,
         imageWidth: image.naturalWidth,
-        imageHeight: image.naturalHeight
+        imageHeight: image.naturalHeight,
+        selectedBorderRadii: sessionSnapshot.selectedBorderRadii || null
       })
     });
 

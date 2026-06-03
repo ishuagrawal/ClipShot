@@ -20,6 +20,18 @@ struct DOMCaptureViewport: Codable, Sendable, Equatable {
     let scrollY: Double
 }
 
+struct DOMCornerRadius: Codable, Sendable, Equatable {
+    let width: Double
+    let height: Double
+}
+
+struct DOMCornerRadii: Codable, Sendable, Equatable {
+    let topLeft: DOMCornerRadius
+    let topRight: DOMCornerRadius
+    let bottomRight: DOMCornerRadius
+    let bottomLeft: DOMCornerRadius
+}
+
 struct DOMCandidateSnapshot: Codable, Identifiable, Sendable, Equatable {
     let id: Int
     let rect: DOMCaptureRect
@@ -41,6 +53,7 @@ struct DOMCaptureSessionRequest: Decodable, Sendable {
     let pageURL: String?
     let imageWidth: Double?
     let imageHeight: Double?
+    let selectedBorderRadii: DOMCornerRadii?
 }
 
 struct DOMCaptureSession: Identifiable {
@@ -54,6 +67,7 @@ struct DOMCaptureSession: Identifiable {
     let pageTitle: String
     let pageURL: String
     let imagePixelSize: CGSize
+    let selectedBorderRadii: DOMCornerRadii?
     let capturedAt: Date
 
     init(request: DOMCaptureSessionRequest) throws {
@@ -75,6 +89,7 @@ struct DOMCaptureSession: Identifiable {
         selectedIndex = request.selectedIndex
         pageTitle = request.pageTitle?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? "Untitled Page"
         pageURL = request.pageURL?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? ""
+        selectedBorderRadii = request.selectedBorderRadii
 
         if let width = request.imageWidth,
            let height = request.imageHeight,
@@ -119,6 +134,27 @@ struct DOMCaptureSession: Identifiable {
         let height = max(1, min(targetSize.height - y, CGFloat(rect.height) * scaleY))
 
         return CGRect(x: x, y: y, width: width, height: height)
+    }
+
+    func pixelCornerRadii(for radii: DOMCornerRadii?) -> SelectionCornerRadii {
+        guard let radii else { return .zero }
+
+        let scaleX = imagePixelSize.width / max(1, CGFloat(viewport.width))
+        let scaleY = imagePixelSize.height / max(1, CGFloat(viewport.height))
+
+        func scaled(_ radius: DOMCornerRadius) -> CGSize {
+            CGSize(
+                width: max(0, CGFloat(radius.width) * scaleX),
+                height: max(0, CGFloat(radius.height) * scaleY)
+            )
+        }
+
+        return SelectionCornerRadii(
+            topLeft: scaled(radii.topLeft),
+            topRight: scaled(radii.topRight),
+            bottomRight: scaled(radii.bottomRight),
+            bottomLeft: scaled(radii.bottomLeft)
+        )
     }
 }
 

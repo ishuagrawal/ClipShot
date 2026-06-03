@@ -10,9 +10,11 @@ final class CanvasContentView: NSView {
     }
 
     private let selectionLayer: CALayer
+    private let selectionMaskLayer: CAShapeLayer
 
     override init(frame frameRect: NSRect) {
         self.selectionLayer = CALayer()
+        self.selectionMaskLayer = CAShapeLayer()
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.backgroundColor = .clear
@@ -33,6 +35,7 @@ final class CanvasContentView: NSView {
         guard let doc = document else {
             frame = .zero
             selectionLayer.contents = nil
+            selectionLayer.mask = nil
             return
         }
         frame = doc.imageBounds
@@ -44,9 +47,18 @@ final class CanvasContentView: NSView {
         if selection.isNull || selection.isEmpty {
             selectionLayer.frame = .zero
             selectionLayer.contents = nil
+            selectionLayer.mask = nil
         } else {
             selectionLayer.frame = selection
             selectionLayer.contents = doc.screenshot.cropping(to: selection)
+            let radii = doc.selectionCornerRadii.clamped(to: selection.size)
+            if radii.isZero {
+                selectionLayer.mask = nil
+            } else {
+                selectionMaskLayer.frame = CGRect(origin: .zero, size: selection.size)
+                selectionMaskLayer.path = radii.path(in: selectionMaskLayer.bounds)
+                selectionLayer.mask = selectionMaskLayer
+            }
         }
         CATransaction.commit()
     }

@@ -110,6 +110,7 @@ fileprivate extension EditorDocument {
             pageTitle: session.pageTitle,
             pageURL: session.pageURL,
             baseSelection: pixelSelection,
+            selectionCornerRadii: session.pixelCornerRadii(for: session.selectedBorderRadii),
             padding: .zero,
             background: .none,
             annotations: []
