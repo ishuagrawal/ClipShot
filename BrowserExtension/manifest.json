@@ -3,7 +3,7 @@
   "name": "ClipShot DOM Selector",
   "description": "DOM-based component selection for ClipShot web captures.",
   "version": "0.1.0",
-  "permissions": ["activeTab", "scripting"],
+  "permissions": ["activeTab", "scripting", "debugger"],
   "host_permissions": ["http://127.0.0.1:17272/*"],
   "background": {
     "service_worker": "background.js"
