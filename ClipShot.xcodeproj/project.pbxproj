@@ -73,6 +73,8 @@
 		01A000000000000000000401 /* NativeScreenCapturer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000401 /* NativeScreenCapturer.swift */; };
 		01A000000000000000000402 /* NativeCaptureShortcut.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000402 /* NativeCaptureShortcut.swift */; };
 		1BA944B9B0F0C1F9C43EF01B /* MeshGradientGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA9393E6113E2EEE8E5FE7E6 /* MeshGradientGenerator.swift */; };
+		876F3B6F8742365424087997 /* DynamicMeshCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = D99D9E0BDD5C3B8BAB17EF4C /* DynamicMeshCache.swift */; };
+		97FCDDE7D93682B011548524 /* DynamicMeshCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56154F05608FA48C1096BB93 /* DynamicMeshCacheTests.swift */; };
 		A4A1E0ED3BFA78B1BF42D926 /* MeshGradientGeneratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53E6D10A95528AC36DD4CA1A /* MeshGradientGeneratorTests.swift */; };
 		C4803FCDD1EF6B9F8142D09E /* MeshSpecTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 090C58A15E485322374C6255 /* MeshSpecTests.swift */; };
 		D941DE371CF3851E414EB2D6 /* MeshSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6498582A10FFBBAB8A685137 /* MeshSpec.swift */; };
@@ -159,8 +161,10 @@
 		01B000000000000000000402 /* NativeCaptureShortcut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCaptureShortcut.swift; sourceTree = "<group>"; };
 		090C58A15E485322374C6255 /* MeshSpecTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MeshSpecTests.swift; path = ClipShotTests/MeshSpecTests.swift; sourceTree = "<group>"; };
 		53E6D10A95528AC36DD4CA1A /* MeshGradientGeneratorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MeshGradientGeneratorTests.swift; path = ClipShotTests/MeshGradientGeneratorTests.swift; sourceTree = "<group>"; };
+		56154F05608FA48C1096BB93 /* DynamicMeshCacheTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DynamicMeshCacheTests.swift; path = ClipShotTests/DynamicMeshCacheTests.swift; sourceTree = "<group>"; };
 		6498582A10FFBBAB8A685137 /* MeshSpec.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MeshSpec.swift; path = ClipShot/Editor/Background/MeshSpec.swift; sourceTree = "<group>"; };
 		BA9393E6113E2EEE8E5FE7E6 /* MeshGradientGenerator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MeshGradientGenerator.swift; path = ClipShot/Editor/Background/MeshGradientGenerator.swift; sourceTree = "<group>"; };
+		D99D9E0BDD5C3B8BAB17EF4C /* DynamicMeshCache.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DynamicMeshCache.swift; path = ClipShot/Editor/Background/DynamicMeshCache.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -184,6 +188,8 @@
 				090C58A15E485322374C6255 /* MeshSpecTests.swift */,
 				BA9393E6113E2EEE8E5FE7E6 /* MeshGradientGenerator.swift */,
 				53E6D10A95528AC36DD4CA1A /* MeshGradientGeneratorTests.swift */,
+				D99D9E0BDD5C3B8BAB17EF4C /* DynamicMeshCache.swift */,
+				56154F05608FA48C1096BB93 /* DynamicMeshCacheTests.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -498,6 +504,7 @@
 				01A000000000000000000220 /* TextToolView.swift in Sources */,
 				D941DE371CF3851E414EB2D6 /* MeshSpec.swift in Sources */,
 				1BA944B9B0F0C1F9C43EF01B /* MeshGradientGenerator.swift in Sources */,
+				876F3B6F8742365424087997 /* DynamicMeshCache.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -521,6 +528,7 @@
 				01A00000000000000000030C /* NativeWindowMatcherTests.swift in Sources */,
 				C4803FCDD1EF6B9F8142D09E /* MeshSpecTests.swift in Sources */,
 				A4A1E0ED3BFA78B1BF42D926 /* MeshGradientGeneratorTests.swift in Sources */,
+				97FCDDE7D93682B011548524 /* DynamicMeshCacheTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
