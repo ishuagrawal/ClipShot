@@ -119,17 +119,37 @@ final class NativeScreenCapturer: @unchecked Sendable {
         let scale = backingScale(forDisplayID: display.displayID)
         let regionGlobal = region.sourceRect.offsetBy(dx: display.frame.minX, dy: display.frame.minY)
 
-        if let matchedWindow = leadingWindow(regionGlobal: regionGlobal, windows: content.windows) {
-            return try await captureWindow(matchedWindow, display: display, scale: scale)
-        }
+        switch region.kind {
+        case .windowAtPoint:
+            guard let window = window(at: regionGlobal.origin, windows: content.windows) else {
+                throw NativeCaptureError.captureFailed
+            }
+            return try await captureWindow(window, display: display, scale: scale)
 
-        let bitmap = try await captureBitmap(region: region, display: display, scale: scale)
-        return NativeWindowShot(
-            image: bitmap.image,
-            pixelScale: bitmap.pixelScale,
-            appName: "Screen",
-            cornerRadii: nil
-        )
+        case .rect:
+            if let matchedWindow = leadingWindow(regionGlobal: regionGlobal, windows: content.windows) {
+                return try await captureWindow(matchedWindow, display: display, scale: scale)
+            }
+            let bitmap = try await captureBitmap(region: region, display: display, scale: scale)
+            return NativeWindowShot(
+                image: bitmap.image,
+                pixelScale: bitmap.pixelScale,
+                appName: "Screen",
+                cornerRadii: nil
+            )
+        }
+    }
+
+    /// Frontmost eligible window containing a global point. `SCShareableContent`
+    /// returns windows front-to-back, so the first hit is the one the user sees
+    /// on top at that point.
+    private func window(at point: CGPoint, windows: [SCWindow]) -> SCWindow? {
+        windows.first { window in
+            window.isOnScreen
+                && window.windowLayer == 0
+                && window.frame.contains(point)
+                && window.owningApplication?.bundleIdentifier != Bundle.main.bundleIdentifier
+        }
     }
 
     /// Capture a single window in isolation.

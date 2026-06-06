@@ -1,8 +1,14 @@
 import AppKit
 
 struct NativeCaptureRegion: Sendable {
+    enum Kind: Sendable {
+        case rect            // drag selection
+        case windowAtPoint   // single click; sourceRect.origin is the click point
+    }
+
     let displayID: CGDirectDisplayID
     let sourceRect: CGRect   // display-local, top-left origin, points
+    var kind: Kind = .rect
 }
 
 @MainActor
@@ -70,6 +76,12 @@ private final class NativeCaptureRegionView: NSView {
     private let completion: (NativeCaptureRegion?) -> Void
     private var startPoint: CGPoint?
     private var currentPoint: CGPoint?
+    private var didDrag = false
+
+    /// Pointer travel (points) past which a press counts as a drag rather than a
+    /// click. Below this the press is a click → whole-window capture; at or above
+    /// it the user is selecting a region, even a small one.
+    private let dragSlop: CGFloat = 4
 
     init(displayID: CGDirectDisplayID, completion: @escaping (NativeCaptureRegion?) -> Void) {
         self.displayID = displayID
@@ -100,17 +112,36 @@ private final class NativeCaptureRegionView: NSView {
     override func mouseDown(with event: NSEvent) {
         startPoint = convert(event.locationInWindow, from: nil)
         currentPoint = startPoint
+        didDrag = false
         needsDisplay = true
     }
 
     override func mouseDragged(with event: NSEvent) {
-        currentPoint = convert(event.locationInWindow, from: nil)
+        let point = convert(event.locationInWindow, from: nil)
+        currentPoint = point
+        if let startPoint, hypot(point.x - startPoint.x, point.y - startPoint.y) >= dragSlop {
+            didDrag = true
+        }
         needsDisplay = true
     }
 
     override func mouseUp(with event: NSEvent) {
-        currentPoint = convert(event.locationInWindow, from: nil)
-        guard let rect = selectionRect, rect.width >= 8, rect.height >= 8 else {
+        let point = convert(event.locationInWindow, from: nil)
+        currentPoint = point
+
+        // A pure click (no real drag) captures the whole window under the cursor.
+        guard didDrag else {
+            completion(NativeCaptureRegion(
+                displayID: displayID,
+                sourceRect: CGRect(x: point.x, y: bounds.height - point.y, width: 1, height: 1),
+                kind: .windowAtPoint
+            ))
+            return
+        }
+
+        // The user dragged: this is a region selection, even a small one. Too
+        // tiny to be useful is a cancel, never a whole-window capture.
+        guard let rect = selectionRect, rect.width >= dragSlop, rect.height >= dragSlop else {
             completion(nil)
             return
         }
@@ -122,7 +153,8 @@ private final class NativeCaptureRegionView: NSView {
                 y: bounds.height - rect.maxY,
                 width: rect.width,
                 height: rect.height
-            )
+            ),
+            kind: .rect
         ))
     }
 
