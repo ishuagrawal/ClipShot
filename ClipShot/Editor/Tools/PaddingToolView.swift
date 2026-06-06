@@ -26,6 +26,17 @@ struct PaddingToolView: View {
                 .font(Theme.title(13))
                 .foregroundStyle(Theme.textPrimary)
             Spacer()
+            Button("Auto") { applyAuto() }
+                .buttonStyle(.plain)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Theme.accent)
+                .padding(.horizontal, 8)
+                .frame(height: 24)
+                .background {
+                    RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
+                        .fill(Theme.accentDim)
+                }
+                .help("Auto padding + background")
             Button {
                 linked.toggle()
                 if linked {
@@ -166,6 +177,21 @@ struct PaddingToolView: View {
     private func commit(_ next: PaddingConfig) {
         let from = padding
         state.performCommand(SetPaddingCommand(from: from, to: next.clamped()))
+    }
+
+    private func applyAuto() {
+        let auto = PaddingConfig.autoSweetSpot(forSelection: state.document.baseSelection.size)
+        let currentBackground = state.document.background
+        let autoBackground = currentBackground == .none ? .defaultGradient : currentBackground
+        linked = true
+        state.performCommand(
+            ApplyAutoPaddingCommand(
+                fromPadding: padding,
+                toPadding: auto.clamped(),
+                fromBackground: currentBackground,
+                toBackground: autoBackground
+            )
+        )
     }
 
     private func commitDrag() {

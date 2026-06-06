@@ -19,3 +19,22 @@ struct SetPaddingCommand: EditorCommand {
         return SetPaddingCommand(from: from, to: next.to)
     }
 }
+
+struct ApplyAutoPaddingCommand: EditorCommand {
+    let fromPadding: PaddingConfig
+    let toPadding: PaddingConfig
+    let fromBackground: BackgroundStyle
+    let toBackground: BackgroundStyle
+
+    var displayName: String { "Auto layout" }
+
+    func apply(to document: inout EditorDocument) {
+        document.padding = toPadding
+        document.background = toBackground
+    }
+
+    func revert(to document: inout EditorDocument) {
+        document.padding = fromPadding
+        document.background = fromBackground
+    }
+}
