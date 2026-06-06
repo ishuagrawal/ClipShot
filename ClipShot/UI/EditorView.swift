@@ -115,7 +115,7 @@ fileprivate extension EditorDocument {
             selectionCornerRadii: selectionRadii,
             contentCornerRadii: selectionRadii.isZero ? premaskedRadii : selectionRadii,
             padding: PaddingConfig.autoSweetSpot(forSelection: pixelSelection.size),
-            background: .defaultGradient,
+            background: .dynamic,
             annotations: []
         )
     }
