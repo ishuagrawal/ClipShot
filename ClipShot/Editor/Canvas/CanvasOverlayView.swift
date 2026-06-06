@@ -1,46 +1,55 @@
 import AppKit
 import CoreText
 
-/// Sits above CanvasContentView inside the same documentView. Draws the export
-/// composite at `effectiveCrop` so padding/background preview matches output.
+/// Sits above CanvasContentView inside the same documentView and draws annotations.
 final class CanvasOverlayView: NSView {
 
     var document: EditorDocument? {
-        didSet { updatePreview() }
+        didSet { updateDocument(previous: oldValue) }
     }
 
     var inProgressAnnotation: Annotation? {
-        didSet { updateAnnotations() }
+        didSet {
+            if oldValue != inProgressAnnotation {
+                updateAnnotations()
+            }
+        }
     }
 
     var selectedAnnotationID: UUID? {
-        didSet { updateAnnotations() }
+        didSet {
+            if oldValue != selectedAnnotationID {
+                updateAnnotations()
+            }
+        }
     }
 
     var hoveredAnnotationID: UUID? {
-        didSet { updateAnnotations() }
+        didSet {
+            if oldValue != hoveredAnnotationID {
+                updateAnnotations()
+            }
+        }
     }
 
     var editingTextAnnotation: Annotation? {
-        didSet { updateAnnotations() }
+        didSet {
+            if oldValue != editingTextAnnotation {
+                updateAnnotations()
+            }
+        }
     }
 
-    private let previewLayer: CALayer
     private let annotationsLayer: CALayer
     private var annotationLayers: [UUID: CALayer] = [:]
     private let inProgressLayerKey = UUID()
 
     override init(frame frameRect: NSRect) {
-        previewLayer = CALayer()
         annotationsLayer = CALayer()
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.backgroundColor = .clear
 
-        previewLayer.contentsGravity = .resize
-        previewLayer.magnificationFilter = .trilinear
-        previewLayer.minificationFilter = .trilinear
-        layer?.addSublayer(previewLayer)
         layer?.addSublayer(annotationsLayer)
     }
 
@@ -56,10 +65,8 @@ final class CanvasOverlayView: NSView {
         document = doc
     }
 
-    private func updatePreview() {
+    private func updateDocument(previous: EditorDocument?) {
         guard let doc = document else {
-            previewLayer.contents = nil
-            previewLayer.isHidden = true
             annotationsLayer.sublayers = nil
             annotationLayers.removeAll()
             return
@@ -68,26 +75,12 @@ final class CanvasOverlayView: NSView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
 
-        let hasFrame = doc.padding != .zero || doc.background != .none
-        if hasFrame {
-            previewLayer.frame = doc.effectiveCrop.integral
-            previewLayer.contents = DocumentRenderer.render(makeFrameOnlyDocument(doc))
-            previewLayer.isHidden = false
-        } else {
-            previewLayer.contents = nil
-            previewLayer.isHidden = true
-        }
-
         annotationsLayer.frame = CGRect(origin: doc.effectiveCrop.origin, size: doc.effectiveCrop.size)
 
         CATransaction.commit()
-        updateAnnotations()
-    }
-
-    private func makeFrameOnlyDocument(_ document: EditorDocument) -> EditorDocument {
-        var copy = document
-        copy.annotations = []
-        return copy
+        if previous?.annotations != doc.annotations {
+            updateAnnotations()
+        }
     }
 
     private func updateAnnotations() {

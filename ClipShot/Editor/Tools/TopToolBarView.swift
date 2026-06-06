@@ -12,13 +12,9 @@ struct TopToolBarView: View {
                       isActive: state.documentPanel == .components, indicator: indicator) {
                 state.toggleDocumentPanel(.components)
             }
-            DocToggle(label: "Layout", symbol: "square.dashed",
-                      isActive: state.documentPanel == .layout, indicator: indicator) {
-                state.toggleDocumentPanel(.layout)
-            }
-            DocToggle(label: "Background", symbol: "paintpalette",
-                      isActive: state.documentPanel == .background, indicator: indicator) {
-                state.toggleDocumentPanel(.background)
+            DocToggle(label: "Canvas", symbol: "photo.artframe",
+                      isActive: state.documentPanel == .canvas, indicator: indicator) {
+                state.toggleDocumentPanel(.canvas)
             }
             Spacer(minLength: 12)
             Text(state.document.pageTitle)

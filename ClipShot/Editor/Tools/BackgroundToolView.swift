@@ -15,12 +15,11 @@ struct BackgroundToolView: View {
     private var style: BackgroundStyle { state.document.background }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 9) {
-                SectionLabel(text: "Style")
-                tiles
-            }
-            Rectangle().fill(Theme.hairline).frame(height: 1)
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Background")
+                .font(Theme.title(13))
+                .foregroundStyle(Theme.textPrimary)
+            tiles
             config
         }
         .padding(16)

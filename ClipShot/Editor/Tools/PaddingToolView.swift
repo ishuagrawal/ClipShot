@@ -9,7 +9,7 @@ struct PaddingToolView: View {
     private let range: ClosedRange<Double> = 0...256
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             header
             boxModel
             uniformRow
@@ -22,7 +22,9 @@ struct PaddingToolView: View {
 
     private var header: some View {
         HStack {
-            SectionLabel(text: "Padding")
+            Text("Layout")
+                .font(Theme.title(13))
+                .foregroundStyle(Theme.textPrimary)
             Spacer()
             Button {
                 linked.toggle()

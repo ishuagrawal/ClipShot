@@ -54,10 +54,8 @@ struct ToolSidebarView: View {
                 state: state,
                 onCanvasFocusRequested: onCanvasFocusRequested
             )
-        case .layout:
-            PaddingToolView(state: state)
-        case .background:
-            BackgroundToolView(state: state)
+        case .canvas:
+            CanvasToolView(state: state)
         case .annotation:
             SelectToolView(state: state)
         case .drawDefaults(let tool):

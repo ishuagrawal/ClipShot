@@ -7,6 +7,9 @@ final class CanvasScrollView: NSScrollView {
 
     var viewportSizeDidChange: ((CGSize) -> Void)?
     var userInteractionDidStart: (() -> Void)?
+    /// Fires whenever the zoom level changes (cmd-scroll, pinch, programmatic fit, or
+    /// control bar), so the SwiftUI percentage readout can track it.
+    var magnificationDidChange: ((CGFloat) -> Void)?
 
     /// Closure that fits the document into view. Held until the scroll view has a
     /// real laid-out size, then run exactly once (see `layout()`). Avoids fitting
@@ -29,8 +32,8 @@ final class CanvasScrollView: NSScrollView {
         // instead of pinned to a corner.
         contentView = CenteringClipView()
         allowsMagnification = true
-        minMagnification = 0.05
-        maxMagnification = 16
+        minMagnification = ZoomMath.minMagnification
+        maxMagnification = ZoomMath.maxMagnification
         magnification = 1
         hasHorizontalScroller = false
         hasVerticalScroller = false
@@ -39,6 +42,26 @@ final class CanvasScrollView: NSScrollView {
         backgroundColor = NSColor(white: 0.04, alpha: 1)
         horizontalScrollElasticity = .none
         verticalScrollElasticity = .none
+        // Pinch / smart-magnify run through AppKit's live magnify; observe its end to
+        // refresh the readout (cmd-scroll and programmatic paths notify directly).
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(liveMagnifyDidEnd),
+            name: NSScrollView.didEndLiveMagnifyNotification,
+            object: self
+        )
+    }
+
+    @objc private func liveMagnifyDidEnd() {
+        magnificationDidChange?(magnification)
+    }
+
+    /// Set zoom from the control bar, centered on the current viewport center.
+    func setMagnificationFromControl(_ value: CGFloat) {
+        let clamped = value.clamped(to: minMagnification...maxMagnification)
+        let center = CGPoint(x: contentView.bounds.midX, y: contentView.bounds.midY)
+        setMagnification(clamped, centeredAt: center)
+        magnificationDidChange?(clamped)
     }
 
     /// Register a fit to run once the scroll view has a valid size. If a size is
@@ -63,6 +86,7 @@ final class CanvasScrollView: NSScrollView {
         setMagnification(targetMagnification, centeredAt: center)
         layoutSubtreeIfNeeded()
         centerDocumentPoint(center)
+        magnificationDidChange?(targetMagnification)
     }
 
     nonisolated static func fitMagnification(
@@ -111,16 +135,19 @@ final class CanvasScrollView: NSScrollView {
         let pointInDocument = documentView?.convert(event.locationInWindow, from: nil)
             ?? convert(event.locationInWindow, from: nil)
         setMagnification(newMag, centeredAt: pointInDocument)
+        magnificationDidChange?(newMag)
     }
 
     override func magnify(with event: NSEvent) {
         userInteractionDidStart?()
         super.magnify(with: event)
+        magnificationDidChange?(magnification)
     }
 
     override func smartMagnify(with event: NSEvent) {
         userInteractionDidStart?()
         super.smartMagnify(with: event)
+        magnificationDidChange?(magnification)
     }
 
     private func centerDocumentPoint(_ point: CGPoint) {

@@ -19,6 +19,10 @@ final class CanvasCoordinator {
     private var latestDocument: EditorDocument?
     private var isTrackingInitialSelectionFit = false
 
+    /// Forwarded to the zoom controller so the SwiftUI readout tracks the live zoom.
+    var onMagnificationChange: ((CGFloat) -> Void)?
+    var currentMagnification: CGFloat { scrollView.magnification }
+
     init() {
         scrollView = CanvasScrollView()
         container = CanvasDocumentView(frame: .zero)
@@ -58,6 +62,36 @@ final class CanvasCoordinator {
         scrollView.userInteractionDidStart = { [weak self] in
             self?.isTrackingInitialSelectionFit = false
         }
+        scrollView.magnificationDidChange = { [weak self] mag in
+            self?.onMagnificationChange?(mag)
+        }
+    }
+
+    // MARK: - Zoom control actions
+
+    /// Set an explicit zoom level (from the +/- buttons or percentage dropdown).
+    func controlZoom(to value: CGFloat) {
+        isTrackingInitialSelectionFit = false
+        scrollView.setMagnificationFromControl(value)
+    }
+
+    /// Fill the viewport with the selected screenshot region (edge-to-edge, no margin).
+    func fitSelectionToCanvas() {
+        guard let document = latestDocument else { return }
+        isTrackingInitialSelectionFit = false
+        let imageBounds = document.imageBounds
+        let selection = document.baseSelection.integral.intersection(imageBounds)
+        let target = (selection.isNull || selection.isEmpty) ? imageBounds : selection
+        let placement = initialPlacement ?? CanvasInitialPlacement.default(imageBounds: imageBounds)
+        // `selection` is image-space (origin = image top-left); offset into container space.
+        let rectInContainer = target.offsetBy(dx: placement.imageFrame.minX, dy: placement.imageFrame.minY)
+        scrollView.magnify(toFitCenteredOn: rectInContainer)
+    }
+
+    /// Restore the initial load framing (selection centered with a comfortable margin).
+    func resetToInitialFit() {
+        isTrackingInitialSelectionFit = true
+        refitInitialSelectionIfNeeded(viewportSize: scrollView.viewportSizeForFitting, force: true)
     }
 
     /// Push the latest document into the view tree. Called on every SwiftUI update.
