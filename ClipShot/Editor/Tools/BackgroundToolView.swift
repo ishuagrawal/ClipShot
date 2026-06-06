@@ -73,18 +73,21 @@ struct BackgroundToolView: View {
                 )
             )
         case .dynamic:
-            shape
-                .fill(
-                    LinearGradient(
-                        colors: [Color(white: 0.4), Color(white: 0.22)],
-                        startPoint: .top, endPoint: .bottom
-                    )
+            shape.fill(
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.95, green: 0.35, blue: 0.45),
+                        Color(red: 0.45, green: 0.45, blue: 0.95),
+                        Color(red: 0.35, green: 0.85, blue: 0.75)
+                    ],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
                 )
-                .overlay(
-                    Image(systemName: "drop.halffull")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.white.opacity(0.75))
-                )
+            )
+            .overlay(
+                Image(systemName: "sparkles")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.white.opacity(0.9))
+            )
         }
     }
 
