@@ -244,6 +244,38 @@ final class EditorDocumentTests: XCTestCase {
         XCTAssertEqual(outer.topRight, .zero, "a square corner must not become rounded")
         XCTAssertEqual(outer.topLeft, CGSize(width: 15, height: 15))
     }
+
+    private func roundedDoc(padding: PaddingConfig, radius: CGFloat) -> EditorDocument {
+        EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 400, height: 400)),
+            viewport: CGSize(width: 400, height: 400),
+            pageTitle: "t", pageURL: "u",
+            baseSelection: CGRect(x: 50, y: 50, width: 200, height: 160),
+            selectionCornerRadii: .uniform(radius),
+            padding: padding
+        )
+    }
+
+    func test_outerCornerRadii_zeroPadding_isZero() {
+        XCTAssertTrue(roundedDoc(padding: .zero, radius: 18).outerCornerRadii.isZero)
+    }
+
+    func test_outerCornerRadii_zeroInnerRadius_isZero() {
+        let doc = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 400, height: 400)),
+            viewport: CGSize(width: 400, height: 400),
+            pageTitle: "t", pageURL: "u",
+            baseSelection: CGRect(x: 50, y: 50, width: 200, height: 160),
+            selectionCornerRadii: .zero,
+            padding: .uniform(10)
+        )
+        XCTAssertTrue(doc.outerCornerRadii.isZero)
+    }
+
+    func test_outerCornerRadii_rounded_isConcentric() {
+        let doc = roundedDoc(padding: .uniform(10), radius: 18)
+        XCTAssertEqual(doc.outerCornerRadii, .uniform(28))
+    }
 }
 
 /// Small image helper used across tests.

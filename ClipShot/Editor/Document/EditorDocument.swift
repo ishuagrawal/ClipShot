@@ -203,6 +203,16 @@ struct EditorDocument {
         )
     }
 
+    /// Concentric outer corner radii for the padded card. Zero (rectangular) when
+    /// the screenshot has no corner mask or there is no padding. Derived, so it
+    /// tracks the padding slider live.
+    var outerCornerRadii: SelectionCornerRadii {
+        guard !selectionCornerRadii.isZero, !padding.isZero else { return .zero }
+        return selectionCornerRadii
+            .concentricOuter(padding: padding)
+            .clamped(to: effectiveCrop.size)
+    }
+
     var imageBounds: CGRect {
         CGRect(x: 0, y: 0, width: CGFloat(screenshot.width), height: CGFloat(screenshot.height))
     }
