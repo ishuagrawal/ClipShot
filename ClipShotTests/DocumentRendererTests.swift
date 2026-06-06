@@ -196,9 +196,11 @@ final class DocumentRendererTests: XCTestCase {
         )
         let buffer = try XCTUnwrap(PixelBuffer.decode(image))
 
-        XCTAssertGreaterThan(Int(buffer.pixels[0]), 235)
-        XCTAssertLessThan(Int(buffer.pixels[1]), 20)
-        XCTAssertLessThan(Int(buffer.pixels[2]), 20)
+        // The fixture is created in Core Graphics' y-up space, so its visual
+        // top half is blue. Upright rendering must keep the output top-left blue.
+        XCTAssertLessThan(Int(buffer.pixels[0]), 20)
+        XCTAssertLessThan(Int(buffer.pixels[1]), 80)
+        XCTAssertGreaterThan(Int(buffer.pixels[2]), 235)
     }
 
     func test_render_arrow_overridesScreenshotPixels() throws {
