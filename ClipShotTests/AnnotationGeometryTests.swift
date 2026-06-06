@@ -90,6 +90,68 @@ final class AnnotationGeometryTests: XCTestCase {
         XCTAssertLessThanOrEqual(frame.maxY, 100)
     }
 
+    func test_translatedClamped_rectKeepsSizeWhenPushedPastBorder() {
+        let kind = Annotation.Kind.rect(
+            frame: CGRect(x: 10, y: 10, width: 40, height: 30),
+            stroke: nil,
+            fill: nil,
+            weight: 0,
+            cornerRadius: 0
+        )
+
+        guard case let .rect(frame, _, _, _, _) = AnnotationGeometry.translatedClamped(
+            kind,
+            by: CGSize(width: 1000, height: 1000),
+            to: CGRect(x: 0, y: 0, width: 100, height: 100)
+        ) else {
+            return XCTFail("expected rect")
+        }
+
+        XCTAssertEqual(frame.size, CGSize(width: 40, height: 30))
+        XCTAssertEqual(frame.maxX, 100)
+        XCTAssertEqual(frame.maxY, 100)
+    }
+
+    func test_translatedClamped_arrowKeepsLengthWhenPushedPastBorder() {
+        let kind = Annotation.Kind.arrow(
+            from: CGPoint(x: 10, y: 10),
+            to: CGPoint(x: 40, y: 10),
+            color: CGColor(gray: 0, alpha: 1),
+            weight: 2
+        )
+
+        guard case let .arrow(from, to, _, _) = AnnotationGeometry.translatedClamped(
+            kind,
+            by: CGSize(width: -1000, height: 0),
+            to: CGRect(x: 0, y: 0, width: 200, height: 200)
+        ) else {
+            return XCTFail("expected arrow")
+        }
+
+        XCTAssertEqual(to.x - from.x, 30, accuracy: 0.001)
+        XCTAssertGreaterThanOrEqual(min(from.x, to.x), 0)
+    }
+
+    func test_translatedClamped_shapeLargerThanBoundsNotResized() {
+        let kind = Annotation.Kind.rect(
+            frame: CGRect(x: 0, y: 0, width: 300, height: 50),
+            stroke: nil,
+            fill: nil,
+            weight: 0,
+            cornerRadius: 0
+        )
+
+        guard case let .rect(frame, _, _, _, _) = AnnotationGeometry.translatedClamped(
+            kind,
+            by: CGSize(width: 10, height: 5),
+            to: CGRect(x: 0, y: 0, width: 100, height: 100)
+        ) else {
+            return XCTFail("expected rect")
+        }
+
+        XCTAssertEqual(frame.width, 300)
+    }
+
     func test_textFrame_emptyStringHasSelectableSize() {
         let frame = AnnotationGeometry.textFrame(origin: .zero, string: "", fontSize: 20)
 

@@ -326,10 +326,7 @@ final class EditorState: ObservableObject {
             return
         }
 
-        draft.kind = AnnotationGeometry.clamped(
-            AnnotationGeometry.translated(start, by: delta),
-            to: documentBounds
-        )
+        draft.kind = AnnotationGeometry.translatedClamped(start, by: delta, to: documentBounds)
         inProgressAnnotation = draft
     }
 
@@ -373,10 +370,7 @@ final class EditorState: ObservableObject {
               let start = moveStartKind,
               let index = document.annotations.firstIndex(where: { $0.id == id }) else { return }
 
-        document.annotations[index].kind = AnnotationGeometry.clamped(
-            AnnotationGeometry.translated(start, by: delta),
-            to: documentBounds
-        )
+        document.annotations[index].kind = AnnotationGeometry.translatedClamped(start, by: delta, to: documentBounds)
     }
 
     func commitMoveSelected() {
@@ -421,10 +415,7 @@ final class EditorState: ObservableObject {
 
     func nudgeSelected(by delta: CGSize) {
         guard let annotation = selectedAnnotation else { return }
-        let nextKind = AnnotationGeometry.clamped(
-            AnnotationGeometry.translated(annotation.kind, by: delta),
-            to: documentBounds
-        )
+        let nextKind = AnnotationGeometry.translatedClamped(annotation.kind, by: delta, to: documentBounds)
         updateSelectedKind(nextKind, coalescingKey: .keyboardNudge)
     }
 
