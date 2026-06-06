@@ -275,6 +275,29 @@ final class DocumentRendererTests: XCTestCase {
         XCTAssertEqual(Int(buffer.pixels[3]), 255, "rectangular shot keeps opaque corners")
     }
 
+    func test_render_dynamicBackground_marginIsOpaque() throws {
+        let image = try XCTUnwrap(DocumentRenderer.render(paddedDoc(padding: 20, background: .dynamic)))
+        let buf = try XCTUnwrap(PixelBuffer.decode(image))
+        XCTAssertEqual(Int(buf.pixels[3]), 255, "dynamic background margin must be opaque")
+    }
+
+    func test_render_dynamicBackground_seamApproximatesEdgeColor() throws {
+        let solid = FixtureDocument.makeSolidImage(
+            color: CGColor(srgbRed: 0.85, green: 0.2, blue: 0.2, alpha: 1),
+            size: CGSize(width: 60, height: 60))
+        let doc = document(
+            screenshot: solid,
+            selection: CGRect(x: 0, y: 0, width: 60, height: 60),
+            padding: 24,
+            background: .dynamic
+        )
+        let image = try XCTUnwrap(DocumentRenderer.render(doc))
+        let buf = try XCTUnwrap(PixelBuffer.decode(image))
+        let i = (6 * buf.bytesPerRow) + 6 * 4
+        XCTAssertGreaterThan(Int(buf.pixels[i + 0]), Int(buf.pixels[i + 1]) + 30)
+        XCTAssertGreaterThan(Int(buf.pixels[i + 0]), Int(buf.pixels[i + 2]) + 30)
+    }
+
     func test_render_concentricOuter_clipsAnnotationsAtCardCorners() throws {
         var doc = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 200, height: 200)),

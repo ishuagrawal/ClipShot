@@ -7,6 +7,10 @@ import Foundation
 /// reuses this output so Copy/Save and preview stay identical.
 enum DocumentRenderer {
 
+    static func dynamicBackgroundImage(for screenshot: CGImage, selection: CGRect, size: CGSize) -> CGImage? {
+        DynamicMeshCache.shared.meshImage(for: screenshot, selection: selection, size: size)
+    }
+
     static func render(_ doc: EditorDocument) -> CGImage? {
         let cropPx = doc.effectiveCrop.integral
         let width = Int(cropPx.width)
@@ -47,7 +51,8 @@ enum DocumentRenderer {
         }
 
         if !doc.padding.isZero {
-            drawBackground(doc.background, in: ctx, outputRect: outputRect, screenshot: doc.screenshot)
+            drawBackground(doc.background, in: ctx, outputRect: outputRect,
+                           screenshot: doc.screenshot, selection: doc.baseSelection)
         }
         drawScreenshot(
             doc.screenshot,
@@ -148,7 +153,8 @@ enum DocumentRenderer {
         _ style: BackgroundStyle,
         in ctx: CGContext,
         outputRect: CGRect,
-        screenshot: CGImage
+        screenshot: CGImage,
+        selection: CGRect
     ) {
         switch style {
         case .none:
@@ -161,9 +167,25 @@ enum DocumentRenderer {
         case .gradient(let start, let end, let angleDegrees):
             drawGradient(start: start, end: end, angleDegrees: angleDegrees, in: ctx, rect: outputRect)
         case .dynamic:
-            // Placeholder until a later task wires the mesh cache.
-            break
+            drawDynamic(in: ctx, outputRect: outputRect, screenshot: screenshot, selection: selection)
         }
+    }
+
+    private static func drawDynamic(
+        in ctx: CGContext,
+        outputRect: CGRect,
+        screenshot: CGImage,
+        selection: CGRect
+    ) {
+        guard let mesh = DynamicMeshCache.shared.meshImage(
+            for: screenshot, selection: selection, size: outputRect.size
+        ) else { return }
+        ctx.saveGState()
+        ctx.clip(to: outputRect)
+        ctx.translateBy(x: outputRect.minX, y: outputRect.maxY)
+        ctx.scaleBy(x: 1, y: -1)
+        ctx.draw(mesh, in: CGRect(origin: .zero, size: outputRect.size))
+        ctx.restoreGState()
     }
 
     private static func drawGradient(
@@ -220,46 +242,5 @@ enum DocumentRenderer {
         ctx.scaleBy(x: 1, y: -1)
         ctx.draw(cropped, in: CGRect(origin: .zero, size: dest.size))
         ctx.restoreGState()
-    }
-}
-
-private final class BlurExtendCache: @unchecked Sendable {
-    static let shared = BlurExtendCache()
-
-    private let lock = NSLock()
-    private var cachedImage: CGImage?
-    private var cachedSource: CGImage?
-    private var cachedRadius: CGFloat = -1
-    private var cachedWidth = -1
-    private var cachedHeight = -1
-    private let ciContext = CIContext(options: [.useSoftwareRenderer: false])
-
-    func blurredImage(for source: CGImage, radius: CGFloat) -> CGImage? {
-        lock.lock()
-        if let cachedImage,
-           let cachedSource,
-           cachedSource === source,
-           cachedRadius == radius,
-           cachedWidth == source.width,
-           cachedHeight == source.height {
-            lock.unlock()
-            return cachedImage
-        }
-        lock.unlock()
-
-        let input = CIImage(cgImage: source)
-            .clampedToExtent()
-            .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: radius])
-        let rect = CGRect(x: 0, y: 0, width: source.width, height: source.height)
-        guard let result = ciContext.createCGImage(input, from: rect) else { return nil }
-
-        lock.lock()
-        cachedImage = result
-        cachedSource = source
-        cachedRadius = radius
-        cachedWidth = source.width
-        cachedHeight = source.height
-        lock.unlock()
-        return result
     }
 }
