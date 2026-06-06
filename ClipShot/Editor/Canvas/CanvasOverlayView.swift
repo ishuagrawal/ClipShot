@@ -80,7 +80,8 @@ final class CanvasOverlayView: NSView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
 
-        annotationsLayer.frame = CGRect(origin: doc.effectiveCrop.origin, size: doc.effectiveCrop.size)
+        let cardFrame = doc.effectiveCrop.integral
+        annotationsLayer.frame = CGRect(origin: cardFrame.origin, size: cardFrame.size)
 
         let outer = doc.outerCornerRadii
         if outer.isZero {
