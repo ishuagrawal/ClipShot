@@ -276,6 +276,26 @@ final class EditorDocumentTests: XCTestCase {
         let doc = roundedDoc(padding: .uniform(10), radius: 18)
         XCTAssertEqual(doc.outerCornerRadii, .uniform(28))
     }
+
+    func test_autoSweetSpot_midRange_isSixPercentOfMaxSide() {
+        let pad = PaddingConfig.autoSweetSpot(forSelection: CGSize(width: 1440, height: 900))
+        XCTAssertEqual(pad, .uniform(86)) // round(0.06 * 1440) = 86
+    }
+
+    func test_autoSweetSpot_smallImage_clampsToFloor() {
+        let pad = PaddingConfig.autoSweetSpot(forSelection: CGSize(width: 300, height: 200))
+        XCTAssertEqual(pad, .uniform(40)) // round(18) -> floor 40
+    }
+
+    func test_autoSweetSpot_hugeImage_clampsToCeiling() {
+        let pad = PaddingConfig.autoSweetSpot(forSelection: CGSize(width: 4000, height: 3000))
+        XCTAssertEqual(pad, .uniform(200)) // round(240) -> ceiling 200
+    }
+
+    func test_autoSweetSpot_isUniform() {
+        let pad = PaddingConfig.autoSweetSpot(forSelection: CGSize(width: 1000, height: 700))
+        XCTAssertNotNil(pad.uniform)
+    }
 }
 
 /// Small image helper used across tests.
