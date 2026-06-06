@@ -111,8 +111,8 @@ fileprivate extension EditorDocument {
             pageURL: session.pageURL,
             baseSelection: pixelSelection,
             selectionCornerRadii: session.pixelCornerRadii(for: session.selectedBorderRadii),
-            padding: .zero,
-            background: .none,
+            padding: PaddingConfig.autoSweetSpot(forSelection: pixelSelection.size),
+            background: .defaultGradient,
             annotations: []
         )
     }
