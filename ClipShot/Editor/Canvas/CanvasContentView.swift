@@ -67,6 +67,7 @@ final class CanvasContentView: NSView {
             || previous?.screenshot !== doc.screenshot
             || previous?.padding != doc.padding
             || previous?.background != doc.background
+            || previous?.cardCornerOverride != doc.cardCornerOverride
         if backgroundChanged {
             updateBackground(for: doc)
         }
