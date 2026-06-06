@@ -6,9 +6,9 @@ struct BackgroundToolView: View {
     @ObservedObject var state: EditorState
 
     @State private var solid = Color.white
-    @State private var gradientStart = Color(red: 0.12, green: 0.36, blue: 0.72)
-    @State private var gradientEnd = Color(red: 0.20, green: 0.65, blue: 0.85)
-    @State private var gradientAngle = 135.0
+    @State private var gradientStart = Color(cgColor: BackgroundStyle.defaultGradientStart)
+    @State private var gradientEnd = Color(cgColor: BackgroundStyle.defaultGradientEnd)
+    @State private var gradientAngle = Double(BackgroundStyle.defaultGradientAngle)
     @State private var blurRadius = 24.0
     @State private var isSyncingControls = false
 
