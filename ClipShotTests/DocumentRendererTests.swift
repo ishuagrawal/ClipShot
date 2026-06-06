@@ -291,6 +291,72 @@ final class DocumentRendererTests: XCTestCase {
         XCTAssertEqual(doc.annotations, [annotation])
     }
 
+    func test_render_concentricOuter_clipsCardCorners() throws {
+        let doc = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 200, height: 200)),
+            viewport: CGSize(width: 200, height: 200),
+            pageTitle: "t", pageURL: "u",
+            baseSelection: CGRect(x: 50, y: 50, width: 80, height: 60),
+            selectionCornerRadii: .uniform(14),
+            padding: .uniform(10),
+            background: .solidColor(CGColor(red: 0, green: 0, blue: 1, alpha: 1))
+        )
+        let image = try XCTUnwrap(DocumentRenderer.render(doc))
+        let buffer = try XCTUnwrap(PixelBuffer.decode(image))
+
+        // Outer corner is now rounded -> top-left pixel is outside the card -> transparent.
+        XCTAssertEqual(buffer.pixels[3], 0, "concentric outer corner must be transparent")
+
+        // Center of the padded card is still opaque background (blue).
+        let cx = (buffer.width / 2)
+        let cy = 5 // inside top margin band, away from corners
+        let idx = cy * buffer.bytesPerRow + cx * 4
+        XCTAssertEqual(Int(buffer.pixels[idx + 3]), 255, "card interior margin must stay opaque")
+    }
+
+    func test_render_rectangularShot_outerCornersUnaffected() throws {
+        // No corner radii -> outer radii zero -> full-bleed background, opaque corner.
+        let doc = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 200, height: 200)),
+            viewport: CGSize(width: 200, height: 200),
+            pageTitle: "t", pageURL: "u",
+            baseSelection: CGRect(x: 50, y: 50, width: 80, height: 60),
+            selectionCornerRadii: .zero,
+            padding: .uniform(10),
+            background: .solidColor(CGColor(red: 0, green: 0, blue: 1, alpha: 1))
+        )
+        let image = try XCTUnwrap(DocumentRenderer.render(doc))
+        let buffer = try XCTUnwrap(PixelBuffer.decode(image))
+        XCTAssertEqual(Int(buffer.pixels[3]), 255, "rectangular shot keeps opaque corners")
+    }
+
+    func test_render_concentricOuter_clipsAnnotationsAtCardCorners() throws {
+        var doc = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 200, height: 200)),
+            viewport: CGSize(width: 200, height: 200),
+            pageTitle: "t", pageURL: "u",
+            baseSelection: CGRect(x: 50, y: 50, width: 80, height: 60),
+            selectionCornerRadii: .uniform(14),
+            padding: .uniform(10),
+            background: .none
+        )
+        doc.annotations = [
+            Annotation(kind: .rect(
+                // Selection-relative coordinates: -padding reaches output (0, 0).
+                frame: CGRect(x: -10, y: -10, width: 20, height: 20),
+                stroke: nil,
+                fill: CGColor(red: 0, green: 1, blue: 0, alpha: 1),
+                weight: 0,
+                cornerRadius: 0
+            ))
+        ]
+
+        let image = try XCTUnwrap(DocumentRenderer.render(doc))
+        let buffer = try XCTUnwrap(PixelBuffer.decode(image))
+
+        XCTAssertEqual(buffer.pixels[3], 0, "annotation content in the outer corner must be clipped")
+    }
+
     private func paddedDoc(padding: CGFloat, background: BackgroundStyle) -> EditorDocument {
         document(
             screenshot: TestImage.solid(.red, size: CGSize(width: 200, height: 200)),

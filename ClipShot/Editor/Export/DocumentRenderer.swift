@@ -38,6 +38,12 @@ enum DocumentRenderer {
             height: selectionPx.height
         )
 
+        let outerRadii = doc.outerCornerRadii
+        if !outerRadii.isZero {
+            ctx.addPath(outerRadii.path(in: outputRect))
+            ctx.clip()
+        }
+
         if !doc.padding.isZero {
             drawBackground(doc.background, in: ctx, outputRect: outputRect, screenshot: doc.screenshot)
         }
