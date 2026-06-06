@@ -174,6 +174,9 @@ struct EditorDocument {
     var padding: PaddingConfig      { didSet { bumpVersion() } }
     var background: BackgroundStyle { didSet { bumpVersion() } }
     var annotations: [Annotation]   { didSet { bumpVersion() } }
+    // User-set uniform card corner radius. nil = auto (concentric, derived from
+    // the screenshot's own radius + padding). 0 = explicitly square.
+    var cardCornerOverride: CGFloat? { didSet { bumpVersion() } }
     private(set) var version: Int
 
     init(
@@ -186,7 +189,8 @@ struct EditorDocument {
         contentCornerRadii: SelectionCornerRadii? = nil,
         padding: PaddingConfig = .zero,
         background: BackgroundStyle = .none,
-        annotations: [Annotation] = []
+        annotations: [Annotation] = [],
+        cardCornerOverride: CGFloat? = nil
     ) {
         self.screenshot = screenshot
         self.viewport = viewport
@@ -204,6 +208,7 @@ struct EditorDocument {
         self.padding = padding
         self.background = background
         self.annotations = annotations
+        self.cardCornerOverride = cardCornerOverride
         self.version = 0
     }
 
@@ -222,6 +227,9 @@ struct EditorDocument {
     /// the screenshot has no corner mask or there is no padding. Derived, so it
     /// tracks the padding slider live.
     var outerCornerRadii: SelectionCornerRadii {
+        // A user override is a uniform radius rendered via `cardCornerRadius`; the
+        // per-corner bezier path must not fight it (e.g. override 0 = square card).
+        guard cardCornerOverride == nil else { return .zero }
         guard !contentCornerRadii.isZero, !padding.isZero else { return .zero }
         return contentCornerRadii
             .concentricOuter(padding: padding)
@@ -233,8 +241,22 @@ struct EditorDocument {
     /// by padding). nil when there is no padding or no uniform corner radius —
     /// those fall back to the bezier `outerCornerRadii` path / no rounding.
     var cardCornerRadius: CGFloat? {
+        if let override = cardCornerOverride {
+            return min(max(0, override), maxCardCornerRadius)
+        }
+        return autoCardCornerRadius
+    }
+
+    /// Largest legal card radius for the current padded card.
+    var maxCardCornerRadius: CGFloat {
+        min(effectiveCrop.width, effectiveCrop.height) / 2
+    }
+
+    /// The derived concentric radius the card would use in auto mode, ignoring
+    /// any user override. nil when there is no padding or no uniform radius.
+    var autoCardCornerRadius: CGFloat? {
         guard !padding.isZero, let r = contentCornerRadii.uniformRadius else { return nil }
-        return min(r, min(effectiveCrop.width, effectiveCrop.height) / 2)
+        return min(r, maxCardCornerRadius)
     }
 
     var imageBounds: CGRect {
@@ -271,6 +293,7 @@ extension EditorDocument: Equatable {
         && lhs.padding == rhs.padding
         && lhs.background == rhs.background
         && lhs.annotations == rhs.annotations
+        && lhs.cardCornerOverride == rhs.cardCornerOverride
         && lhs.version == rhs.version
     }
 }

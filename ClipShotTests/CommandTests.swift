@@ -25,6 +25,38 @@ final class CommandTests: XCTestCase {
         XCTAssertEqual(doc.padding, before)
     }
 
+    func test_setCardCorner_applyThenRevert_isIdentity() {
+        var doc = makeDoc()
+        let before = doc.cardCornerOverride
+        let command = SetCardCornerCommand(from: before, to: 24)
+
+        command.apply(to: &doc)
+        XCTAssertEqual(doc.cardCornerOverride, 24)
+        command.revert(to: &doc)
+        XCTAssertEqual(doc.cardCornerOverride, before)
+    }
+
+    func test_setCardCorner_revertRestoresAutoNil() {
+        var doc = makeDoc()
+        doc.cardCornerOverride = 30
+        let command = SetCardCornerCommand(from: 30, to: nil)
+
+        command.apply(to: &doc)
+        XCTAssertNil(doc.cardCornerOverride)
+        command.revert(to: &doc)
+        XCTAssertEqual(doc.cardCornerOverride, 30)
+    }
+
+    func test_setCardCorner_coalesce_keepsOriginalFrom() {
+        let first = SetCardCornerCommand(from: nil, to: 10)
+        let second = SetCardCornerCommand(from: 10, to: 40)
+
+        let merged = first.coalesce(with: second) as? SetCardCornerCommand
+        XCTAssertNotNil(merged)
+        XCTAssertEqual(merged?.from, nil)
+        XCTAssertEqual(merged?.to, 40)
+    }
+
     func test_setPadding_coalesce_keepsOriginalFrom() {
         let first = SetPaddingCommand(
             from: .zero,

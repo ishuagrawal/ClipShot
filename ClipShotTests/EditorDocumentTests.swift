@@ -348,6 +348,50 @@ final class EditorDocumentTests: XCTestCase {
         )
         XCTAssertNil(noPad.cardCornerRadius)
     }
+
+    private func overrideDoc(_ override: CGFloat?) -> EditorDocument {
+        EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 400, height: 400)),
+            viewport: CGSize(width: 400, height: 400),
+            pageTitle: "t", pageURL: "u",
+            baseSelection: CGRect(x: 50, y: 50, width: 200, height: 160),
+            selectionCornerRadii: .zero,
+            contentCornerRadii: .uniform(18),
+            padding: .uniform(40),
+            cardCornerOverride: override
+        )
+    }
+
+    func test_cardCornerRadius_usesOverrideWhenSet() {
+        XCTAssertEqual(overrideDoc(60).cardCornerRadius, 60)
+    }
+
+    func test_cardCornerRadius_overrideZeroGivesSquareCard() {
+        XCTAssertEqual(overrideDoc(0).cardCornerRadius, 0)
+    }
+
+    func test_cardCornerRadius_overrideClampedToHalfMinDimension() {
+        // effectiveCrop is 280×240, so max radius is 120.
+        XCTAssertEqual(overrideDoc(9999).cardCornerRadius, 120)
+    }
+
+    func test_cardCornerRadius_nilOverrideFallsBackToConcentric() {
+        XCTAssertEqual(overrideDoc(nil).cardCornerRadius, 18)
+    }
+
+    func test_outerCornerRadii_suppressedWhenOverrideSet() {
+        // Override is uniform (rendered via cardCornerRadius); the bezier outer
+        // path must yield so override 0 actually produces a square card.
+        XCTAssertTrue(overrideDoc(0).outerCornerRadii.isZero)
+        XCTAssertTrue(overrideDoc(60).outerCornerRadii.isZero)
+        XCTAssertFalse(overrideDoc(nil).outerCornerRadii.isZero)
+    }
+
+    func test_autoCardCornerRadius_ignoresOverride() {
+        // Auto value is the derived concentric radius regardless of override.
+        XCTAssertEqual(overrideDoc(60).autoCardCornerRadius, 18)
+        XCTAssertEqual(overrideDoc(nil).autoCardCornerRadius, 18)
+    }
 }
 
 /// Small image helper used across tests.

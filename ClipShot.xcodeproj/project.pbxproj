@@ -49,6 +49,7 @@
 		01A000000000000000000222 /* ComponentListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000222 /* ComponentListView.swift */; };
 		01A000000000000000000225 /* CanvasToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000225 /* CanvasToolView.swift */; };
 		01A000000000000000000210 /* SetPaddingCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000210 /* SetPaddingCommand.swift */; };
+		01A000000000000000000299 /* SetCardCornerCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000299 /* SetCardCornerCommand.swift */; };
 		01A000000000000000000211 /* SetBackgroundCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000211 /* SetBackgroundCommand.swift */; };
 		01A000000000000000000212 /* PaddingToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000212 /* PaddingToolView.swift */; };
 		01A000000000000000000213 /* BackgroundToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000213 /* BackgroundToolView.swift */; };
@@ -115,6 +116,7 @@
 		01B000000000000000000222 /* ComponentListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComponentListView.swift; sourceTree = "<group>"; };
 		01B000000000000000000225 /* CanvasToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasToolView.swift; sourceTree = "<group>"; };
 		01B000000000000000000210 /* SetPaddingCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetPaddingCommand.swift; sourceTree = "<group>"; };
+		01B000000000000000000299 /* SetCardCornerCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetCardCornerCommand.swift; sourceTree = "<group>"; };
 		01B000000000000000000211 /* SetBackgroundCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetBackgroundCommand.swift; sourceTree = "<group>"; };
 		01B000000000000000000212 /* PaddingToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaddingToolView.swift; sourceTree = "<group>"; };
 		01B000000000000000000213 /* BackgroundToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundToolView.swift; sourceTree = "<group>"; };
@@ -241,6 +243,7 @@
 					01B000000000000000000205 /* EditorCommand.swift */,
 					01B000000000000000000206 /* UndoStack.swift */,
 					01B000000000000000000210 /* SetPaddingCommand.swift */,
+					01B000000000000000000299 /* SetCardCornerCommand.swift */,
 					01B000000000000000000211 /* SetBackgroundCommand.swift */,
 					01B000000000000000000218 /* AddAnnotationCommand.swift */,
 					01B000000000000000000219 /* RemoveAnnotationCommand.swift */,
@@ -460,6 +463,7 @@
 				01A000000000000000000222 /* ComponentListView.swift in Sources */,
 				01A000000000000000000225 /* CanvasToolView.swift in Sources */,
 				01A000000000000000000210 /* SetPaddingCommand.swift in Sources */,
+				01A000000000000000000299 /* SetCardCornerCommand.swift in Sources */,
 				01A000000000000000000211 /* SetBackgroundCommand.swift in Sources */,
 				01A000000000000000000218 /* AddAnnotationCommand.swift in Sources */,
 				01A000000000000000000219 /* RemoveAnnotationCommand.swift in Sources */,
