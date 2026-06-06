@@ -22,9 +22,19 @@ struct MenuContentView: View {
             Divider()
 
             VStack(alignment: .leading, spacing: 4) {
+                Text("Screen capture")
+                    .font(.subheadline.weight(.semibold))
+                Text("Press Control Shift 5, then drag around a window or selected region.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 4) {
                 Text("Web DOM capture")
                     .font(.subheadline.weight(.semibold))
-                Text("Use the Arc/Chrome extension command: Control Shift 5.")
+                Text("Use the Arc/Chrome extension command from the browser.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Text("ClipShot opens the selected page region in the desktop editor.")

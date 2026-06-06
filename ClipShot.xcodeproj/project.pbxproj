@@ -14,6 +14,9 @@
 		01A00000000000000000000C /* MenuContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000000C /* MenuContentView.swift */; };
 		01A00000000000000000000F /* DOMCaptureBridgeServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000010 /* DOMCaptureBridgeServer.swift */; };
 		01A000000000000000000011 /* DOMCaptureModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000011 /* DOMCaptureModels.swift */; };
+		01A000000000000000000400 /* NativeCaptureRegionOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000400 /* NativeCaptureRegionOverlay.swift */; };
+		01A000000000000000000401 /* NativeScreenCapturer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000401 /* NativeScreenCapturer.swift */; };
+		01A000000000000000000402 /* NativeCaptureShortcut.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000402 /* NativeCaptureShortcut.swift */; };
 		01A000000000000000000012 /* EditorWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000012 /* EditorWindowController.swift */; };
 		01A000000000000000000013 /* EditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000013 /* EditorView.swift */; };
 		01A000000000000000000214 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000214 /* Theme.swift */; };
@@ -66,6 +69,7 @@
 		01A000000000000000000309 /* AnnotationCommandTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000309 /* AnnotationCommandTests.swift */; };
 		01A00000000000000000030A /* AnnotationStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000030A /* AnnotationStateTests.swift */; };
 		01A00000000000000000030B /* ZoomMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000030B /* ZoomMathTests.swift */; };
+		01A00000000000000000030C /* NativeWindowMatcherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000030C /* NativeWindowMatcherTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -78,6 +82,9 @@
 		01B00000000000000000000F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		01B000000000000000000010 /* DOMCaptureBridgeServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DOMCaptureBridgeServer.swift; sourceTree = "<group>"; };
 		01B000000000000000000011 /* DOMCaptureModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DOMCaptureModels.swift; sourceTree = "<group>"; };
+		01B000000000000000000400 /* NativeCaptureRegionOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCaptureRegionOverlay.swift; sourceTree = "<group>"; };
+		01B000000000000000000401 /* NativeScreenCapturer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeScreenCapturer.swift; sourceTree = "<group>"; };
+		01B000000000000000000402 /* NativeCaptureShortcut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCaptureShortcut.swift; sourceTree = "<group>"; };
 		01B000000000000000000012 /* EditorWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorWindowController.swift; sourceTree = "<group>"; };
 		01B000000000000000000013 /* EditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorView.swift; sourceTree = "<group>"; };
 		01B000000000000000000214 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
@@ -131,6 +138,7 @@
 		01B000000000000000000309 /* AnnotationCommandTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnotationCommandTests.swift; sourceTree = "<group>"; };
 		01B00000000000000000030A /* AnnotationStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnotationStateTests.swift; sourceTree = "<group>"; };
 		01B00000000000000000030B /* ZoomMathTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomMathTests.swift; sourceTree = "<group>"; };
+		01B00000000000000000030C /* NativeWindowMatcherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeWindowMatcherTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -177,6 +185,7 @@
 					01B000000000000000000309 /* AnnotationCommandTests.swift */,
 					01B00000000000000000030A /* AnnotationStateTests.swift */,
 					01B00000000000000000030B /* ZoomMathTests.swift */,
+					01B00000000000000000030C /* NativeWindowMatcherTests.swift */,
 				);
 			path = ClipShotTests;
 			sourceTree = "<group>";
@@ -200,6 +209,7 @@
 				01B000000000000000000006 /* CaptureCoordinator.swift */,
 				01D000000000000000000200 /* Editor */,
 				01D000000000000000000009 /* DOM */,
+				01D000000000000000000400 /* Native */,
 				01D000000000000000000007 /* UI */,
 			);
 			path = ClipShot;
@@ -295,6 +305,16 @@
 				01B000000000000000000011 /* DOMCaptureModels.swift */,
 			);
 			path = DOM;
+			sourceTree = "<group>";
+		};
+		01D000000000000000000400 /* Native */ = {
+			isa = PBXGroup;
+			children = (
+				01B000000000000000000400 /* NativeCaptureRegionOverlay.swift */,
+				01B000000000000000000401 /* NativeScreenCapturer.swift */,
+				01B000000000000000000402 /* NativeCaptureShortcut.swift */,
+			);
+			path = Native;
 			sourceTree = "<group>";
 		};
 		01D000000000000000000007 /* UI */ = {
@@ -404,6 +424,9 @@
 				01A00000000000000000000C /* MenuContentView.swift in Sources */,
 				01A00000000000000000000F /* DOMCaptureBridgeServer.swift in Sources */,
 				01A000000000000000000011 /* DOMCaptureModels.swift in Sources */,
+				01A000000000000000000400 /* NativeCaptureRegionOverlay.swift in Sources */,
+				01A000000000000000000401 /* NativeScreenCapturer.swift in Sources */,
+				01A000000000000000000402 /* NativeCaptureShortcut.swift in Sources */,
 				01A000000000000000000012 /* EditorWindowController.swift in Sources */,
 				01A000000000000000000013 /* EditorView.swift in Sources */,
 				01A000000000000000000214 /* Theme.swift in Sources */,
@@ -463,6 +486,7 @@
 				01A000000000000000000309 /* AnnotationCommandTests.swift in Sources */,
 				01A00000000000000000030A /* AnnotationStateTests.swift in Sources */,
 				01A00000000000000000030B /* ZoomMathTests.swift in Sources */,
+				01A00000000000000000030C /* NativeWindowMatcherTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

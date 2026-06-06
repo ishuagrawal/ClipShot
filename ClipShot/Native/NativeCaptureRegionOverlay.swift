@@ -1,0 +1,167 @@
+import AppKit
+
+struct NativeCaptureRegion: Sendable {
+    let displayID: CGDirectDisplayID
+    let sourceRect: CGRect   // display-local, top-left origin, points
+}
+
+@MainActor
+final class NativeCaptureRegionOverlay {
+    private var windows: [NSWindow] = []
+    private var completion: ((NativeCaptureRegion?) -> Void)?
+
+    func present(completion: @escaping (NativeCaptureRegion?) -> Void) {
+        cancel()
+        self.completion = completion
+
+        for screen in NSScreen.screens {
+            guard let displayID = screen.displayID else { continue }
+            let panel = NSPanel(
+                contentRect: screen.frame,
+                styleMask: [.borderless, .nonactivatingPanel],
+                backing: .buffered,
+                defer: false
+            )
+            panel.backgroundColor = .clear
+            panel.isOpaque = false
+            panel.hasShadow = false
+            panel.level = .screenSaver
+            panel.animationBehavior = .none
+            panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+            panel.ignoresMouseEvents = false
+            panel.acceptsMouseMovedEvents = true
+
+            let selectionView = NativeCaptureRegionView(displayID: displayID) { [weak self] region in
+                self?.finish(region)
+            }
+            selectionView.frame = CGRect(origin: .zero, size: screen.frame.size)
+            panel.contentView = selectionView
+            panel.makeKeyAndOrderFront(nil)
+            windows.append(panel)
+        }
+    }
+
+    private func finish(_ region: NativeCaptureRegion?) {
+        let callback = completion
+        completion = nil
+        for window in windows {
+            window.orderOut(nil)
+        }
+        windows.removeAll()
+
+        guard region != nil else {
+            callback?(nil)
+            return
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            callback?(region)
+        }
+    }
+
+    private func cancel() {
+        guard !windows.isEmpty || completion != nil else { return }
+        finish(nil)
+    }
+}
+
+private final class NativeCaptureRegionView: NSView {
+    private let displayID: CGDirectDisplayID
+    private let completion: (NativeCaptureRegion?) -> Void
+    private var startPoint: CGPoint?
+    private var currentPoint: CGPoint?
+
+    init(displayID: CGDirectDisplayID, completion: @escaping (NativeCaptureRegion?) -> Void) {
+        self.displayID = displayID
+        self.completion = completion
+        super.init(frame: .zero)
+        wantsLayer = true
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override var acceptsFirstResponder: Bool { true }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        window?.makeFirstResponder(self)
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 53 {
+            completion(nil)
+        } else {
+            super.keyDown(with: event)
+        }
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        startPoint = convert(event.locationInWindow, from: nil)
+        currentPoint = startPoint
+        needsDisplay = true
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        currentPoint = convert(event.locationInWindow, from: nil)
+        needsDisplay = true
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        currentPoint = convert(event.locationInWindow, from: nil)
+        guard let rect = selectionRect, rect.width >= 8, rect.height >= 8 else {
+            completion(nil)
+            return
+        }
+
+        completion(NativeCaptureRegion(
+            displayID: displayID,
+            sourceRect: CGRect(
+                x: rect.minX,
+                y: bounds.height - rect.maxY,
+                width: rect.width,
+                height: rect.height
+            )
+        ))
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard let rect = selectionRect, rect.width > 1 || rect.height > 1 else { return }
+
+        NSColor.black.withAlphaComponent(0.24).setFill()
+        bounds.fill()
+
+        if let context = NSGraphicsContext.current?.cgContext {
+            context.saveGState()
+            context.clear(rect)
+            context.restoreGState()
+        }
+
+        NSColor.systemBlue.withAlphaComponent(0.18).setFill()
+        rect.fill()
+
+        let path = NSBezierPath(rect: rect)
+        path.lineWidth = 2
+        NSColor.systemBlue.setStroke()
+        path.stroke()
+    }
+
+    private var selectionRect: CGRect? {
+        guard let startPoint, let currentPoint else { return nil }
+        return CGRect(
+            x: min(startPoint.x, currentPoint.x),
+            y: min(startPoint.y, currentPoint.y),
+            width: abs(currentPoint.x - startPoint.x),
+            height: abs(currentPoint.y - startPoint.y)
+        )
+    }
+}
+
+private extension NSScreen {
+    var displayID: CGDirectDisplayID? {
+        let key = NSDeviceDescriptionKey("NSScreenNumber")
+        guard let number = deviceDescription[key] as? NSNumber else { return nil }
+        return CGDirectDisplayID(number.uint32Value)
+    }
+}

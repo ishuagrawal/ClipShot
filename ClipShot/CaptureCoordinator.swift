@@ -41,6 +41,42 @@ final class CaptureCoordinator: @unchecked Sendable {
         }
     }
 
+    func openNativeScreenshot(image: CGImage,
+                              pixelScale: CGFloat,
+                              sourceAppName: String,
+                              cornerRadii: DOMCornerRadii? = nil) -> Bool {
+        guard let pngData = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else {
+            appState.setCaptureStatus("Could not encode screenshot")
+            NSSound.beep()
+            return false
+        }
+
+        let safeScale = max(1, pixelScale)
+        let pixelWidth = Double(image.width)
+        let pixelHeight = Double(image.height)
+        let pointWidth = pixelWidth / Double(safeScale)
+        let pointHeight = pixelHeight / Double(safeScale)
+        let request = DOMCaptureSessionRequest(
+            screenshotBase64: pngData.base64EncodedString(),
+            selectedRect: DOMCaptureRect(left: 0, top: 0, width: pointWidth, height: pointHeight),
+            viewport: DOMCaptureViewport(
+                width: pointWidth,
+                height: pointHeight,
+                devicePixelRatio: Double(safeScale),
+                scrollX: 0,
+                scrollY: 0
+            ),
+            candidates: [],
+            selectedIndex: -1,
+            pageTitle: sourceAppName,
+            pageURL: "",
+            imageWidth: pixelWidth,
+            imageHeight: pixelHeight,
+            selectedBorderRadii: cornerRadii
+        )
+        return openDOMSession(request: request)
+    }
+
     private func reportCopyResult(_ didCopy: Bool) {
         if !didCopy {
             appState.setCaptureStatus("Clipboard write failed")
