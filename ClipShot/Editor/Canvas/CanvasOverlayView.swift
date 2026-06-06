@@ -83,13 +83,26 @@ final class CanvasOverlayView: NSView {
         let cardFrame = doc.effectiveCrop.integral
         annotationsLayer.frame = CGRect(origin: cardFrame.origin, size: cardFrame.size)
 
-        let outer = doc.outerCornerRadii
-        if outer.isZero {
+        if let radius = doc.outerCornerRadius {
+            annotationsLayer.cornerCurve = .continuous
+            annotationsLayer.cornerRadius = radius
+            annotationsLayer.maskedCorners = [
+                .layerMinXMinYCorner, .layerMaxXMinYCorner,
+                .layerMinXMaxYCorner, .layerMaxXMaxYCorner
+            ]
+            annotationsLayer.masksToBounds = true
             annotationsLayer.mask = nil
         } else {
-            annotationsOuterMaskLayer.frame = annotationsLayer.bounds
-            annotationsOuterMaskLayer.path = outer.path(in: annotationsOuterMaskLayer.bounds)
-            annotationsLayer.mask = annotationsOuterMaskLayer
+            annotationsLayer.cornerRadius = 0
+            annotationsLayer.masksToBounds = false
+            let outer = doc.outerCornerRadii
+            if outer.isZero {
+                annotationsLayer.mask = nil
+            } else {
+                annotationsOuterMaskLayer.frame = annotationsLayer.bounds
+                annotationsOuterMaskLayer.path = outer.path(in: annotationsOuterMaskLayer.bounds)
+                annotationsLayer.mask = annotationsOuterMaskLayer
+            }
         }
 
         annotationContentLayer.frame = CGRect(

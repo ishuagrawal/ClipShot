@@ -323,6 +323,44 @@ final class EditorDocumentTests: XCTestCase {
         )
         XCTAssertEqual(doc.outerCornerRadii.isZero, false)
     }
+
+    func test_outerCornerRadius_uniform_isInnerPlusPadding() {
+        let doc = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 400, height: 400)),
+            viewport: CGSize(width: 400, height: 400),
+            pageTitle: "t", pageURL: "u",
+            baseSelection: CGRect(x: 50, y: 50, width: 200, height: 160),
+            selectionCornerRadii: .zero,
+            contentCornerRadii: .uniform(18),
+            padding: .uniform(10)
+        )
+        XCTAssertEqual(doc.outerCornerRadius, 28)
+    }
+
+    func test_outerCornerRadius_nonUniformPadding_isNil() {
+        let doc = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 400, height: 400)),
+            viewport: CGSize(width: 400, height: 400),
+            pageTitle: "t", pageURL: "u",
+            baseSelection: CGRect(x: 50, y: 50, width: 200, height: 160),
+            selectionCornerRadii: .zero,
+            contentCornerRadii: .uniform(18),
+            padding: PaddingConfig(top: 10, right: 20, bottom: 10, left: 10)
+        )
+        XCTAssertNil(doc.outerCornerRadius)
+    }
+
+    func test_outerCornerRadius_zeroWhenNoRoundingOrNoPadding() {
+        let noPad = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 400, height: 400)),
+            viewport: CGSize(width: 400, height: 400),
+            pageTitle: "t", pageURL: "u",
+            baseSelection: CGRect(x: 50, y: 50, width: 200, height: 160),
+            contentCornerRadii: .uniform(18),
+            padding: .zero
+        )
+        XCTAssertNil(noPad.outerCornerRadius)
+    }
 }
 
 /// Small image helper used across tests.

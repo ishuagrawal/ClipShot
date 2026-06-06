@@ -90,9 +90,11 @@ final class CanvasContentView: NSView {
         gradientBackgroundLayer.isHidden = true
         blurBackgroundLayer.isHidden = true
 
-        solidBackgroundLayer.mask = nil
-        gradientBackgroundLayer.mask = nil
-        blurBackgroundLayer.mask = nil
+        for layer in [solidBackgroundLayer, gradientBackgroundLayer, blurBackgroundLayer] {
+            layer.mask = nil
+            layer.cornerRadius = 0
+            layer.masksToBounds = false
+        }
 
         guard !doc.padding.isZero else { return }
 
@@ -121,14 +123,20 @@ final class CanvasContentView: NSView {
     }
 
     private func applyOuterMask(to layer: CALayer, doc: EditorDocument, size: CGSize) {
-        let outer = doc.outerCornerRadii
-        guard !outer.isZero else {
+        if let radius = doc.outerCornerRadius {
+            layer.cornerCurve = .continuous
+            layer.cornerRadius = radius
+            layer.maskedCorners = [
+                .layerMinXMinYCorner, .layerMaxXMinYCorner,
+                .layerMinXMaxYCorner, .layerMaxXMaxYCorner
+            ]
+            layer.masksToBounds = true
             layer.mask = nil
-            return
+        } else if !doc.outerCornerRadii.isZero {
+            backgroundMaskLayer.frame = CGRect(origin: .zero, size: size)
+            backgroundMaskLayer.path = doc.outerCornerRadii.path(in: backgroundMaskLayer.bounds)
+            layer.mask = backgroundMaskLayer
         }
-        backgroundMaskLayer.frame = CGRect(origin: .zero, size: size)
-        backgroundMaskLayer.path = outer.path(in: backgroundMaskLayer.bounds)
-        layer.mask = backgroundMaskLayer
     }
 
     private func updateSelection(for doc: EditorDocument) {
