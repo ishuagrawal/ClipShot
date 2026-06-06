@@ -148,61 +148,6 @@ final class DocumentRendererTests: XCTestCase {
         XCTAssertEqual(buffer.pixels[3], 255, "gradient margin must be opaque")
     }
 
-    func test_render_blurExtendBackground_marginIsOpaque() throws {
-        let image = try XCTUnwrap(DocumentRenderer.render(paddedDoc(padding: 20, background: .blurExtend(radius: 12))))
-        let buffer = try XCTUnwrap(PixelBuffer.decode(image))
-        XCTAssertEqual(buffer.pixels[3], 255, "blur-extend margin must be opaque")
-    }
-
-    func test_render_blurExtendBackground_usesCurrentScreenshotForSameSizedCaptures() throws {
-        let red = TestImage.solid(.red, size: CGSize(width: 91, height: 91))
-        let blue = TestImage.solid(.blue, size: CGSize(width: 91, height: 91))
-        _ = DocumentRenderer.render(
-            document(
-                screenshot: red,
-                selection: CGRect(x: 25, y: 25, width: 41, height: 41),
-                padding: 25,
-                background: .blurExtend(radius: 7)
-            )
-        )
-
-        let image = try XCTUnwrap(
-            DocumentRenderer.render(
-                document(
-                    screenshot: blue,
-                    selection: CGRect(x: 25, y: 25, width: 41, height: 41),
-                    padding: 25,
-                    background: .blurExtend(radius: 7)
-                )
-            )
-        )
-        let buffer = try XCTUnwrap(PixelBuffer.decode(image))
-
-        XCTAssertLessThan(Int(buffer.pixels[0]), 20)
-        XCTAssertLessThan(Int(buffer.pixels[1]), 20)
-        XCTAssertGreaterThan(Int(buffer.pixels[2]), 235)
-    }
-
-    func test_render_blurExtendBackground_drawsUprightInPadding() throws {
-        let image = try XCTUnwrap(
-            DocumentRenderer.render(
-                document(
-                    screenshot: verticalSplitImage(size: CGSize(width: 73, height: 73)),
-                    selection: CGRect(x: 20, y: 20, width: 33, height: 33),
-                    padding: 20,
-                    background: .blurExtend(radius: 0)
-                )
-            )
-        )
-        let buffer = try XCTUnwrap(PixelBuffer.decode(image))
-
-        // The fixture is created in Core Graphics' y-up space, so its visual
-        // top half is blue. Upright rendering must keep the output top-left blue.
-        XCTAssertLessThan(Int(buffer.pixels[0]), 20)
-        XCTAssertLessThan(Int(buffer.pixels[1]), 80)
-        XCTAssertGreaterThan(Int(buffer.pixels[2]), 235)
-    }
-
     func test_render_arrow_overridesScreenshotPixels() throws {
         var doc = paddedDoc(padding: 0, background: .none)
         doc.annotations = [

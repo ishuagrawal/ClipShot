@@ -113,13 +113,9 @@ final class CanvasContentView: NSView {
             gradientBackgroundLayer.endPoint = points.end
             gradientBackgroundLayer.isHidden = false
             applyOuterMask(to: gradientBackgroundLayer, doc: doc, size: backgroundFrame.size)
-        case .blurExtend(let radius):
-            blurBackgroundLayer.contents = DocumentRenderer.blurredBackgroundImage(
-                for: doc.screenshot,
-                radius: radius
-            ) ?? doc.screenshot
-            blurBackgroundLayer.isHidden = false
-            applyOuterMask(to: blurBackgroundLayer, doc: doc, size: backgroundFrame.size)
+        case .dynamic:
+            // Placeholder until a later task wires the mesh image.
+            break
         }
     }
 

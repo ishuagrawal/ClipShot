@@ -99,13 +99,15 @@ final class CommandTests: XCTestCase {
     }
 
     func test_setBackground_coalesce_keepsOriginalFrom() {
-        let first = SetBackgroundCommand(from: .none, to: .blurExtend(radius: 10))
-        let second = SetBackgroundCommand(from: .blurExtend(radius: 10), to: .blurExtend(radius: 30))
-
+        let first = SetBackgroundCommand(from: .none, to: .solidColor(CGColor(gray: 0.2, alpha: 1)))
+        let second = SetBackgroundCommand(
+            from: .solidColor(CGColor(gray: 0.2, alpha: 1)),
+            to: .dynamic
+        )
         let merged = first.coalesce(with: second) as? SetBackgroundCommand
         XCTAssertNotNil(merged)
         XCTAssertEqual(merged?.from, BackgroundStyle.none)
-        XCTAssertEqual(merged?.to, .blurExtend(radius: 30))
+        XCTAssertEqual(merged?.to, .dynamic)
     }
 
     func test_setPadding_applyAndRevert_neverMutatesAnnotations() {

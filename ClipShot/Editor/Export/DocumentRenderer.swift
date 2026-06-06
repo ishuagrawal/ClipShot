@@ -64,10 +64,6 @@ enum DocumentRenderer {
         return ctx.makeImage()
     }
 
-    static func blurredBackgroundImage(for screenshot: CGImage, radius: CGFloat) -> CGImage? {
-        BlurExtendCache.shared.blurredImage(for: screenshot, radius: radius)
-    }
-
     private static func drawAnnotations(_ annotations: [Annotation], in ctx: CGContext) {
         for annotation in annotations {
             switch annotation.kind {
@@ -164,8 +160,9 @@ enum DocumentRenderer {
             ctx.restoreGState()
         case .gradient(let start, let end, let angleDegrees):
             drawGradient(start: start, end: end, angleDegrees: angleDegrees, in: ctx, rect: outputRect)
-        case .blurExtend(let radius):
-            drawBlurExtend(radius: radius, in: ctx, outputRect: outputRect, screenshot: screenshot)
+        case .dynamic:
+            // Placeholder until a later task wires the mesh cache.
+            break
         }
     }
 
@@ -200,38 +197,6 @@ enum DocumentRenderer {
             options: [.drawsBeforeStartLocation, .drawsAfterEndLocation]
         )
         ctx.restoreGState()
-    }
-
-    private static func drawBlurExtend(
-        radius: CGFloat,
-        in ctx: CGContext,
-        outputRect: CGRect,
-        screenshot: CGImage
-    ) {
-        let blurred = BlurExtendCache.shared.blurredImage(for: screenshot, radius: radius) ?? screenshot
-        let fill = aspectFillRect(
-            imageSize: CGSize(width: blurred.width, height: blurred.height),
-            into: outputRect
-        )
-        ctx.saveGState()
-        ctx.clip(to: outputRect)
-        ctx.translateBy(x: fill.minX, y: fill.maxY)
-        ctx.scaleBy(x: 1, y: -1)
-        ctx.draw(blurred, in: CGRect(origin: .zero, size: fill.size))
-        ctx.restoreGState()
-    }
-
-    private static func aspectFillRect(imageSize: CGSize, into rect: CGRect) -> CGRect {
-        guard imageSize.width > 0, imageSize.height > 0 else { return rect }
-        let scale = max(rect.width / imageSize.width, rect.height / imageSize.height)
-        let width = imageSize.width * scale
-        let height = imageSize.height * scale
-        return CGRect(
-            x: rect.midX - width / 2,
-            y: rect.midY - height / 2,
-            width: width,
-            height: height
-        )
     }
 
     private static func drawScreenshot(
