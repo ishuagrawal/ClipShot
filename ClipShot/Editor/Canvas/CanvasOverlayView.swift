@@ -42,12 +42,14 @@ final class CanvasOverlayView: NSView {
 
     private let annotationsLayer: CALayer
     private let annotationContentLayer: CALayer
+    private let annotationsOuterMaskLayer: CAShapeLayer
     private var annotationLayers: [UUID: CALayer] = [:]
     private let inProgressLayerKey = UUID()
 
     override init(frame frameRect: NSRect) {
         annotationsLayer = CALayer()
         annotationContentLayer = CALayer()
+        annotationsOuterMaskLayer = CAShapeLayer()
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.backgroundColor = .clear
@@ -79,6 +81,16 @@ final class CanvasOverlayView: NSView {
         CATransaction.setDisableActions(true)
 
         annotationsLayer.frame = CGRect(origin: doc.effectiveCrop.origin, size: doc.effectiveCrop.size)
+
+        let outer = doc.outerCornerRadii
+        if outer.isZero {
+            annotationsLayer.mask = nil
+        } else {
+            annotationsOuterMaskLayer.frame = annotationsLayer.bounds
+            annotationsOuterMaskLayer.path = outer.path(in: annotationsOuterMaskLayer.bounds)
+            annotationsLayer.mask = annotationsOuterMaskLayer
+        }
+
         annotationContentLayer.frame = CGRect(
             x: doc.padding.left,
             y: doc.padding.top,

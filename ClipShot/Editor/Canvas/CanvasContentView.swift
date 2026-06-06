@@ -14,6 +14,7 @@ final class CanvasContentView: NSView {
     private let blurBackgroundLayer: CALayer
     private let selectionLayer: CALayer
     private let selectionMaskLayer: CAShapeLayer
+    private let backgroundMaskLayer: CAShapeLayer
 
     override init(frame frameRect: NSRect) {
         self.solidBackgroundLayer = CALayer()
@@ -21,6 +22,7 @@ final class CanvasContentView: NSView {
         self.blurBackgroundLayer = CALayer()
         self.selectionLayer = CALayer()
         self.selectionMaskLayer = CAShapeLayer()
+        self.backgroundMaskLayer = CAShapeLayer()
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.backgroundColor = .clear
@@ -88,6 +90,10 @@ final class CanvasContentView: NSView {
         gradientBackgroundLayer.isHidden = true
         blurBackgroundLayer.isHidden = true
 
+        solidBackgroundLayer.mask = nil
+        gradientBackgroundLayer.mask = nil
+        blurBackgroundLayer.mask = nil
+
         guard !doc.padding.isZero else { return }
 
         switch doc.background {
@@ -96,19 +102,33 @@ final class CanvasContentView: NSView {
         case .solidColor(let color):
             solidBackgroundLayer.backgroundColor = color
             solidBackgroundLayer.isHidden = false
+            applyOuterMask(to: solidBackgroundLayer, doc: doc, size: backgroundFrame.size)
         case .gradient(let start, let end, let angleDegrees):
             gradientBackgroundLayer.colors = [start, end]
             let points = Self.gradientPoints(angleDegrees: angleDegrees, size: backgroundFrame.size)
             gradientBackgroundLayer.startPoint = points.start
             gradientBackgroundLayer.endPoint = points.end
             gradientBackgroundLayer.isHidden = false
+            applyOuterMask(to: gradientBackgroundLayer, doc: doc, size: backgroundFrame.size)
         case .blurExtend(let radius):
             blurBackgroundLayer.contents = DocumentRenderer.blurredBackgroundImage(
                 for: doc.screenshot,
                 radius: radius
             ) ?? doc.screenshot
             blurBackgroundLayer.isHidden = false
+            applyOuterMask(to: blurBackgroundLayer, doc: doc, size: backgroundFrame.size)
         }
+    }
+
+    private func applyOuterMask(to layer: CALayer, doc: EditorDocument, size: CGSize) {
+        let outer = doc.outerCornerRadii
+        guard !outer.isZero else {
+            layer.mask = nil
+            return
+        }
+        backgroundMaskLayer.frame = CGRect(origin: .zero, size: size)
+        backgroundMaskLayer.path = outer.path(in: backgroundMaskLayer.bounds)
+        layer.mask = backgroundMaskLayer
     }
 
     private func updateSelection(for doc: EditorDocument) {
