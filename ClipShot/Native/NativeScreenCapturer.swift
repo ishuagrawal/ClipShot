@@ -19,8 +19,9 @@ struct NativeWindowShot: @unchecked Sendable {
     let image: CGImage
     let pixelScale: CGFloat
     let appName: String
-    /// nil for native window shots (corners baked into alpha); set only for
-    /// rectangular DOM/web captures.
+    /// The measured radius of the baked rounded corners, so concentric padding
+    /// can match it. nil when no rounding was detected, or for non-window
+    /// rectangular captures.
     let cornerRadii: DOMCornerRadii?
 }
 
@@ -185,15 +186,25 @@ final class NativeScreenCapturer: @unchecked Sendable {
             outputPixelSize: CGSize(width: windowShape.width, height: windowShape.height)
         )
 
+        let shaped = shapedWindowImage(
+            visibleBitmap.image,
+            windowShape: windowShape,
+            pixelScale: pixelScale
+        )
+        let safeScale = max(1, pixelScale)
+        let cornerRadii: DOMCornerRadii?
+        if shaped.cornerRadiusPixels > 0.5 {
+            let pointRadius = Double(shaped.cornerRadiusPixels / safeScale)
+            let r = DOMCornerRadius(width: pointRadius, height: pointRadius)
+            cornerRadii = DOMCornerRadii(topLeft: r, topRight: r, bottomRight: r, bottomLeft: r)
+        } else {
+            cornerRadii = nil
+        }
         return NativeWindowShot(
-            image: shapedWindowImage(
-                visibleBitmap.image,
-                windowShape: windowShape,
-                pixelScale: pixelScale
-            ),
-            pixelScale: max(1, pixelScale),
+            image: shaped.image,
+            pixelScale: safeScale,
             appName: window.owningApplication?.applicationName ?? "Window",
-            cornerRadii: nil
+            cornerRadii: cornerRadii
         )
     }
 
@@ -208,17 +219,17 @@ final class NativeScreenCapturer: @unchecked Sendable {
     /// hardcoded constants.
     private func shapedWindowImage(_ visibleImage: CGImage,
                                    windowShape: CGImage,
-                                   pixelScale: CGFloat) -> CGImage {
+                                   pixelScale: CGFloat) -> (image: CGImage, cornerRadiusPixels: CGFloat) {
         let width = visibleImage.width
         let height = visibleImage.height
-        guard width > 0, height > 0 else { return visibleImage }
+        guard width > 0, height > 0 else { return (visibleImage, 0) }
 
         let radius = cornerRadiusPixels(in: windowShape)
         guard radius > 0.5,
               let mask = continuousCornerMask(
                 width: width, height: height, radius: radius, pixelScale: pixelScale
               ) else {
-            return visibleImage
+            return (visibleImage, 0)
         }
 
         guard let context = CGContext(
@@ -227,13 +238,13 @@ final class NativeScreenCapturer: @unchecked Sendable {
             space: CGColorSpace(name: CGColorSpace.sRGB)!,
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
                 | CGBitmapInfo.byteOrder32Big.rawValue
-        ) else { return visibleImage }
+        ) else { return (visibleImage, 0) }
 
         context.interpolationQuality = .high
         let rect = CGRect(x: 0, y: 0, width: width, height: height)
         context.clip(to: rect, mask: mask)
         context.draw(visibleImage, in: rect)
-        return context.makeImage() ?? visibleImage
+        return (context.makeImage() ?? visibleImage, radius)
     }
 
     /// White-inside / black-outside mask using the system's continuous (squircle)

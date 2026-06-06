@@ -54,6 +54,7 @@ struct DOMCaptureSessionRequest: Decodable, Sendable {
     let imageWidth: Double?
     let imageHeight: Double?
     let selectedBorderRadii: DOMCornerRadii?
+    let premaskedCornerRadii: DOMCornerRadii?
 }
 
 struct DOMCaptureSession: Identifiable {
@@ -68,6 +69,7 @@ struct DOMCaptureSession: Identifiable {
     let pageURL: String
     let imagePixelSize: CGSize
     let selectedBorderRadii: DOMCornerRadii?
+    let premaskedCornerRadii: DOMCornerRadii?
     let capturedAt: Date
 
     init(request: DOMCaptureSessionRequest) throws {
@@ -90,6 +92,7 @@ struct DOMCaptureSession: Identifiable {
         pageTitle = request.pageTitle?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? "Untitled Page"
         pageURL = request.pageURL?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? ""
         selectedBorderRadii = request.selectedBorderRadii
+        premaskedCornerRadii = request.premaskedCornerRadii
 
         if let width = request.imageWidth,
            let height = request.imageHeight,

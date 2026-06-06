@@ -156,6 +156,12 @@ struct EditorDocument {
 
     let baseSelection: CGRect       // imagePx coords, clamped to ≥ 8×8 on init
     let selectionCornerRadii: SelectionCornerRadii
+    // The screenshot's VISUAL corner radius, separate from selectionCornerRadii (the
+    // mask we APPLY to a rectangular shot). Native window shots bake their rounded
+    // corners into the pixels and leave selectionCornerRadii zero, but carry the
+    // measured radius here so concentric outer rounding still matches. Defaults to
+    // selectionCornerRadii for DOM/web captures. Drives ONLY outerCornerRadii.
+    let contentCornerRadii: SelectionCornerRadii
     // Mutations bump version unconditionally (even no-op writes) so the canvas can
     // treat version as a cheap change token without value-diffing.
     var padding: PaddingConfig      { didSet { bumpVersion() } }
@@ -170,6 +176,7 @@ struct EditorDocument {
         pageURL: String,
         baseSelection: CGRect,
         selectionCornerRadii: SelectionCornerRadii = .zero,
+        contentCornerRadii: SelectionCornerRadii? = nil,
         padding: PaddingConfig = .zero,
         background: BackgroundStyle = .none,
         annotations: [Annotation] = []
@@ -186,6 +193,7 @@ struct EditorDocument {
             height: max(minSide, baseSelection.height)
         )
         self.selectionCornerRadii = selectionCornerRadii.clamped(to: self.baseSelection.size)
+        self.contentCornerRadii = (contentCornerRadii ?? selectionCornerRadii).clamped(to: self.baseSelection.size)
         self.padding = padding
         self.background = background
         self.annotations = annotations
@@ -207,8 +215,8 @@ struct EditorDocument {
     /// the screenshot has no corner mask or there is no padding. Derived, so it
     /// tracks the padding slider live.
     var outerCornerRadii: SelectionCornerRadii {
-        guard !selectionCornerRadii.isZero, !padding.isZero else { return .zero }
-        return selectionCornerRadii
+        guard !contentCornerRadii.isZero, !padding.isZero else { return .zero }
+        return contentCornerRadii
             .concentricOuter(padding: padding)
             .clamped(to: effectiveCrop.size)
     }
@@ -243,6 +251,7 @@ extension EditorDocument: Equatable {
         && lhs.pageURL == rhs.pageURL
         && lhs.baseSelection == rhs.baseSelection
         && lhs.selectionCornerRadii == rhs.selectionCornerRadii
+        && lhs.contentCornerRadii == rhs.contentCornerRadii
         && lhs.padding == rhs.padding
         && lhs.background == rhs.background
         && lhs.annotations == rhs.annotations

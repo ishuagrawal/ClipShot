@@ -296,6 +296,33 @@ final class EditorDocumentTests: XCTestCase {
         let pad = PaddingConfig.autoSweetSpot(forSelection: CGSize(width: 1000, height: 700))
         XCTAssertNotNil(pad.uniform)
     }
+
+    func test_outerCornerRadii_premaskedCorners_isConcentricEvenWithZeroSelectionMask() {
+        // Native window capture: corners baked into pixels, selectionCornerRadii is zero,
+        // but the shot still has a visual corner radius carried by contentCornerRadii.
+        let doc = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 400, height: 400)),
+            viewport: CGSize(width: 400, height: 400),
+            pageTitle: "t", pageURL: "u",
+            baseSelection: CGRect(x: 50, y: 50, width: 200, height: 160),
+            selectionCornerRadii: .zero,
+            contentCornerRadii: .uniform(18),
+            padding: .uniform(10)
+        )
+        XCTAssertEqual(doc.outerCornerRadii, .uniform(28))
+    }
+
+    func test_contentCornerRadii_defaultsToSelectionCornerRadii() {
+        let doc = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 400, height: 400)),
+            viewport: CGSize(width: 400, height: 400),
+            pageTitle: "t", pageURL: "u",
+            baseSelection: CGRect(x: 50, y: 50, width: 200, height: 160),
+            selectionCornerRadii: .uniform(12),
+            padding: .uniform(10)
+        )
+        XCTAssertEqual(doc.outerCornerRadii.isZero, false)
+    }
 }
 
 /// Small image helper used across tests.
