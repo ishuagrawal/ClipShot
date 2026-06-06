@@ -78,9 +78,8 @@ private final class NativeCaptureRegionView: NSView {
     private var currentPoint: CGPoint?
     private var didDrag = false
 
-    /// Pointer travel (points) past which a press counts as a drag rather than a
-    /// click. Below this the press is a click → whole-window capture; at or above
-    /// it the user is selecting a region, even a small one.
+    /// Pointer travel (points) past which a press is a region drag; below it,
+    /// a click → whole-window capture.
     private let dragSlop: CGFloat = 4
 
     init(displayID: CGDirectDisplayID, completion: @escaping (NativeCaptureRegion?) -> Void) {
@@ -139,8 +138,7 @@ private final class NativeCaptureRegionView: NSView {
             return
         }
 
-        // The user dragged: this is a region selection, even a small one. Too
-        // tiny to be useful is a cancel, never a whole-window capture.
+        // Dragged: region selection (even small). Too tiny to use = cancel.
         guard let rect = selectionRect, rect.width >= dragSlop, rect.height >= dragSlop else {
             completion(nil)
             return

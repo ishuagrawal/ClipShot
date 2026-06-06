@@ -19,9 +19,8 @@ struct NativeWindowShot: @unchecked Sendable {
     let image: CGImage
     let pixelScale: CGFloat
     let appName: String
-    /// Rounded corners are baked into the image's alpha channel for window
-    /// captures, so this stays nil for them; it carries radii only for capture
-    /// paths (DOM/web) that hand back a rectangular bitmap.
+    /// nil for native window shots (corners baked into alpha); set only for
+    /// rectangular DOM/web captures.
     let cornerRadii: DOMCornerRadii?
 }
 
@@ -140,9 +139,8 @@ final class NativeScreenCapturer: @unchecked Sendable {
         }
     }
 
-    /// Frontmost eligible window containing a global point. `SCShareableContent`
-    /// returns windows front-to-back, so the first hit is the one the user sees
-    /// on top at that point.
+    /// Frontmost eligible window containing a global point (SCShareableContent
+    /// returns windows front-to-back, so the first hit is topmost).
     private func window(at point: CGPoint, windows: [SCWindow]) -> SCWindow? {
         windows.first { window in
             window.isOnScreen
@@ -152,19 +150,11 @@ final class NativeScreenCapturer: @unchecked Sendable {
         }
     }
 
-    /// Capture a single window in isolation.
-    ///
-    /// We deliberately use `CGWindowListCreateImage` rather than
-    /// ScreenCaptureKit here. SCK's `desktopIndependentWindow` filter bakes the
-    /// window's rounded corners with a hard, aliased mask and composites the
-    /// result premultiplied, so the corner edges come back jagged and the square
-    /// content under the corner is already gone — there is nothing left to
-    /// re-smooth. `CGWindowListCreateImage` is the same path `screencapture`
-    /// uses: it returns the window with the system's *antialiased* rounded
-    /// corners, a real alpha channel, and exact bounds (shadow excluded via
-    /// `boundsIgnoreFraming`, so no background bleed or leading-edge slivers).
-    /// It is deprecated but still functional and remains the only API that hands
-    /// back smooth window corners.
+    /// Capture a single window in isolation via `CGWindowListCreateImage` (the
+    /// `screencapture` path): smooth antialiased corners, real alpha, exact
+    /// bounds, no shadow/bleed. SCK's `desktopIndependentWindow` instead bakes
+    /// jagged corners and discards the under-corner content. Deprecated but the
+    /// only API returning smooth window corners.
     private func captureWindow(_ window: SCWindow,
                                display: SCDisplay,
                                scale: CGFloat) async throws -> NativeWindowShot {
@@ -196,99 +186,127 @@ final class NativeScreenCapturer: @unchecked Sendable {
         )
 
         return NativeWindowShot(
-            image: shapedWindowImage(visibleBitmap.image, windowShape: windowShape),
+            image: shapedWindowImage(
+                visibleBitmap.image,
+                windowShape: windowShape,
+                pixelScale: pixelScale
+            ),
             pixelScale: max(1, pixelScale),
             appName: window.owningApplication?.applicationName ?? "Window",
             cornerRadii: nil
         )
     }
 
-    /// Round the corners of the opaque on-screen color crop using a clean,
-    /// antialiased vector mask.
+    /// Round the on-screen color crop's corners to the window's real shape.
     ///
-    /// We take color from the on-screen crop (`visibleImage`) because that is the
-    /// only source that shows translucent window materials filled with the
-    /// blurred backdrop the user actually sees — `CGWindowListCreateImage`'s own
-    /// pixels are partly transparent there and wash out over the editor
-    /// background. The catch is that on-screen, the rounded-corner boundary
-    /// pixels are a physical blend of window edge and desktop behind it. So
-    /// rather than reuse the shape capture's alpha (which would drag that blended
-    /// fringe in and read as aliasing), we only *measure* the radius from the
-    /// shape, then clip with our own path inset by 1px — the antialiased edge
-    /// then samples window interior, never the window/desktop seam.
-    private func shapedWindowImage(_ visibleImage: CGImage, windowShape: CGImage) -> CGImage {
+    /// Color is the on-screen crop (only it shows vibrancy filled correctly).
+    /// The crop fills the image edge-to-edge, so a mask built in its own grid
+    /// aligns exactly — using the shape capture's alpha misaligns by the two
+    /// APIs' sub-pixel phase and aliases. Radius is measured from the shape (a
+    /// grid-independent scalar); the curve is the system's own
+    /// `.continuous` corner, matching this macOS version at any radius without
+    /// hardcoded constants.
+    private func shapedWindowImage(_ visibleImage: CGImage,
+                                   windowShape: CGImage,
+                                   pixelScale: CGFloat) -> CGImage {
         let width = visibleImage.width
         let height = visibleImage.height
         guard width > 0, height > 0 else { return visibleImage }
 
-        let radii = cornerRadiiPixels(in: windowShape)
-        guard !radii.isZero else { return visibleImage }
+        let radius = cornerRadiusPixels(in: windowShape)
+        guard radius > 0.5,
+              let mask = continuousCornerMask(
+                width: width, height: height, radius: radius, pixelScale: pixelScale
+              ) else {
+            return visibleImage
+        }
 
         guard let context = CGContext(
-            data: nil,
-            width: width,
-            height: height,
-            bitsPerComponent: 8,
-            bytesPerRow: 0,
+            data: nil, width: width, height: height,
+            bitsPerComponent: 8, bytesPerRow: 0,
             space: CGColorSpace(name: CGColorSpace.sRGB)!,
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
                 | CGBitmapInfo.byteOrder32Big.rawValue
         ) else { return visibleImage }
 
         context.interpolationQuality = .high
-        context.setShouldAntialias(true)
         let rect = CGRect(x: 0, y: 0, width: width, height: height)
-        // Inset by 1px so the antialiased clip edge samples window interior, not
-        // the on-screen window/desktop seam. Pull each radius in by the same 1px
-        // so the corner arc stays centered on the true window corner.
-        let inset: CGFloat = 1
-        let maskRect = rect.insetBy(dx: inset, dy: inset)
-        func shrink(_ size: CGSize) -> CGSize {
-            CGSize(width: max(0, size.width - inset), height: max(0, size.height - inset))
-        }
-        let adjusted = SelectionCornerRadii(
-            topLeft: shrink(radii.topLeft),
-            topRight: shrink(radii.topRight),
-            bottomRight: shrink(radii.bottomRight),
-            bottomLeft: shrink(radii.bottomLeft)
-        )
-        context.addPath(adjusted.path(in: maskRect))
-        context.clip()
+        context.clip(to: rect, mask: mask)
         context.draw(visibleImage, in: rect)
         return context.makeImage() ?? visibleImage
     }
 
-    /// Measure each corner's radius (sub-pixel, in pixels) from the shape
-    /// capture's alpha channel, independently — averaging the four into one
-    /// radius left one corner visibly off.
-    ///
-    /// We sample along the diagonal heading inward from each corner rather than
-    /// along an edge row/column: a straight edge is itself antialiased (~50%
-    /// alpha), which muddies an edge-wise scan, whereas the diagonal stays fully
-    /// transparent until it punches through the corner arc. For a quarter circle
-    /// of radius `r`, the diagonal crosses the arc at distance `t = r·(1−1/√2)`
-    /// from the corner, so `r = t / (1−1/√2)`.
-    private func cornerRadiiPixels(in shape: CGImage) -> SelectionCornerRadii {
+    /// White-inside / black-outside mask using the system's continuous (squircle)
+    /// corner. Supersampled then downscaled because `CALayer.render(in:)` corner
+    /// AA is crude and phase-varies per corner. Inset by ~1pt (scaled to pixels)
+    /// to trim the window/desktop edge blend so no halo remains.
+    private func continuousCornerMask(width: Int,
+                                      height: Int,
+                                      radius: CGFloat,
+                                      pixelScale: CGFloat) -> CGImage? {
+        let pixelCount = max(1, width * height)
+        let maxSupersampledPixels = 32_000_000
+        let affordableSampling = Int(
+            sqrt(Double(maxSupersampledPixels) / Double(pixelCount))
+                .rounded(.down)
+        )
+        let sampling = max(1, min(4, affordableSampling))
+        let bigWidth = width * sampling
+        let bigHeight = height * sampling
+        let gray = CGColorSpaceCreateDeviceGray()
+        let info = CGImageAlphaInfo.none.rawValue
+
+        guard let bigContext = CGContext(
+            data: nil, width: bigWidth, height: bigHeight,
+            bitsPerComponent: 8, bytesPerRow: 0, space: gray, bitmapInfo: info
+        ) else { return nil }
+
+        let insetPoints = max(1, pixelScale.rounded())   // ~1pt of edge blend
+        let inset = insetPoints * CGFloat(sampling)
+        let frame = CGRect(x: 0, y: 0, width: bigWidth, height: bigHeight).insetBy(dx: inset, dy: inset)
+        let containerLayer = CALayer()
+        containerLayer.bounds = CGRect(x: 0, y: 0, width: bigWidth, height: bigHeight)
+
+        let roundedLayer = CALayer()
+        roundedLayer.frame = frame
+        roundedLayer.backgroundColor = CGColor(gray: 1, alpha: 1)
+        roundedLayer.cornerRadius = min(radius * CGFloat(sampling), min(frame.width, frame.height) / 2)
+        roundedLayer.cornerCurve = .continuous
+        roundedLayer.masksToBounds = true
+        roundedLayer.allowsEdgeAntialiasing = true
+        containerLayer.addSublayer(roundedLayer)
+        containerLayer.render(in: bigContext)
+        guard let bigImage = bigContext.makeImage() else { return nil }
+
+        guard let context = CGContext(
+            data: nil, width: width, height: height,
+            bitsPerComponent: 8, bytesPerRow: 0, space: gray, bitmapInfo: info
+        ) else { return nil }
+        context.interpolationQuality = .high
+        context.draw(bigImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return context.makeImage()
+    }
+
+    /// Sub-pixel corner radius (px) from the shape alpha: scan each corner's
+    /// inward diagonal (stays transparent until it hits the corner, so edge AA
+    /// doesn't skew it) and take the median; crossing sits at t = r·(1−1/√2).
+    private func cornerRadiusPixels(in shape: CGImage) -> CGFloat {
         let width = shape.width
         let height = shape.height
-        guard width > 16, height > 16 else { return .zero }
+        guard width > 16, height > 16 else { return 0 }
 
         let bytesPerRow = width * 4
         var data = [UInt8](repeating: 0, count: bytesPerRow * height)
         guard let context = CGContext(
-            data: &data,
-            width: width,
-            height: height,
-            bitsPerComponent: 8,
-            bytesPerRow: bytesPerRow,
+            data: &data, width: width, height: height,
+            bitsPerComponent: 8, bytesPerRow: bytesPerRow,
             space: CGColorSpace(name: CGColorSpace.sRGB)!,
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
                 | CGBitmapInfo.byteOrder32Big.rawValue
-        ) else { return .zero }
+        ) else { return 0 }
         context.draw(shape, in: CGRect(x: 0, y: 0, width: width, height: height))
 
         func alpha(_ x: Int, _ y: Int) -> Int { Int(data[y * bytesPerRow + x * 4 + 3]) }
-
         let diagonalFactor = 1 - 1 / 2.0.squareRoot()
         let limit = min(width, height) / 2
 
@@ -299,22 +317,20 @@ final class NativeScreenCapturer: @unchecked Sendable {
                 if value >= 128 {
                     let delta = value - previous
                     let fraction = delta > 0 ? CGFloat(128 - previous) / CGFloat(delta) : 0
-                    let crossing = CGFloat(step - 1) + fraction
-                    return crossing / CGFloat(diagonalFactor)
+                    return (CGFloat(step - 1) + fraction) / CGFloat(diagonalFactor)
                 }
                 previous = value
             }
             return 0
         }
 
-        func uniform(_ r: CGFloat) -> CGSize { CGSize(width: r, height: r) }
-
-        return SelectionCornerRadii(
-            topLeft: uniform(radius(cornerX: 0, cornerY: 0, stepX: 1, stepY: 1)),
-            topRight: uniform(radius(cornerX: width - 1, cornerY: 0, stepX: -1, stepY: 1)),
-            bottomRight: uniform(radius(cornerX: width - 1, cornerY: height - 1, stepX: -1, stepY: -1)),
-            bottomLeft: uniform(radius(cornerX: 0, cornerY: height - 1, stepX: 1, stepY: -1))
-        )
+        let radii = [
+            radius(cornerX: 0, cornerY: 0, stepX: 1, stepY: 1),
+            radius(cornerX: width - 1, cornerY: 0, stepX: -1, stepY: 1),
+            radius(cornerX: width - 1, cornerY: height - 1, stepX: -1, stepY: -1),
+            radius(cornerX: 0, cornerY: height - 1, stepX: 1, stepY: -1)
+        ].sorted()
+        return (radii[1] + radii[2]) / 2
     }
 
     private func captureBitmap(region: NativeCaptureRegion,
