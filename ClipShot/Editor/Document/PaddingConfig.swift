@@ -28,6 +28,7 @@ extension PaddingConfig {
     }
 
     var isLinked: Bool { uniform != nil }
+    var isZero: Bool { self == .zero }
 
     func setting(_ side: PaddingSide, to value: CGFloat) -> PaddingConfig {
         var copy = self

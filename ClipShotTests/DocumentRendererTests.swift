@@ -101,6 +101,24 @@ final class DocumentRendererTests: XCTestCase {
         XCTAssertEqual(Int(buffer.pixels[center + 3]), 255)
     }
 
+    func test_render_zeroPaddingDoesNotDrawSelectedBackgroundBehindRoundedCorners() throws {
+        let doc = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 48, height: 48)),
+            viewport: CGSize(width: 48, height: 48),
+            pageTitle: "Rounded",
+            pageURL: "https://example.com",
+            baseSelection: CGRect(x: 4, y: 4, width: 40, height: 40),
+            selectionCornerRadii: .uniform(14),
+            padding: .zero,
+            background: .solidColor(.init(red: 0, green: 0, blue: 1, alpha: 1))
+        )
+
+        let image = try XCTUnwrap(DocumentRenderer.render(doc))
+        let buffer = try XCTUnwrap(PixelBuffer.decode(image))
+
+        XCTAssertEqual(buffer.pixels[3], 0, "zero padding must leave rounded corners transparent")
+    }
+
     func test_render_solidBackground_fillsMarginAndKeepsScreenshot() throws {
         let blue = CGColor(red: 0, green: 0, blue: 1, alpha: 1)
         let image = try XCTUnwrap(DocumentRenderer.render(paddedDoc(padding: 10, background: .solidColor(blue))))

@@ -38,7 +38,9 @@ enum DocumentRenderer {
             height: selectionPx.height
         )
 
-        drawBackground(doc.background, in: ctx, outputRect: outputRect, screenshot: doc.screenshot)
+        if !doc.padding.isZero {
+            drawBackground(doc.background, in: ctx, outputRect: outputRect, screenshot: doc.screenshot)
+        }
         drawScreenshot(
             doc.screenshot,
             selectionPx: selectionPx,

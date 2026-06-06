@@ -88,6 +88,8 @@ final class CanvasContentView: NSView {
         gradientBackgroundLayer.isHidden = true
         blurBackgroundLayer.isHidden = true
 
+        guard !doc.padding.isZero else { return }
+
         switch doc.background {
         case .none:
             break
