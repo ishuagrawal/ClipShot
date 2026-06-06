@@ -35,4 +35,26 @@ final class CoordinateConversionTests: XCTestCase {
             point
         )
     }
+
+    func test_annotationPointFromPaddedCanvasAccountsForCanvasOrigin() {
+        XCTAssertEqual(
+            CanvasGeometry.annotationPoint(
+                fromCanvasPoint: CGPoint(x: 5, y: 20),
+                canvasOriginInImage: CGPoint(x: 10, y: 30),
+                baseSelection: selection
+            ),
+            CGPoint(x: -25, y: -20)
+        )
+    }
+
+    func test_canvasPointForPaddedAnnotationAccountsForCanvasOrigin() {
+        XCTAssertEqual(
+            CanvasGeometry.canvasPoint(
+                fromAnnotationPoint: CGPoint(x: -25, y: -20),
+                canvasOriginInImage: CGPoint(x: 10, y: 30),
+                baseSelection: selection
+            ),
+            CGPoint(x: 5, y: 20)
+        )
+    }
 }

@@ -31,6 +31,13 @@ final class CanvasInteractionView: NSView {
             }
         }
     }
+    var imageSpaceOrigin: CGPoint = .zero {
+        didSet {
+            if oldValue != imageSpaceOrigin {
+                invalidateCursorRectsIfPossible()
+            }
+        }
+    }
 
     private var moveStartPoint: CGPoint?
     private var movingTextDraftID: UUID?
@@ -197,7 +204,11 @@ final class CanvasInteractionView: NSView {
 
     private func documentPoint(for event: NSEvent) -> CGPoint {
         let viewPoint = convert(event.locationInWindow, from: nil)
-        return CanvasGeometry.annotationPoint(fromImagePixel: viewPoint, baseSelection: baseSelection)
+        return CanvasGeometry.annotationPoint(
+            fromCanvasPoint: viewPoint,
+            canvasOriginInImage: imageSpaceOrigin,
+            baseSelection: baseSelection
+        )
     }
 
     nonisolated static func keyboardNudgeDelta(for event: NSEvent) -> CGSize? {
@@ -363,8 +374,9 @@ final class CanvasInteractionView: NSView {
     }
 
     private func viewFrame(forDocumentFrame frame: CGRect) -> CGRect {
-        let origin = CanvasGeometry.imagePixel(
+        let origin = CanvasGeometry.canvasPoint(
             fromAnnotationPoint: frame.origin,
+            canvasOriginInImage: imageSpaceOrigin,
             baseSelection: baseSelection
         )
         return CGRect(origin: origin, size: frame.size)
@@ -446,7 +458,11 @@ final class CanvasInteractionView: NSView {
             return
         }
 
-        let documentPoint = CanvasGeometry.annotationPoint(fromImagePixel: viewPoint, baseSelection: baseSelection)
+        let documentPoint = CanvasGeometry.annotationPoint(
+            fromCanvasPoint: viewPoint,
+            canvasOriginInImage: imageSpaceOrigin,
+            baseSelection: baseSelection
+        )
         let annotation = annotationInteractionTarget(at: documentPoint)
         hoveredAnnotationID = annotation?.id
 

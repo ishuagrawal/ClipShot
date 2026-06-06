@@ -566,6 +566,78 @@ final class CanvasInteractionViewTests: XCTestCase {
         )
     }
 
+    func test_coordinatorInteractionViewCoversPaddedCard() {
+        let document = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 120, height: 100)),
+            viewport: CGSize(width: 120, height: 100),
+            pageTitle: "t",
+            pageURL: "u",
+            baseSelection: CGRect(x: 20, y: 30, width: 70, height: 50),
+            padding: PaddingConfig(top: 10, right: 15, bottom: 20, left: 25)
+        )
+        let coordinator = CanvasCoordinator()
+
+        coordinator.update(state: EditorState(document: document))
+
+        XCTAssertEqual(coordinator.interactionView.imageSpaceOrigin, document.effectiveCrop.integral.origin)
+        XCTAssertEqual(coordinator.interactionView.frame, document.effectiveCrop.integral)
+    }
+
+    func test_selectsAnnotationInsidePadding() throws {
+        let annotation = Annotation(
+            kind: .rect(
+                frame: CGRect(x: -15, y: -15, width: 10, height: 10),
+                stroke: CGColor(gray: 0, alpha: 1),
+                fill: nil,
+                weight: 2,
+                cornerRadius: 0
+            )
+        )
+        let document = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 120, height: 100)),
+            viewport: CGSize(width: 120, height: 100),
+            pageTitle: "t",
+            pageURL: "u",
+            baseSelection: CGRect(x: 40, y: 50, width: 60, height: 40),
+            padding: .uniform(20),
+            annotations: [annotation]
+        )
+        let state = EditorState(document: document)
+        let view = CanvasInteractionView(frame: CGRect(origin: .zero, size: Self.interactionViewSize))
+        view.state = state
+        view.baseSelection = document.baseSelection
+        view.imageSpaceOrigin = document.effectiveCrop.origin
+
+        view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 10, y: 10)))
+
+        XCTAssertEqual(state.selectedAnnotationID, annotation.id)
+    }
+
+    func test_initialCanvasFitFramesEntirePaddedCard() {
+        let viewport = CGSize(width: 1000, height: 700)
+        let document = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 300, height: 200)),
+            viewport: CGSize(width: 300, height: 200),
+            pageTitle: "t",
+            pageURL: "u",
+            baseSelection: CGRect(x: 0, y: 0, width: 300, height: 200),
+            padding: .uniform(40)
+        )
+        let cardFrame = CanvasCoordinator.initialFocusBounds(
+            effectiveCrop: document.effectiveCrop,
+            imageBounds: document.imageBounds
+        )
+        let fit = CanvasCoordinator.initialFitRect(for: cardFrame, in: viewport)
+        let zoom = CanvasScrollView.fitMagnification(for: fit, in: viewport, limits: 0.05...16)
+        let margin = CanvasCoordinator.initialViewportMargin(for: viewport)
+        let horizontalMargin = (viewport.width - cardFrame.width * zoom) / 2
+        let verticalMargin = (viewport.height - cardFrame.height * zoom) / 2
+
+        XCTAssertEqual(cardFrame, document.effectiveCrop.integral)
+        XCTAssertGreaterThanOrEqual(horizontalMargin, margin - 0.001)
+        XCTAssertGreaterThanOrEqual(verticalMargin, margin - 0.001)
+    }
+
     func test_returnCommittedSmallTextSwitchesToSelectAndDragsFromBody() throws {
         let document = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),

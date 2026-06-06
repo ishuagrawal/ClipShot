@@ -88,7 +88,7 @@ final class CanvasCoordinator {
         scrollView.magnify(toFitCenteredOn: rectInContainer)
     }
 
-    /// Restore the initial load framing (selection centered with a comfortable margin).
+    /// Restore the initial load framing (padded card centered with a comfortable margin).
     func resetToInitialFit() {
         isTrackingInitialSelectionFit = true
         refitInitialSelectionIfNeeded(viewportSize: scrollView.viewportSizeForFitting, force: true)
@@ -133,7 +133,12 @@ final class CanvasCoordinator {
         contentView.frame = placement.imageFrame
         overlayView.resizeToDocument(document)   // sizes overlay frame
         overlayView.frame = placement.imageFrame
-        interactionView.frame = placement.imageFrame
+        let interactionBounds = document.effectiveCrop.integral
+        interactionView.imageSpaceOrigin = interactionBounds.origin
+        interactionView.frame = interactionBounds.offsetBy(
+            dx: placement.imageFrame.minX,
+            dy: placement.imageFrame.minY
+        )
     }
 
     private func refitInitialSelectionIfNeeded(viewportSize: CGSize, force: Bool = false) {
@@ -143,11 +148,14 @@ final class CanvasCoordinator {
         }
 
         let imageBounds = document.imageBounds
-        let selection = document.baseSelection.integral.intersection(imageBounds)
+        let focusBounds = Self.initialFocusBounds(
+            effectiveCrop: document.effectiveCrop,
+            imageBounds: imageBounds
+        )
         guard viewportSize.width > 0, viewportSize.height > 0 else { return }
 
         let fitRect = Self.initialFitRect(
-            for: selection,
+            for: focusBounds,
             in: viewportSize
         )
         let targetRect = fitRect.isNull || fitRect.isEmpty ? imageBounds : fitRect
@@ -160,8 +168,8 @@ final class CanvasCoordinator {
         scrollView.magnify(toFitCenteredOn: placement.targetRect)
     }
 
-    /// Spec: open centered on the selected region, with a comfortable viewport
-    /// margin around the selected pixels. The surrounding page context may extend
+    /// Spec: open centered on the padded card, with a comfortable viewport
+    /// margin around the rendered output. The surrounding page context may extend
     /// beyond the visible canvas.
     /// Returns a document-space rect with the same aspect ratio as the viewport.
     nonisolated static func initialFitRect(for selection: CGRect, in viewportSize: CGSize) -> CGRect {
@@ -192,6 +200,11 @@ final class CanvasCoordinator {
             width: fitSize.width,
             height: fitSize.height
         )
+    }
+
+    nonisolated static func initialFocusBounds(effectiveCrop: CGRect, imageBounds: CGRect) -> CGRect {
+        let cardBounds = effectiveCrop.integral
+        return cardBounds.isNull || cardBounds.isEmpty ? imageBounds : cardBounds
     }
 
     nonisolated static func initialViewportMargin(for viewportSize: CGSize) -> CGFloat {
