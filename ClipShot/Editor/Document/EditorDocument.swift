@@ -47,6 +47,13 @@ struct SelectionCornerRadii: Equatable {
         }
     }
 
+    /// The single radius when all four corners are equal and circular (width == height); nil otherwise.
+    var uniformRadius: CGFloat? {
+        guard topLeft == topRight, topRight == bottomRight, bottomRight == bottomLeft,
+              topLeft.width == topLeft.height else { return nil }
+        return topLeft.width > 0 ? topLeft.width : nil
+    }
+
     func clamped(to size: CGSize) -> SelectionCornerRadii {
         let width = max(0, size.width)
         let height = max(0, size.height)
@@ -219,6 +226,15 @@ struct EditorDocument {
         return contentCornerRadii
             .concentricOuter(padding: padding)
             .clamped(to: effectiveCrop.size)
+    }
+
+    /// The card's uniform corner radius for a continuous-squircle card: the
+    /// screenshot's OWN corner radius, reused at the padded-card size (not offset
+    /// by padding). nil when there is no padding or no uniform corner radius —
+    /// those fall back to the bezier `outerCornerRadii` path / no rounding.
+    var cardCornerRadius: CGFloat? {
+        guard !padding.isZero, let r = contentCornerRadii.uniformRadius else { return nil }
+        return min(r, min(effectiveCrop.width, effectiveCrop.height) / 2)
     }
 
     var imageBounds: CGRect {

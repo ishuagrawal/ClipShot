@@ -323,6 +323,31 @@ final class EditorDocumentTests: XCTestCase {
         )
         XCTAssertEqual(doc.outerCornerRadii.isZero, false)
     }
+
+    func test_cardCornerRadius_isScreenshotRadiusNotOffset() {
+        let doc = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 400, height: 400)),
+            viewport: CGSize(width: 400, height: 400),
+            pageTitle: "t", pageURL: "u",
+            baseSelection: CGRect(x: 50, y: 50, width: 200, height: 160),
+            selectionCornerRadii: .zero,
+            contentCornerRadii: .uniform(18),
+            padding: .uniform(40)
+        )
+        XCTAssertEqual(doc.cardCornerRadius, 18) // screenshot radius, NOT 18+40
+    }
+
+    func test_cardCornerRadius_nilWithoutPaddingOrRadius() {
+        let noPad = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 400, height: 400)),
+            viewport: CGSize(width: 400, height: 400),
+            pageTitle: "t", pageURL: "u",
+            baseSelection: CGRect(x: 50, y: 50, width: 200, height: 160),
+            contentCornerRadii: .uniform(18),
+            padding: .zero
+        )
+        XCTAssertNil(noPad.cardCornerRadius)
+    }
 }
 
 /// Small image helper used across tests.

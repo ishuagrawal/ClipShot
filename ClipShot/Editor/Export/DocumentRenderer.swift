@@ -38,8 +38,9 @@ enum DocumentRenderer {
             height: selectionPx.height
         )
 
-        if let card = ConcentricCardMask.coverage(for: doc) {
-            ctx.clip(to: outputRect, mask: card.clip)
+        if let radius = doc.cardCornerRadius,
+           let mask = ConcentricCardMask.mask(width: width, height: height, radius: radius) {
+            ctx.clip(to: outputRect, mask: mask)
         } else if !doc.outerCornerRadii.isZero {
             ctx.addPath(doc.outerCornerRadii.path(in: outputRect))
             ctx.clip()
