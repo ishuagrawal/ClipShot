@@ -24,6 +24,23 @@ struct SelectionCornerRadii: Equatable {
         )
     }
 
+    /// Radii for a rounded rect offset outward by `padding`. Offsetting a rounded
+    /// corner outward by distance d grows its radius by d, so each corner grows by
+    /// the two adjacent paddings. Square (zero) corners stay square.
+    func concentricOuter(padding: PaddingConfig) -> SelectionCornerRadii {
+        guard !isZero else { return .zero }
+        func grow(_ corner: CGSize, dx: CGFloat, dy: CGFloat) -> CGSize {
+            guard corner.width > 0 || corner.height > 0 else { return .zero }
+            return CGSize(width: corner.width + dx, height: corner.height + dy)
+        }
+        return SelectionCornerRadii(
+            topLeft: grow(topLeft, dx: padding.left, dy: padding.top),
+            topRight: grow(topRight, dx: padding.right, dy: padding.top),
+            bottomRight: grow(bottomRight, dx: padding.right, dy: padding.bottom),
+            bottomLeft: grow(bottomLeft, dx: padding.left, dy: padding.bottom)
+        )
+    }
+
     var isZero: Bool {
         [topLeft, topRight, bottomRight, bottomLeft].allSatisfy { radius in
             radius.width <= 0 && radius.height <= 0

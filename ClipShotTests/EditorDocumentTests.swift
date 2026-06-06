@@ -211,6 +211,39 @@ final class EditorDocumentTests: XCTestCase {
         XCTAssertNil(PaddingConfig(top: 5, right: 5, bottom: 5, left: 6).uniform)
         XCTAssertEqual(PaddingConfig.zero.uniform, 0)
     }
+
+    func test_concentricOuter_uniformInnerAndPadding_growsEveryCornerByPad() {
+        let inner = SelectionCornerRadii.uniform(14)
+        let outer = inner.concentricOuter(padding: .uniform(10))
+        XCTAssertEqual(outer, .uniform(24))
+    }
+
+    func test_concentricOuter_zeroInner_staysZero() {
+        let outer = SelectionCornerRadii.zero.concentricOuter(padding: .uniform(10))
+        XCTAssertTrue(outer.isZero)
+    }
+
+    func test_concentricOuter_nonUniformPadding_growsByAdjacentSides() {
+        let inner = SelectionCornerRadii.uniform(10)
+        let pad = PaddingConfig(top: 4, right: 6, bottom: 8, left: 2)
+        let outer = inner.concentricOuter(padding: pad)
+        XCTAssertEqual(outer.topLeft, CGSize(width: 12, height: 14))     // +left, +top
+        XCTAssertEqual(outer.topRight, CGSize(width: 16, height: 14))    // +right, +top
+        XCTAssertEqual(outer.bottomRight, CGSize(width: 16, height: 18)) // +right, +bottom
+        XCTAssertEqual(outer.bottomLeft, CGSize(width: 12, height: 18))  // +left, +bottom
+    }
+
+    func test_concentricOuter_squareCornerStaysSquare() {
+        let inner = SelectionCornerRadii(
+            topLeft: CGSize(width: 10, height: 10),
+            topRight: .zero,
+            bottomRight: CGSize(width: 10, height: 10),
+            bottomLeft: CGSize(width: 10, height: 10)
+        )
+        let outer = inner.concentricOuter(padding: .uniform(5))
+        XCTAssertEqual(outer.topRight, .zero, "a square corner must not become rounded")
+        XCTAssertEqual(outer.topLeft, CGSize(width: 15, height: 15))
+    }
 }
 
 /// Small image helper used across tests.
