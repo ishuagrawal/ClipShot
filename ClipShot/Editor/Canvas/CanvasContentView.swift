@@ -11,7 +11,7 @@ final class CanvasContentView: NSView {
 
     private let solidBackgroundLayer: CALayer
     private let gradientBackgroundLayer: CAGradientLayer
-    private let blurBackgroundLayer: CALayer
+    private let dynamicBackgroundLayer: CALayer
     private let selectionLayer: CALayer
     private let selectionMaskLayer: CAShapeLayer
     private let backgroundMaskLayer: CAShapeLayer
@@ -19,7 +19,7 @@ final class CanvasContentView: NSView {
     override init(frame frameRect: NSRect) {
         self.solidBackgroundLayer = CALayer()
         self.gradientBackgroundLayer = CAGradientLayer()
-        self.blurBackgroundLayer = CALayer()
+        self.dynamicBackgroundLayer = CALayer()
         self.selectionLayer = CALayer()
         self.selectionMaskLayer = CAShapeLayer()
         self.backgroundMaskLayer = CAShapeLayer()
@@ -28,16 +28,16 @@ final class CanvasContentView: NSView {
         layer?.backgroundColor = .clear
         layer?.masksToBounds = false
 
-        blurBackgroundLayer.contentsGravity = .resizeAspectFill
-        blurBackgroundLayer.magnificationFilter = .trilinear
-        blurBackgroundLayer.minificationFilter = .trilinear
+        dynamicBackgroundLayer.contentsGravity = .resize
+        dynamicBackgroundLayer.magnificationFilter = .trilinear
+        dynamicBackgroundLayer.minificationFilter = .trilinear
         selectionLayer.contentsGravity = .resize
         selectionLayer.magnificationFilter = .trilinear
         selectionLayer.minificationFilter = .trilinear
 
         layer?.addSublayer(solidBackgroundLayer)
         layer?.addSublayer(gradientBackgroundLayer)
-        layer?.addSublayer(blurBackgroundLayer)
+        layer?.addSublayer(dynamicBackgroundLayer)
         layer?.addSublayer(selectionLayer)
     }
 
@@ -51,8 +51,8 @@ final class CanvasContentView: NSView {
             frame = .zero
             solidBackgroundLayer.isHidden = true
             gradientBackgroundLayer.isHidden = true
-            blurBackgroundLayer.isHidden = true
-            blurBackgroundLayer.contents = nil
+            dynamicBackgroundLayer.isHidden = true
+            dynamicBackgroundLayer.contents = nil
             selectionLayer.contents = nil
             selectionLayer.mask = nil
             return
@@ -63,11 +63,14 @@ final class CanvasContentView: NSView {
         CATransaction.setDisableActions(true)
         defer { CATransaction.commit() }
 
+        let selectionMovedForDynamic = doc.background.kind == .dynamic
+            && previous?.baseSelection != doc.baseSelection
         let backgroundChanged = previous == nil
             || previous?.screenshot !== doc.screenshot
             || previous?.padding != doc.padding
             || previous?.background != doc.background
             || previous?.cardCornerOverride != doc.cardCornerOverride
+            || selectionMovedForDynamic
         if backgroundChanged {
             updateBackground(for: doc)
         }
@@ -85,13 +88,13 @@ final class CanvasContentView: NSView {
         let backgroundFrame = doc.effectiveCrop.integral
         solidBackgroundLayer.frame = backgroundFrame
         gradientBackgroundLayer.frame = backgroundFrame
-        blurBackgroundLayer.frame = backgroundFrame
+        dynamicBackgroundLayer.frame = backgroundFrame
 
         solidBackgroundLayer.isHidden = true
         gradientBackgroundLayer.isHidden = true
-        blurBackgroundLayer.isHidden = true
+        dynamicBackgroundLayer.isHidden = true
 
-        for layer in [solidBackgroundLayer, gradientBackgroundLayer, blurBackgroundLayer] {
+        for layer in [solidBackgroundLayer, gradientBackgroundLayer, dynamicBackgroundLayer] {
             layer.mask = nil
             layer.cornerRadius = 0
             layer.masksToBounds = false
@@ -114,8 +117,13 @@ final class CanvasContentView: NSView {
             gradientBackgroundLayer.isHidden = false
             applyOuterMask(to: gradientBackgroundLayer, doc: doc, size: backgroundFrame.size)
         case .dynamic:
-            // Placeholder until a later task wires the mesh image.
-            break
+            dynamicBackgroundLayer.contents = DocumentRenderer.dynamicBackgroundImage(
+                for: doc.screenshot,
+                selection: doc.baseSelection,
+                size: backgroundFrame.size
+            )
+            dynamicBackgroundLayer.isHidden = false
+            applyOuterMask(to: dynamicBackgroundLayer, doc: doc, size: backgroundFrame.size)
         }
     }
 
