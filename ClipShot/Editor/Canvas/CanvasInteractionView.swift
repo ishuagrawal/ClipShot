@@ -24,9 +24,9 @@ final class CanvasInteractionView: NSView {
     var editingTextAnnotation: Annotation? {
         didSet { invalidateCursorRectsIfPossible() }
     }
-    var effectiveCrop: CGRect = .zero {
+    var baseSelection: CGRect = .zero {
         didSet {
-            if oldValue != effectiveCrop {
+            if oldValue != baseSelection {
                 invalidateCursorRectsIfPossible()
             }
         }
@@ -197,7 +197,7 @@ final class CanvasInteractionView: NSView {
 
     private func documentPoint(for event: NSEvent) -> CGPoint {
         let viewPoint = convert(event.locationInWindow, from: nil)
-        return CanvasGeometry.documentPoint(fromImagePixel: viewPoint, effectiveCrop: effectiveCrop)
+        return CanvasGeometry.annotationPoint(fromImagePixel: viewPoint, baseSelection: baseSelection)
     }
 
     nonisolated static func keyboardNudgeDelta(for event: NSEvent) -> CGSize? {
@@ -364,8 +364,8 @@ final class CanvasInteractionView: NSView {
 
     private func viewFrame(forDocumentFrame frame: CGRect) -> CGRect {
         let origin = CanvasGeometry.imagePixel(
-            fromDocumentPoint: frame.origin,
-            effectiveCrop: effectiveCrop
+            fromAnnotationPoint: frame.origin,
+            baseSelection: baseSelection
         )
         return CGRect(origin: origin, size: frame.size)
     }
@@ -446,7 +446,7 @@ final class CanvasInteractionView: NSView {
             return
         }
 
-        let documentPoint = CanvasGeometry.documentPoint(fromImagePixel: viewPoint, effectiveCrop: effectiveCrop)
+        let documentPoint = CanvasGeometry.annotationPoint(fromImagePixel: viewPoint, baseSelection: baseSelection)
         let annotation = annotationInteractionTarget(at: documentPoint)
         hoveredAnnotationID = annotation?.id
 

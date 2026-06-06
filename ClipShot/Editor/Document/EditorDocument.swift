@@ -218,6 +218,17 @@ struct EditorDocument {
     }
 
     var paddedDocumentSize: CGSize { effectiveCrop.size }
+
+    /// Legal annotation coordinates, anchored at the screenshot selection.
+    /// Padding extends these bounds outward without moving existing annotations.
+    var annotationBounds: CGRect {
+        CGRect(
+            x: -padding.left,
+            y: -padding.top,
+            width: paddedDocumentSize.width,
+            height: paddedDocumentSize.height
+        )
+    }
 }
 
 // Equal only when ALL fields AND `version` match (screenshot compared by identity).

@@ -270,6 +270,27 @@ final class DocumentRendererTests: XCTestCase {
         XCTAssertEqual(before.height, after.height)
     }
 
+    func test_render_paddingOffsetsAnnotationWithoutMutatingIt() throws {
+        var doc = paddedDoc(padding: 0, background: .none)
+        let annotation = Annotation(kind: .rect(
+            frame: CGRect(x: 10, y: 10, width: 12, height: 12),
+            stroke: nil,
+            fill: CGColor(red: 0, green: 0, blue: 1, alpha: 1),
+            weight: 0,
+            cornerRadius: 0
+        ))
+        doc.annotations = [annotation]
+        doc.padding = .uniform(20)
+
+        let image = try XCTUnwrap(DocumentRenderer.render(doc))
+        let buffer = try XCTUnwrap(PixelBuffer.decode(image))
+        let index = 32 * buffer.bytesPerRow + 32 * 4
+
+        XCTAssertLessThan(Int(buffer.pixels[index]), 20)
+        XCTAssertGreaterThan(Int(buffer.pixels[index + 2]), 235)
+        XCTAssertEqual(doc.annotations, [annotation])
+    }
+
     private func paddedDoc(padding: CGFloat, background: BackgroundStyle) -> EditorDocument {
         document(
             screenshot: TestImage.solid(.red, size: CGSize(width: 200, height: 200)),

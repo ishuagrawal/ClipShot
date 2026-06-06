@@ -48,7 +48,10 @@ enum DocumentRenderer {
             cornerRadii: doc.selectionCornerRadii,
             in: ctx
         )
+        ctx.saveGState()
+        ctx.translateBy(x: doc.padding.left, y: doc.padding.top)
         drawAnnotations(doc.annotations, in: ctx)
+        ctx.restoreGState()
 
         return ctx.makeImage()
     }

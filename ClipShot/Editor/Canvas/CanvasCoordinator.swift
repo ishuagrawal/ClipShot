@@ -44,7 +44,7 @@ final class CanvasCoordinator {
             guard let self else { return }
             self.textEditor.beginEditing(
                 annotation,
-                effectiveCrop: self.latestDocument?.effectiveCrop ?? .zero
+                baseSelection: self.latestDocument?.baseSelection ?? .zero
             )
         }
         interactionView.onCommitActiveText = { [weak self] in
@@ -104,13 +104,13 @@ final class CanvasCoordinator {
         overlayView.inProgressAnnotation = state.inProgressAnnotation
         overlayView.selectedAnnotationID = state.selectedAnnotationID
         interactionView.state = state
-        interactionView.effectiveCrop = document.effectiveCrop
+        interactionView.baseSelection = document.baseSelection
         textEditor.attach(state: state)
         if textEditor.isEditing, state.activeTool != .text {
             textEditor.finishEditing()
         }
         textEditor.imageFrameOrigin = contentView.frame.origin
-        textEditor.syncEditingField(with: document, effectiveCrop: document.effectiveCrop)
+        textEditor.syncEditingField(with: document, baseSelection: document.baseSelection)
 
         if !didApplyInitialZoom {
             didApplyInitialZoom = true

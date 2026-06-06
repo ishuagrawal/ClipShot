@@ -75,4 +75,23 @@ final class CommandTests: XCTestCase {
         XCTAssertEqual(merged?.from, BackgroundStyle.none)
         XCTAssertEqual(merged?.to, .blurExtend(radius: 30))
     }
+
+    func test_setPadding_applyAndRevert_neverMutatesAnnotations() {
+        var doc = makeDoc()
+        doc.annotations = [
+            Annotation(kind: .text(
+                origin: CGPoint(x: 6, y: 8),
+                string: "Pinned",
+                fontSize: 14,
+                color: CGColor(gray: 0, alpha: 1)
+            ))
+        ]
+        let annotations = doc.annotations
+        let command = SetPaddingCommand(from: .zero, to: .uniform(24))
+
+        command.apply(to: &doc)
+        XCTAssertEqual(doc.annotations, annotations)
+        command.revert(to: &doc)
+        XCTAssertEqual(doc.annotations, annotations)
+    }
 }

@@ -152,7 +152,7 @@ final class CanvasTextEditorTests: XCTestCase {
         let state = EditorState(document: document)
         editor.attach(state: state)
         editor.imageFrameOrigin = CGPoint(x: 10, y: 20)
-        editor.beginEditing(annotation, effectiveCrop: document.effectiveCrop)
+        editor.beginEditing(annotation, baseSelection: document.baseSelection)
 
         let textField = try XCTUnwrap(container.subviews.compactMap { $0 as? NSTextField }.first)
         XCTAssertFalse(textField.drawsBackground)
@@ -165,7 +165,7 @@ final class CanvasTextEditorTests: XCTestCase {
             color: CGColor(gray: 0, alpha: 1)
         )
 
-        editor.syncEditingField(with: document, effectiveCrop: document.effectiveCrop)
+        editor.syncEditingField(with: document, baseSelection: document.baseSelection)
 
         XCTAssertEqual(textField.stringValue, "Current typed text")
         XCTAssertEqual(textField.font?.pointSize ?? 0, 36, accuracy: 0.1)
@@ -194,7 +194,7 @@ final class CanvasTextEditorTests: XCTestCase {
         let state = EditorState(document: document, openingPanel: .components)
         let interactionView = CanvasInteractionView(frame: container.bounds)
         interactionView.state = state
-        interactionView.effectiveCrop = document.effectiveCrop
+        interactionView.baseSelection = document.baseSelection
         container.addSubview(interactionView)
 
         let editor = CanvasTextEditor(container: container)
@@ -202,7 +202,7 @@ final class CanvasTextEditorTests: XCTestCase {
         editor.onEditingPreviewChanged = { annotation in
             interactionView.editingTextAnnotation = annotation
         }
-        editor.beginEditing(annotation, effectiveCrop: document.effectiveCrop)
+        editor.beginEditing(annotation, baseSelection: document.baseSelection)
 
         let textField = try XCTUnwrap(container.subviews.compactMap { $0 as? NSTextField }.first)
         let textFrame = AnnotationGeometry.boundingBox(annotation.kind)
@@ -242,7 +242,7 @@ final class CanvasTextEditorTests: XCTestCase {
             didClearPreview = preview == nil
         }
         editor.attach(state: state)
-        editor.beginEditing(annotation, effectiveCrop: document.effectiveCrop)
+        editor.beginEditing(annotation, baseSelection: document.baseSelection)
 
         let textField = try XCTUnwrap(container.subviews.compactMap { $0 as? NSTextField }.first)
         let initialFrame = textField.frame
@@ -275,7 +275,7 @@ final class CanvasTextEditorTests: XCTestCase {
         state.activeTool = .text
         let annotation = try XCTUnwrap(state.beginTextDraft(at: CGPoint(x: 5, y: 5)))
         editor.attach(state: state)
-        editor.beginEditing(annotation, effectiveCrop: state.document.effectiveCrop)
+        editor.beginEditing(annotation, baseSelection: state.document.baseSelection)
 
         let textField = try XCTUnwrap(container.subviews.compactMap { $0 as? NSTextField }.first)
         XCTAssertEqual(state.document.annotations.count, 0)
@@ -307,7 +307,7 @@ final class CanvasTextEditorTests: XCTestCase {
         state.activeTool = .text
         let annotation = try XCTUnwrap(state.beginTextDraft(at: CGPoint(x: 5, y: 5)))
         editor.attach(state: state)
-        editor.beginEditing(annotation, effectiveCrop: state.document.effectiveCrop)
+        editor.beginEditing(annotation, baseSelection: state.document.baseSelection)
 
         let textField = try XCTUnwrap(container.subviews.compactMap { $0 as? NSTextField }.first)
         XCTAssertEqual(state.document.annotations.count, 0)
@@ -349,7 +349,7 @@ final class CanvasTextEditorTests: XCTestCase {
         )
         let state = EditorState(document: document)
         editor.attach(state: state)
-        editor.beginEditing(annotation, effectiveCrop: document.effectiveCrop)
+        editor.beginEditing(annotation, baseSelection: document.baseSelection)
 
         let textField = try XCTUnwrap(container.subviews.compactMap { $0 as? NSTextField }.first)
         textField.stringValue = ""
@@ -390,7 +390,7 @@ final class CanvasTextEditorTests: XCTestCase {
         let state = EditorState(document: document)
         state.selectedAnnotationID = annotation.id
         editor.attach(state: state)
-        editor.beginEditing(annotation, effectiveCrop: document.effectiveCrop)
+        editor.beginEditing(annotation, baseSelection: document.baseSelection)
 
         let textField = try XCTUnwrap(container.subviews.compactMap { $0 as? NSTextField }.first)
         textField.stringValue = "Typed"
@@ -501,7 +501,7 @@ final class CanvasInteractionViewTests: XCTestCase {
         state.selectCursorTool(.text)
         let draft = try XCTUnwrap(state.beginTextDraft(at: CGPoint(x: 20, y: 20)))
         coordinator.update(state: state)
-        coordinator.textEditor.beginEditing(draft, effectiveCrop: document.effectiveCrop)
+        coordinator.textEditor.beginEditing(draft, baseSelection: document.baseSelection)
         let textField = try XCTUnwrap(
             (coordinator.scrollView.documentView as? NSView)?
                 .subviews
@@ -541,7 +541,7 @@ final class CanvasInteractionViewTests: XCTestCase {
         state.selectCursorTool(.text)
         let draft = try XCTUnwrap(state.beginTextDraft(at: CGPoint(x: 20, y: 20)))
         coordinator.update(state: state)
-        coordinator.textEditor.beginEditing(draft, effectiveCrop: document.effectiveCrop)
+        coordinator.textEditor.beginEditing(draft, baseSelection: document.baseSelection)
         let textField = try XCTUnwrap(
             (coordinator.scrollView.documentView as? NSView)?
                 .subviews
@@ -579,12 +579,12 @@ final class CanvasInteractionViewTests: XCTestCase {
         let container = CanvasDocumentView(frame: CGRect(origin: .zero, size: Self.interactionViewSize))
         let view = CanvasInteractionView(frame: container.bounds)
         view.state = state
-        view.effectiveCrop = document.effectiveCrop
+        view.baseSelection = document.baseSelection
         container.addSubview(view)
         let editor = CanvasTextEditor(container: container)
         editor.attach(state: state)
         view.onEditText = { annotation in
-            editor.beginEditing(annotation, effectiveCrop: document.effectiveCrop)
+            editor.beginEditing(annotation, baseSelection: document.baseSelection)
         }
         view.onCommitActiveText = {
             guard editor.isEditing else { return false }
@@ -642,12 +642,12 @@ final class CanvasInteractionViewTests: XCTestCase {
         let container = CanvasDocumentView(frame: CGRect(origin: .zero, size: Self.interactionViewSize))
         let view = CanvasInteractionView(frame: container.bounds)
         view.state = state
-        view.effectiveCrop = document.effectiveCrop
+        view.baseSelection = document.baseSelection
         container.addSubview(view)
         let editor = CanvasTextEditor(container: container)
         editor.attach(state: state)
         view.onEditText = { annotation in
-            editor.beginEditing(annotation, effectiveCrop: document.effectiveCrop)
+            editor.beginEditing(annotation, baseSelection: document.baseSelection)
         }
 
         view.mouseDown(with: try makeMouseDown(at: CGPoint(x: 20, y: 20)))
@@ -1223,7 +1223,7 @@ final class CanvasInteractionViewTests: XCTestCase {
         applyInitialTool(initialTool, to: state)
         let view = CanvasInteractionView(frame: CGRect(origin: .zero, size: Self.interactionViewSize))
         view.state = state
-        view.effectiveCrop = document.effectiveCrop
+        view.baseSelection = document.baseSelection
         return (annotation, state, view)
     }
 
@@ -1300,7 +1300,7 @@ final class CanvasInteractionViewTests: XCTestCase {
         applyInitialTool(initialTool, to: state)
         let view = CanvasInteractionView(frame: CGRect(origin: .zero, size: Self.interactionViewSize))
         view.state = state
-        view.effectiveCrop = document.effectiveCrop
+        view.baseSelection = document.baseSelection
         return (annotation, state, view)
     }
 
@@ -1319,7 +1319,7 @@ final class CanvasInteractionViewTests: XCTestCase {
         applyInitialTool(initialTool, to: state)
         let view = CanvasInteractionView(frame: CGRect(origin: .zero, size: Self.interactionViewSize))
         view.state = state
-        view.effectiveCrop = document.effectiveCrop
+        view.baseSelection = document.baseSelection
         return (state, view)
     }
 
@@ -1416,7 +1416,8 @@ final class CanvasOverlayViewTests: XCTestCase {
         )
 
         let annotationsLayer = try XCTUnwrap(overlay.layer?.sublayers?.last)
-        let annotationLayer = try XCTUnwrap(annotationsLayer.sublayers?.first)
+        let annotationContentLayer = try XCTUnwrap(annotationsLayer.sublayers?.first)
+        let annotationLayer = try XCTUnwrap(annotationContentLayer.sublayers?.first)
         let sublayers = annotationLayer.sublayers ?? []
         XCTAssertFalse(sublayers.contains { $0 is CATextLayer })
 

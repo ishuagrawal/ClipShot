@@ -3,7 +3,8 @@ import CoreText
 import Foundation
 
 /// Pure geometry shared by export rendering and the canvas preview. All values
-/// are in document points: top-left origin, y-down, one point per image pixel.
+/// are selection-relative annotation coordinates: top-left origin, y-down,
+/// one point per image pixel, with (0, 0) at `EditorDocument.baseSelection`.
 enum AnnotationGeometry {
 
     static func arrowHeadLength(weight: CGFloat) -> CGFloat {

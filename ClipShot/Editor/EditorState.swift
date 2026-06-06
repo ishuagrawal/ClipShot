@@ -177,9 +177,7 @@ final class EditorState: ObservableObject {
         }
     }
 
-    var documentBounds: CGRect {
-        CGRect(origin: .zero, size: document.paddedDocumentSize)
-    }
+    var documentBounds: CGRect { document.annotationBounds }
 
     func beginDraw(at point: CGPoint) {
         let point = point.clamped(to: documentBounds)
