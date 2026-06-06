@@ -43,6 +43,7 @@ final class CanvasOverlayView: NSView {
     private let annotationsLayer: CALayer
     private let annotationContentLayer: CALayer
     private let annotationsOuterMaskLayer: CAShapeLayer
+    private let annotationsImageMaskLayer: CALayer
     private var annotationLayers: [UUID: CALayer] = [:]
     private let inProgressLayerKey = UUID()
 
@@ -50,6 +51,7 @@ final class CanvasOverlayView: NSView {
         annotationsLayer = CALayer()
         annotationContentLayer = CALayer()
         annotationsOuterMaskLayer = CAShapeLayer()
+        annotationsImageMaskLayer = CALayer()
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.backgroundColor = .clear
@@ -83,26 +85,19 @@ final class CanvasOverlayView: NSView {
         let cardFrame = doc.effectiveCrop.integral
         annotationsLayer.frame = CGRect(origin: cardFrame.origin, size: cardFrame.size)
 
-        if let radius = doc.outerCornerRadius {
-            annotationsLayer.cornerCurve = .continuous
-            annotationsLayer.cornerRadius = radius
-            annotationsLayer.maskedCorners = [
-                .layerMinXMinYCorner, .layerMaxXMinYCorner,
-                .layerMinXMaxYCorner, .layerMaxXMaxYCorner
-            ]
-            annotationsLayer.masksToBounds = true
-            annotationsLayer.mask = nil
+        annotationsLayer.cornerRadius = 0
+        annotationsLayer.masksToBounds = false
+        if let card = ConcentricCardMask.coverage(for: doc) {
+            annotationsImageMaskLayer.frame = annotationsLayer.bounds
+            annotationsImageMaskLayer.contents = card.alpha
+            annotationsImageMaskLayer.contentsGravity = .resize
+            annotationsLayer.mask = annotationsImageMaskLayer
+        } else if !doc.outerCornerRadii.isZero {
+            annotationsOuterMaskLayer.frame = annotationsLayer.bounds
+            annotationsOuterMaskLayer.path = doc.outerCornerRadii.path(in: annotationsOuterMaskLayer.bounds)
+            annotationsLayer.mask = annotationsOuterMaskLayer
         } else {
-            annotationsLayer.cornerRadius = 0
-            annotationsLayer.masksToBounds = false
-            let outer = doc.outerCornerRadii
-            if outer.isZero {
-                annotationsLayer.mask = nil
-            } else {
-                annotationsOuterMaskLayer.frame = annotationsLayer.bounds
-                annotationsOuterMaskLayer.path = outer.path(in: annotationsOuterMaskLayer.bounds)
-                annotationsLayer.mask = annotationsOuterMaskLayer
-            }
+            annotationsLayer.mask = nil
         }
 
         annotationContentLayer.frame = CGRect(

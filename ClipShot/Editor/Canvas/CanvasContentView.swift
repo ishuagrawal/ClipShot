@@ -15,6 +15,7 @@ final class CanvasContentView: NSView {
     private let selectionLayer: CALayer
     private let selectionMaskLayer: CAShapeLayer
     private let backgroundMaskLayer: CAShapeLayer
+    private let backgroundImageMaskLayer: CALayer
 
     override init(frame frameRect: NSRect) {
         self.solidBackgroundLayer = CALayer()
@@ -23,6 +24,7 @@ final class CanvasContentView: NSView {
         self.selectionLayer = CALayer()
         self.selectionMaskLayer = CAShapeLayer()
         self.backgroundMaskLayer = CAShapeLayer()
+        self.backgroundImageMaskLayer = CALayer()
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.backgroundColor = .clear
@@ -123,15 +125,11 @@ final class CanvasContentView: NSView {
     }
 
     private func applyOuterMask(to layer: CALayer, doc: EditorDocument, size: CGSize) {
-        if let radius = doc.outerCornerRadius {
-            layer.cornerCurve = .continuous
-            layer.cornerRadius = radius
-            layer.maskedCorners = [
-                .layerMinXMinYCorner, .layerMaxXMinYCorner,
-                .layerMinXMaxYCorner, .layerMaxXMaxYCorner
-            ]
-            layer.masksToBounds = true
-            layer.mask = nil
+        if let card = ConcentricCardMask.coverage(for: doc) {
+            backgroundImageMaskLayer.frame = CGRect(origin: .zero, size: size)
+            backgroundImageMaskLayer.contents = card.alpha
+            backgroundImageMaskLayer.contentsGravity = .resize
+            layer.mask = backgroundImageMaskLayer
         } else if !doc.outerCornerRadii.isZero {
             backgroundMaskLayer.frame = CGRect(origin: .zero, size: size)
             backgroundMaskLayer.path = doc.outerCornerRadii.path(in: backgroundMaskLayer.bounds)

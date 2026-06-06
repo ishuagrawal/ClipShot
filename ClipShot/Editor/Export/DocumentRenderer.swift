@@ -38,9 +38,8 @@ enum DocumentRenderer {
             height: selectionPx.height
         )
 
-        if let radius = doc.outerCornerRadius,
-           let squircle = SquircleMask.make(width: width, height: height, radius: radius) {
-            ctx.clip(to: outputRect, mask: squircle)
+        if let card = ConcentricCardMask.coverage(for: doc) {
+            ctx.clip(to: outputRect, mask: card.clip)
         } else if !doc.outerCornerRadii.isZero {
             ctx.addPath(doc.outerCornerRadii.path(in: outputRect))
             ctx.clip()

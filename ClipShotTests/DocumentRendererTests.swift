@@ -357,6 +357,49 @@ final class DocumentRendererTests: XCTestCase {
         XCTAssertEqual(buffer.pixels[3], 0, "annotation content in the outer corner must be clipped")
     }
 
+    /// A solid-color image with transparent rounded corners baked into its
+    /// alpha, mimicking a native window capture.
+    private func roundedAlphaImage(size: CGSize, radius: CGFloat, color: CGColor) -> CGImage {
+        let w = Int(size.width), h = Int(size.height)
+        let ctx = CGContext(
+            data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
+        )!
+        let rect = CGRect(x: 0, y: 0, width: w, height: h)
+        ctx.addPath(SelectionCornerRadii.uniform(radius).path(in: rect))
+        ctx.clip()
+        ctx.setFillColor(color)
+        ctx.fill(rect)
+        return ctx.makeImage()!
+    }
+
+    func test_render_nativeBakedCorners_concentricCardRoundsOuterCorner() throws {
+        let shot = roundedAlphaImage(size: CGSize(width: 120, height: 120), radius: 16,
+                                     color: CGColor(red: 1, green: 0, blue: 0, alpha: 1))
+        let doc = EditorDocument(
+            screenshot: shot,
+            viewport: CGSize(width: 120, height: 120),
+            pageTitle: "t", pageURL: "u",
+            baseSelection: CGRect(x: 0, y: 0, width: 120, height: 120),
+            selectionCornerRadii: .zero,            // native: corners baked, no mask
+            contentCornerRadii: .uniform(16),       // measured visual radius
+            padding: .uniform(20),
+            background: .solidColor(CGColor(red: 0, green: 0, blue: 1, alpha: 1))
+        )
+        let image = try XCTUnwrap(DocumentRenderer.render(doc))
+        let buffer = try XCTUnwrap(PixelBuffer.decode(image))
+
+        // Outer card corner is rounded by the offset -> top-left pixel transparent.
+        XCTAssertEqual(Int(buffer.pixels[3]), 0, "concentric card must round the outer corner")
+
+        // Mid top edge, inside the padding band -> opaque blue background.
+        let cx = buffer.width / 2
+        let idx = 4 * buffer.bytesPerRow + cx * 4
+        XCTAssertEqual(Int(buffer.pixels[idx + 3]), 255, "padding band must be opaque")
+        XCTAssertGreaterThan(Int(buffer.pixels[idx + 2]), 200, "padding band is the blue background")
+    }
+
     private func paddedDoc(padding: CGFloat, background: BackgroundStyle) -> EditorDocument {
         document(
             screenshot: TestImage.solid(.red, size: CGSize(width: 200, height: 200)),
