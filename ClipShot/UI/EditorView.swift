@@ -100,6 +100,8 @@ fileprivate extension EditorDocument {
     /// Bridge from the existing DOMCaptureSession into the new value-type document.
     init(session: DOMCaptureSession) {
         let pixelSelection = session.pixelRect(for: session.selectedRect)
+        let selectionRadii = session.pixelCornerRadii(for: session.selectedBorderRadii)
+        let premaskedRadii = session.pixelCornerRadii(for: session.premaskedCornerRadii)
         self.init(
             screenshot: NSBitmapImageRep(data: session.screenshotData)?.cgImage
                 ?? CGImage.makeOnePixelTransparent(),
@@ -110,9 +112,10 @@ fileprivate extension EditorDocument {
             pageTitle: session.pageTitle,
             pageURL: session.pageURL,
             baseSelection: pixelSelection,
-            selectionCornerRadii: session.pixelCornerRadii(for: session.selectedBorderRadii),
-            padding: .zero,
-            background: .none,
+            selectionCornerRadii: selectionRadii,
+            contentCornerRadii: selectionRadii.isZero ? premaskedRadii : selectionRadii,
+            padding: PaddingConfig.autoSweetSpot(forSelection: pixelSelection.size),
+            background: .defaultGradient,
             annotations: []
         )
     }

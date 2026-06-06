@@ -72,7 +72,8 @@ final class CaptureCoordinator: @unchecked Sendable {
             pageURL: "",
             imageWidth: pixelWidth,
             imageHeight: pixelHeight,
-            selectedBorderRadii: cornerRadii
+            selectedBorderRadii: nil,
+            premaskedCornerRadii: cornerRadii
         )
         return openDOMSession(request: request)
     }

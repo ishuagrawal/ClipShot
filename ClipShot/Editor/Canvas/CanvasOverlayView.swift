@@ -41,15 +41,20 @@ final class CanvasOverlayView: NSView {
     }
 
     private let annotationsLayer: CALayer
+    private let annotationContentLayer: CALayer
+    private let annotationsOuterMaskLayer: CAShapeLayer
     private var annotationLayers: [UUID: CALayer] = [:]
     private let inProgressLayerKey = UUID()
 
     override init(frame frameRect: NSRect) {
         annotationsLayer = CALayer()
+        annotationContentLayer = CALayer()
+        annotationsOuterMaskLayer = CAShapeLayer()
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.backgroundColor = .clear
 
+        annotationsLayer.addSublayer(annotationContentLayer)
         layer?.addSublayer(annotationsLayer)
     }
 
@@ -67,7 +72,7 @@ final class CanvasOverlayView: NSView {
 
     private func updateDocument(previous: EditorDocument?) {
         guard let doc = document else {
-            annotationsLayer.sublayers = nil
+            annotationContentLayer.sublayers = nil
             annotationLayers.removeAll()
             return
         }
@@ -75,7 +80,37 @@ final class CanvasOverlayView: NSView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
 
-        annotationsLayer.frame = CGRect(origin: doc.effectiveCrop.origin, size: doc.effectiveCrop.size)
+        let cardFrame = doc.effectiveCrop.integral
+        annotationsLayer.frame = CGRect(origin: cardFrame.origin, size: cardFrame.size)
+
+        if let radius = doc.cardCornerRadius {
+            annotationsLayer.cornerCurve = .continuous
+            annotationsLayer.cornerRadius = radius
+            annotationsLayer.maskedCorners = [
+                .layerMinXMinYCorner, .layerMaxXMinYCorner,
+                .layerMinXMaxYCorner, .layerMaxXMaxYCorner
+            ]
+            annotationsLayer.masksToBounds = true
+            annotationsLayer.mask = nil
+        } else {
+            annotationsLayer.cornerRadius = 0
+            annotationsLayer.masksToBounds = false
+            if doc.outerCornerRadii.isZero {
+                annotationsLayer.mask = nil
+            } else {
+                annotationsOuterMaskLayer.frame = annotationsLayer.bounds
+                annotationsOuterMaskLayer.path = doc.outerCornerRadii.path(in: annotationsOuterMaskLayer.bounds)
+                annotationsLayer.mask = annotationsOuterMaskLayer
+            }
+        }
+
+        annotationContentLayer.frame = CGRect(
+            x: doc.padding.left,
+            y: doc.padding.top,
+            width: doc.baseSelection.width,
+            height: doc.baseSelection.height
+        )
+        annotationContentLayer.masksToBounds = false
 
         CATransaction.commit()
         if previous?.annotations != doc.annotations {
@@ -129,7 +164,7 @@ final class CanvasOverlayView: NSView {
     private func makeLayer(for id: UUID) -> CALayer {
         let container = CALayer()
         container.masksToBounds = false
-        annotationsLayer.addSublayer(container)
+        annotationContentLayer.addSublayer(container)
         annotationLayers[id] = container
         return container
     }

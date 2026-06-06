@@ -3,7 +3,8 @@ import CoreText
 import Foundation
 
 /// Pure geometry shared by export rendering and the canvas preview. All values
-/// are in document points: top-left origin, y-down, one point per image pixel.
+/// are selection-relative annotation coordinates: top-left origin, y-down,
+/// one point per image pixel, with (0, 0) at `EditorDocument.baseSelection`.
 enum AnnotationGeometry {
 
     static func arrowHeadLength(weight: CGFloat) -> CGFloat {
@@ -125,6 +126,54 @@ enum AnnotationGeometry {
         case .blur(let frame, let radius):
             return .blur(frame: frame.offsetBy(dx: delta.width, dy: delta.height), radius: radius)
         }
+    }
+
+    /// Translate `kind` by `delta`, clamping the delta so the annotation's
+    /// bounding box stays within `bounds` WITHOUT resizing the annotation.
+    /// Axes on which the shape is larger than `bounds` are left unclamped, so an
+    /// oversized annotation simply moves freely rather than being squished.
+    /// Tight bounds of the annotation's defining geometry (endpoints / frame /
+    /// text box) — no stroke or arrowhead padding. Used for translation clamping
+    /// so a shape already touching the border isn't nudged on an orthogonal axis.
+    static func geometryExtent(_ kind: Annotation.Kind) -> CGRect {
+        switch kind {
+        case .arrow(let from, let to, _, _):
+            return CGRect(
+                x: min(from.x, to.x),
+                y: min(from.y, to.y),
+                width: abs(to.x - from.x),
+                height: abs(to.y - from.y)
+            )
+        case .rect(let frame, _, _, _, _):
+            return frame.standardized
+        case .text(let origin, let string, let fontSize, _):
+            return textFrame(origin: origin, string: string, fontSize: fontSize)
+        case .blur(let frame, _):
+            return frame.standardized
+        }
+    }
+
+    static func translatedClamped(_ kind: Annotation.Kind, by delta: CGSize, to bounds: CGRect) -> Annotation.Kind {
+        let moved = geometryExtent(kind).offsetBy(dx: delta.width, dy: delta.height)
+        var dx = delta.width
+        var dy = delta.height
+
+        if moved.width <= bounds.width {
+            if moved.minX < bounds.minX {
+                dx += bounds.minX - moved.minX
+            } else if moved.maxX > bounds.maxX {
+                dx -= moved.maxX - bounds.maxX
+            }
+        }
+        if moved.height <= bounds.height {
+            if moved.minY < bounds.minY {
+                dy += bounds.minY - moved.minY
+            } else if moved.maxY > bounds.maxY {
+                dy -= moved.maxY - bounds.maxY
+            }
+        }
+
+        return translated(kind, by: CGSize(width: dx, height: dy))
     }
 
     static func clamped(_ kind: Annotation.Kind, to bounds: CGRect) -> Annotation.Kind {

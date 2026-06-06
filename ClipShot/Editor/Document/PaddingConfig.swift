@@ -27,6 +27,16 @@ extension PaddingConfig {
         PaddingConfig(top: value, right: value, bottom: value, left: value)
     }
 
+    /// Visually-balanced uniform padding derived from the screenshot size:
+    /// ~6% of the longer side, clamped so small shots aren't starved and huge
+    /// shots aren't drowned.
+    static func autoSweetSpot(forSelection size: CGSize) -> PaddingConfig {
+        let maxSide = max(size.width, size.height)
+        let raw = (0.06 * maxSide).rounded()
+        let pad = min(max(raw, 40), 200)
+        return .uniform(pad)
+    }
+
     var isLinked: Bool { uniform != nil }
     var isZero: Bool { self == .zero }
 

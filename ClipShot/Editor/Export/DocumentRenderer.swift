@@ -38,6 +38,14 @@ enum DocumentRenderer {
             height: selectionPx.height
         )
 
+        if let radius = doc.cardCornerRadius,
+           let mask = ConcentricCardMask.mask(width: width, height: height, radius: radius) {
+            ctx.clip(to: outputRect, mask: mask)
+        } else if !doc.outerCornerRadii.isZero {
+            ctx.addPath(doc.outerCornerRadii.path(in: outputRect))
+            ctx.clip()
+        }
+
         if !doc.padding.isZero {
             drawBackground(doc.background, in: ctx, outputRect: outputRect, screenshot: doc.screenshot)
         }
@@ -48,7 +56,10 @@ enum DocumentRenderer {
             cornerRadii: doc.selectionCornerRadii,
             in: ctx
         )
+        ctx.saveGState()
+        ctx.translateBy(x: doc.padding.left, y: doc.padding.top)
         drawAnnotations(doc.annotations, in: ctx)
+        ctx.restoreGState()
 
         return ctx.makeImage()
     }

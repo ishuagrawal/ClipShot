@@ -211,6 +211,187 @@ final class EditorDocumentTests: XCTestCase {
         XCTAssertNil(PaddingConfig(top: 5, right: 5, bottom: 5, left: 6).uniform)
         XCTAssertEqual(PaddingConfig.zero.uniform, 0)
     }
+
+    func test_concentricOuter_uniformInnerAndPadding_growsEveryCornerByPad() {
+        let inner = SelectionCornerRadii.uniform(14)
+        let outer = inner.concentricOuter(padding: .uniform(10))
+        XCTAssertEqual(outer, .uniform(24))
+    }
+
+    func test_concentricOuter_zeroInner_staysZero() {
+        let outer = SelectionCornerRadii.zero.concentricOuter(padding: .uniform(10))
+        XCTAssertTrue(outer.isZero)
+    }
+
+    func test_concentricOuter_nonUniformPadding_growsByAdjacentSides() {
+        let inner = SelectionCornerRadii.uniform(10)
+        let pad = PaddingConfig(top: 4, right: 6, bottom: 8, left: 2)
+        let outer = inner.concentricOuter(padding: pad)
+        XCTAssertEqual(outer.topLeft, CGSize(width: 12, height: 14))     // +left, +top
+        XCTAssertEqual(outer.topRight, CGSize(width: 16, height: 14))    // +right, +top
+        XCTAssertEqual(outer.bottomRight, CGSize(width: 16, height: 18)) // +right, +bottom
+        XCTAssertEqual(outer.bottomLeft, CGSize(width: 12, height: 18))  // +left, +bottom
+    }
+
+    func test_concentricOuter_squareCornerStaysSquare() {
+        let inner = SelectionCornerRadii(
+            topLeft: CGSize(width: 10, height: 10),
+            topRight: .zero,
+            bottomRight: CGSize(width: 10, height: 10),
+            bottomLeft: CGSize(width: 10, height: 10)
+        )
+        let outer = inner.concentricOuter(padding: .uniform(5))
+        XCTAssertEqual(outer.topRight, .zero, "a square corner must not become rounded")
+        XCTAssertEqual(outer.topLeft, CGSize(width: 15, height: 15))
+    }
+
+    private func roundedDoc(padding: PaddingConfig, radius: CGFloat) -> EditorDocument {
+        EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 400, height: 400)),
+            viewport: CGSize(width: 400, height: 400),
+            pageTitle: "t", pageURL: "u",
+            baseSelection: CGRect(x: 50, y: 50, width: 200, height: 160),
+            selectionCornerRadii: .uniform(radius),
+            padding: padding
+        )
+    }
+
+    func test_outerCornerRadii_zeroPadding_isZero() {
+        XCTAssertTrue(roundedDoc(padding: .zero, radius: 18).outerCornerRadii.isZero)
+    }
+
+    func test_outerCornerRadii_zeroInnerRadius_isZero() {
+        let doc = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 400, height: 400)),
+            viewport: CGSize(width: 400, height: 400),
+            pageTitle: "t", pageURL: "u",
+            baseSelection: CGRect(x: 50, y: 50, width: 200, height: 160),
+            selectionCornerRadii: .zero,
+            padding: .uniform(10)
+        )
+        XCTAssertTrue(doc.outerCornerRadii.isZero)
+    }
+
+    func test_outerCornerRadii_rounded_isConcentric() {
+        let doc = roundedDoc(padding: .uniform(10), radius: 18)
+        XCTAssertEqual(doc.outerCornerRadii, .uniform(28))
+    }
+
+    func test_autoSweetSpot_midRange_isSixPercentOfMaxSide() {
+        let pad = PaddingConfig.autoSweetSpot(forSelection: CGSize(width: 1440, height: 900))
+        XCTAssertEqual(pad, .uniform(86)) // round(0.06 * 1440) = 86
+    }
+
+    func test_autoSweetSpot_smallImage_clampsToFloor() {
+        let pad = PaddingConfig.autoSweetSpot(forSelection: CGSize(width: 300, height: 200))
+        XCTAssertEqual(pad, .uniform(40)) // round(18) -> floor 40
+    }
+
+    func test_autoSweetSpot_hugeImage_clampsToCeiling() {
+        let pad = PaddingConfig.autoSweetSpot(forSelection: CGSize(width: 4000, height: 3000))
+        XCTAssertEqual(pad, .uniform(200)) // round(240) -> ceiling 200
+    }
+
+    func test_autoSweetSpot_isUniform() {
+        let pad = PaddingConfig.autoSweetSpot(forSelection: CGSize(width: 1000, height: 700))
+        XCTAssertNotNil(pad.uniform)
+    }
+
+    func test_outerCornerRadii_premaskedCorners_isConcentricEvenWithZeroSelectionMask() {
+        // Native window capture: corners baked into pixels, selectionCornerRadii is zero,
+        // but the shot still has a visual corner radius carried by contentCornerRadii.
+        let doc = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 400, height: 400)),
+            viewport: CGSize(width: 400, height: 400),
+            pageTitle: "t", pageURL: "u",
+            baseSelection: CGRect(x: 50, y: 50, width: 200, height: 160),
+            selectionCornerRadii: .zero,
+            contentCornerRadii: .uniform(18),
+            padding: .uniform(10)
+        )
+        XCTAssertEqual(doc.outerCornerRadii, .uniform(28))
+    }
+
+    func test_contentCornerRadii_defaultsToSelectionCornerRadii() {
+        let doc = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 400, height: 400)),
+            viewport: CGSize(width: 400, height: 400),
+            pageTitle: "t", pageURL: "u",
+            baseSelection: CGRect(x: 50, y: 50, width: 200, height: 160),
+            selectionCornerRadii: .uniform(12),
+            padding: .uniform(10)
+        )
+        XCTAssertEqual(doc.outerCornerRadii.isZero, false)
+    }
+
+    func test_cardCornerRadius_isScreenshotRadiusNotOffset() {
+        let doc = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 400, height: 400)),
+            viewport: CGSize(width: 400, height: 400),
+            pageTitle: "t", pageURL: "u",
+            baseSelection: CGRect(x: 50, y: 50, width: 200, height: 160),
+            selectionCornerRadii: .zero,
+            contentCornerRadii: .uniform(18),
+            padding: .uniform(40)
+        )
+        XCTAssertEqual(doc.cardCornerRadius, 18) // screenshot radius, NOT 18+40
+    }
+
+    func test_cardCornerRadius_nilWithoutPaddingOrRadius() {
+        let noPad = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 400, height: 400)),
+            viewport: CGSize(width: 400, height: 400),
+            pageTitle: "t", pageURL: "u",
+            baseSelection: CGRect(x: 50, y: 50, width: 200, height: 160),
+            contentCornerRadii: .uniform(18),
+            padding: .zero
+        )
+        XCTAssertNil(noPad.cardCornerRadius)
+    }
+
+    private func overrideDoc(_ override: CGFloat?) -> EditorDocument {
+        EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 400, height: 400)),
+            viewport: CGSize(width: 400, height: 400),
+            pageTitle: "t", pageURL: "u",
+            baseSelection: CGRect(x: 50, y: 50, width: 200, height: 160),
+            selectionCornerRadii: .zero,
+            contentCornerRadii: .uniform(18),
+            padding: .uniform(40),
+            cardCornerOverride: override
+        )
+    }
+
+    func test_cardCornerRadius_usesOverrideWhenSet() {
+        XCTAssertEqual(overrideDoc(60).cardCornerRadius, 60)
+    }
+
+    func test_cardCornerRadius_overrideZeroGivesSquareCard() {
+        XCTAssertEqual(overrideDoc(0).cardCornerRadius, 0)
+    }
+
+    func test_cardCornerRadius_overrideClampedToHalfMinDimension() {
+        // effectiveCrop is 280×240, so max radius is 120.
+        XCTAssertEqual(overrideDoc(9999).cardCornerRadius, 120)
+    }
+
+    func test_cardCornerRadius_nilOverrideFallsBackToConcentric() {
+        XCTAssertEqual(overrideDoc(nil).cardCornerRadius, 18)
+    }
+
+    func test_outerCornerRadii_suppressedWhenOverrideSet() {
+        // Override is uniform (rendered via cardCornerRadius); the bezier outer
+        // path must yield so override 0 actually produces a square card.
+        XCTAssertTrue(overrideDoc(0).outerCornerRadii.isZero)
+        XCTAssertTrue(overrideDoc(60).outerCornerRadii.isZero)
+        XCTAssertFalse(overrideDoc(nil).outerCornerRadii.isZero)
+    }
+
+    func test_autoCardCornerRadius_ignoresOverride() {
+        // Auto value is the derived concentric radius regardless of override.
+        XCTAssertEqual(overrideDoc(60).autoCardCornerRadius, 18)
+        XCTAssertEqual(overrideDoc(nil).autoCardCornerRadius, 18)
+    }
 }
 
 /// Small image helper used across tests.

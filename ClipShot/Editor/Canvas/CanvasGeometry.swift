@@ -1,13 +1,40 @@
 import CoreGraphics
 
-/// Pure conversions between document points (origin at effectiveCrop top-left,
-/// y-down, 1 unit = 1 image pixel) and screenshot image pixels.
+/// Converts between screenshot image pixels and annotation coordinates.
+/// Annotation coordinates are anchored to `baseSelection` and never change
+/// when padding changes.
 enum CanvasGeometry {
-    static func documentPoint(fromImagePixel point: CGPoint, effectiveCrop: CGRect) -> CGPoint {
-        CGPoint(x: point.x - effectiveCrop.minX, y: point.y - effectiveCrop.minY)
+    static func annotationPoint(fromImagePixel point: CGPoint, baseSelection: CGRect) -> CGPoint {
+        CGPoint(x: point.x - baseSelection.minX, y: point.y - baseSelection.minY)
     }
 
-    static func imagePixel(fromDocumentPoint point: CGPoint, effectiveCrop: CGRect) -> CGPoint {
-        CGPoint(x: point.x + effectiveCrop.minX, y: point.y + effectiveCrop.minY)
+    static func imagePixel(fromAnnotationPoint point: CGPoint, baseSelection: CGRect) -> CGPoint {
+        CGPoint(x: point.x + baseSelection.minX, y: point.y + baseSelection.minY)
+    }
+
+    static func annotationPoint(
+        fromCanvasPoint point: CGPoint,
+        canvasOriginInImage: CGPoint,
+        baseSelection: CGRect
+    ) -> CGPoint {
+        annotationPoint(
+            fromImagePixel: CGPoint(
+                x: point.x + canvasOriginInImage.x,
+                y: point.y + canvasOriginInImage.y
+            ),
+            baseSelection: baseSelection
+        )
+    }
+
+    static func canvasPoint(
+        fromAnnotationPoint point: CGPoint,
+        canvasOriginInImage: CGPoint,
+        baseSelection: CGRect
+    ) -> CGPoint {
+        let imagePoint = imagePixel(fromAnnotationPoint: point, baseSelection: baseSelection)
+        return CGPoint(
+            x: imagePoint.x - canvasOriginInImage.x,
+            y: imagePoint.y - canvasOriginInImage.y
+        )
     }
 }

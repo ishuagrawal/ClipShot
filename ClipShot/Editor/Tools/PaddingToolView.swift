@@ -5,6 +5,8 @@ struct PaddingToolView: View {
     @ObservedObject var state: EditorState
     @State private var editStart: PaddingConfig?
     @State private var linked: Bool = true
+    @State private var cornerEditing: Bool = false
+    @State private var cornerStart: CGFloat?
 
     private let range: ClosedRange<Double> = 0...256
 
@@ -13,6 +15,7 @@ struct PaddingToolView: View {
             header
             boxModel
             uniformRow
+            cornerRow
         }
         .padding(16)
         .onAppear { linked = padding.isLinked }
@@ -26,6 +29,17 @@ struct PaddingToolView: View {
                 .font(Theme.title(13))
                 .foregroundStyle(Theme.textPrimary)
             Spacer()
+            Button("Auto") { applyAuto() }
+                .buttonStyle(.plain)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Theme.accent)
+                .padding(.horizontal, 8)
+                .frame(height: 24)
+                .background {
+                    RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
+                        .fill(Theme.accentDim)
+                }
+                .help("Auto padding + background")
             Button {
                 linked.toggle()
                 if linked {
@@ -119,6 +133,75 @@ struct PaddingToolView: View {
         }
     }
 
+    private var cornerRow: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack {
+                SectionLabel(text: "Corner radius")
+                Spacer()
+                Button("Concentric") { applyConcentricCorner() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(isAutoCorner ? Theme.accent : Theme.textTertiary)
+                    .padding(.horizontal, 7)
+                    .frame(height: 20)
+                    .background {
+                        if isAutoCorner {
+                            RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
+                                .fill(Theme.accentDim)
+                        }
+                    }
+                    .help("Match the screenshot corners (concentric)")
+            }
+            HStack(spacing: 10) {
+                FlatSlider(
+                    value: Binding(
+                        get: { Double(state.document.cardCornerRadius ?? 0) },
+                        set: { setLiveCorner(CGFloat($0.rounded())) }
+                    ),
+                    range: range,
+                    accessibilityLabel: "Corner radius",
+                    accessibilityValue: { "\(Int($0.rounded())) pixels" },
+                    onEditingChanged: { editing in
+                        if editing {
+                            cornerEditing = true
+                            cornerStart = state.document.cardCornerOverride
+                        } else {
+                            commitCornerDrag()
+                        }
+                    }
+                )
+                InspectorValueLabel(text: "\(Int(state.document.cardCornerRadius ?? 0))")
+            }
+        }
+    }
+
+    private var isAutoCorner: Bool { state.document.cardCornerOverride == nil }
+
+    private func setLiveCorner(_ value: CGFloat) {
+        if !cornerEditing {
+            cornerEditing = true
+            cornerStart = state.document.cardCornerOverride
+        }
+        state.document.cardCornerOverride = value
+    }
+
+    private func commitCornerDrag() {
+        guard cornerEditing else { return }
+        let from = cornerStart
+        let to = state.document.cardCornerOverride
+        state.document.cardCornerOverride = from
+        state.performCommand(SetCardCornerCommand(from: from, to: to))
+        cornerEditing = false
+        cornerStart = nil
+    }
+
+    private func applyConcentricCorner() {
+        guard state.document.cardCornerOverride != nil else { return }
+        state.performCommand(
+            SetCardCornerCommand(from: state.document.cardCornerOverride, to: nil)
+        )
+    }
+
     private func value(of side: PaddingSide) -> CGFloat {
         switch side {
         case .top:
@@ -166,6 +249,21 @@ struct PaddingToolView: View {
     private func commit(_ next: PaddingConfig) {
         let from = padding
         state.performCommand(SetPaddingCommand(from: from, to: next.clamped()))
+    }
+
+    private func applyAuto() {
+        let auto = PaddingConfig.autoSweetSpot(forSelection: state.document.baseSelection.size)
+        let currentBackground = state.document.background
+        let autoBackground = currentBackground == .none ? .defaultGradient : currentBackground
+        linked = true
+        state.performCommand(
+            ApplyAutoPaddingCommand(
+                fromPadding: padding,
+                toPadding: auto.clamped(),
+                fromBackground: currentBackground,
+                toBackground: autoBackground
+            )
+        )
     }
 
     private func commitDrag() {

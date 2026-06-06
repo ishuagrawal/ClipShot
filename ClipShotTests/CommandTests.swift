@@ -25,6 +25,38 @@ final class CommandTests: XCTestCase {
         XCTAssertEqual(doc.padding, before)
     }
 
+    func test_setCardCorner_applyThenRevert_isIdentity() {
+        var doc = makeDoc()
+        let before = doc.cardCornerOverride
+        let command = SetCardCornerCommand(from: before, to: 24)
+
+        command.apply(to: &doc)
+        XCTAssertEqual(doc.cardCornerOverride, 24)
+        command.revert(to: &doc)
+        XCTAssertEqual(doc.cardCornerOverride, before)
+    }
+
+    func test_setCardCorner_revertRestoresAutoNil() {
+        var doc = makeDoc()
+        doc.cardCornerOverride = 30
+        let command = SetCardCornerCommand(from: 30, to: nil)
+
+        command.apply(to: &doc)
+        XCTAssertNil(doc.cardCornerOverride)
+        command.revert(to: &doc)
+        XCTAssertEqual(doc.cardCornerOverride, 30)
+    }
+
+    func test_setCardCorner_coalesce_keepsOriginalFrom() {
+        let first = SetCardCornerCommand(from: nil, to: 10)
+        let second = SetCardCornerCommand(from: 10, to: 40)
+
+        let merged = first.coalesce(with: second) as? SetCardCornerCommand
+        XCTAssertNotNil(merged)
+        XCTAssertEqual(merged?.from, nil)
+        XCTAssertEqual(merged?.to, 40)
+    }
+
     func test_setPadding_coalesce_keepsOriginalFrom() {
         let first = SetPaddingCommand(
             from: .zero,
@@ -74,5 +106,58 @@ final class CommandTests: XCTestCase {
         XCTAssertNotNil(merged)
         XCTAssertEqual(merged?.from, BackgroundStyle.none)
         XCTAssertEqual(merged?.to, .blurExtend(radius: 30))
+    }
+
+    func test_setPadding_applyAndRevert_neverMutatesAnnotations() {
+        var doc = makeDoc()
+        doc.annotations = [
+            Annotation(kind: .text(
+                origin: CGPoint(x: 6, y: 8),
+                string: "Pinned",
+                fontSize: 14,
+                color: CGColor(gray: 0, alpha: 1)
+            ))
+        ]
+        let annotations = doc.annotations
+        let command = SetPaddingCommand(from: .zero, to: .uniform(24))
+
+        command.apply(to: &doc)
+        XCTAssertEqual(doc.annotations, annotations)
+        command.revert(to: &doc)
+        XCTAssertEqual(doc.annotations, annotations)
+    }
+
+    func test_applyAutoPadding_isOneUndoableActionThatDoesNotMutateAnnotations() {
+        var doc = makeDoc()
+        doc.annotations = [
+            Annotation(kind: .text(
+                origin: CGPoint(x: 6, y: 8),
+                string: "Pinned",
+                fontSize: 14,
+                color: CGColor(gray: 0, alpha: 1)
+            ))
+        ]
+        let beforePadding = doc.padding
+        let beforeBackground = doc.background
+        let beforeAnnotations = doc.annotations
+        let stack = UndoStack()
+        let command = ApplyAutoPaddingCommand(
+            fromPadding: doc.padding,
+            toPadding: .uniform(40),
+            fromBackground: doc.background,
+            toBackground: .defaultGradient
+        )
+
+        stack.push(command, apply: { $0.apply(to: &doc) })
+
+        XCTAssertEqual(stack.undoCount, 1)
+        XCTAssertEqual(doc.padding, .uniform(40))
+        XCTAssertEqual(doc.background, .defaultGradient)
+        XCTAssertEqual(doc.annotations, beforeAnnotations)
+
+        stack.undo(revert: { $0.revert(to: &doc) })
+        XCTAssertEqual(doc.padding, beforePadding)
+        XCTAssertEqual(doc.background, beforeBackground)
+        XCTAssertEqual(doc.annotations, beforeAnnotations)
     }
 }

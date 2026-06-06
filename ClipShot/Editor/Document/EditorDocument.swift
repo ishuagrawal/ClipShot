@@ -24,10 +24,34 @@ struct SelectionCornerRadii: Equatable {
         )
     }
 
+    /// Radii for a rounded rect offset outward by `padding`. Offsetting a rounded
+    /// corner outward by distance d grows its radius by d, so each corner grows by
+    /// the two adjacent paddings. Square (zero) corners stay square.
+    func concentricOuter(padding: PaddingConfig) -> SelectionCornerRadii {
+        guard !isZero else { return .zero }
+        func grow(_ corner: CGSize, dx: CGFloat, dy: CGFloat) -> CGSize {
+            guard corner.width > 0 || corner.height > 0 else { return .zero }
+            return CGSize(width: corner.width + dx, height: corner.height + dy)
+        }
+        return SelectionCornerRadii(
+            topLeft: grow(topLeft, dx: padding.left, dy: padding.top),
+            topRight: grow(topRight, dx: padding.right, dy: padding.top),
+            bottomRight: grow(bottomRight, dx: padding.right, dy: padding.bottom),
+            bottomLeft: grow(bottomLeft, dx: padding.left, dy: padding.bottom)
+        )
+    }
+
     var isZero: Bool {
         [topLeft, topRight, bottomRight, bottomLeft].allSatisfy { radius in
             radius.width <= 0 && radius.height <= 0
         }
+    }
+
+    /// The single radius when all four corners are equal and circular (width == height); nil otherwise.
+    var uniformRadius: CGFloat? {
+        guard topLeft == topRight, topRight == bottomRight, bottomRight == bottomLeft,
+              topLeft.width == topLeft.height else { return nil }
+        return topLeft.width > 0 ? topLeft.width : nil
     }
 
     func clamped(to size: CGSize) -> SelectionCornerRadii {
@@ -139,11 +163,20 @@ struct EditorDocument {
 
     let baseSelection: CGRect       // imagePx coords, clamped to ≥ 8×8 on init
     let selectionCornerRadii: SelectionCornerRadii
+    // The screenshot's VISUAL corner radius, separate from selectionCornerRadii (the
+    // mask we APPLY to a rectangular shot). Native window shots bake their rounded
+    // corners into the pixels and leave selectionCornerRadii zero, but carry the
+    // measured radius here so concentric outer rounding still matches. Defaults to
+    // selectionCornerRadii for DOM/web captures. Drives ONLY outerCornerRadii.
+    let contentCornerRadii: SelectionCornerRadii
     // Mutations bump version unconditionally (even no-op writes) so the canvas can
     // treat version as a cheap change token without value-diffing.
     var padding: PaddingConfig      { didSet { bumpVersion() } }
     var background: BackgroundStyle { didSet { bumpVersion() } }
     var annotations: [Annotation]   { didSet { bumpVersion() } }
+    // User-set uniform card corner radius. nil = auto (concentric, derived from
+    // the screenshot's own radius + padding). 0 = explicitly square.
+    var cardCornerOverride: CGFloat? { didSet { bumpVersion() } }
     private(set) var version: Int
 
     init(
@@ -153,9 +186,11 @@ struct EditorDocument {
         pageURL: String,
         baseSelection: CGRect,
         selectionCornerRadii: SelectionCornerRadii = .zero,
+        contentCornerRadii: SelectionCornerRadii? = nil,
         padding: PaddingConfig = .zero,
         background: BackgroundStyle = .none,
-        annotations: [Annotation] = []
+        annotations: [Annotation] = [],
+        cardCornerOverride: CGFloat? = nil
     ) {
         self.screenshot = screenshot
         self.viewport = viewport
@@ -169,9 +204,11 @@ struct EditorDocument {
             height: max(minSide, baseSelection.height)
         )
         self.selectionCornerRadii = selectionCornerRadii.clamped(to: self.baseSelection.size)
+        self.contentCornerRadii = (contentCornerRadii ?? selectionCornerRadii).clamped(to: self.baseSelection.size)
         self.padding = padding
         self.background = background
         self.annotations = annotations
+        self.cardCornerOverride = cardCornerOverride
         self.version = 0
     }
 
@@ -186,11 +223,58 @@ struct EditorDocument {
         )
     }
 
+    /// Concentric outer corner radii for the padded card. Zero (rectangular) when
+    /// the screenshot has no corner mask or there is no padding. Derived, so it
+    /// tracks the padding slider live.
+    var outerCornerRadii: SelectionCornerRadii {
+        // A user override is a uniform radius rendered via `cardCornerRadius`; the
+        // per-corner bezier path must not fight it (e.g. override 0 = square card).
+        guard cardCornerOverride == nil else { return .zero }
+        guard !contentCornerRadii.isZero, !padding.isZero else { return .zero }
+        return contentCornerRadii
+            .concentricOuter(padding: padding)
+            .clamped(to: effectiveCrop.size)
+    }
+
+    /// The card's uniform corner radius for a continuous-squircle card: the
+    /// screenshot's OWN corner radius, reused at the padded-card size (not offset
+    /// by padding). nil when there is no padding or no uniform corner radius —
+    /// those fall back to the bezier `outerCornerRadii` path / no rounding.
+    var cardCornerRadius: CGFloat? {
+        if let override = cardCornerOverride {
+            return min(max(0, override), maxCardCornerRadius)
+        }
+        return autoCardCornerRadius
+    }
+
+    /// Largest legal card radius for the current padded card.
+    var maxCardCornerRadius: CGFloat {
+        min(effectiveCrop.width, effectiveCrop.height) / 2
+    }
+
+    /// The derived concentric radius the card would use in auto mode, ignoring
+    /// any user override. nil when there is no padding or no uniform radius.
+    var autoCardCornerRadius: CGFloat? {
+        guard !padding.isZero, let r = contentCornerRadii.uniformRadius else { return nil }
+        return min(r, maxCardCornerRadius)
+    }
+
     var imageBounds: CGRect {
         CGRect(x: 0, y: 0, width: CGFloat(screenshot.width), height: CGFloat(screenshot.height))
     }
 
     var paddedDocumentSize: CGSize { effectiveCrop.size }
+
+    /// Legal annotation coordinates, anchored at the screenshot selection.
+    /// Padding extends these bounds outward without moving existing annotations.
+    var annotationBounds: CGRect {
+        CGRect(
+            x: -padding.left,
+            y: -padding.top,
+            width: paddedDocumentSize.width,
+            height: paddedDocumentSize.height
+        )
+    }
 }
 
 // Equal only when ALL fields AND `version` match (screenshot compared by identity).
@@ -205,9 +289,11 @@ extension EditorDocument: Equatable {
         && lhs.pageURL == rhs.pageURL
         && lhs.baseSelection == rhs.baseSelection
         && lhs.selectionCornerRadii == rhs.selectionCornerRadii
+        && lhs.contentCornerRadii == rhs.contentCornerRadii
         && lhs.padding == rhs.padding
         && lhs.background == rhs.background
         && lhs.annotations == rhs.annotations
+        && lhs.cardCornerOverride == rhs.cardCornerOverride
         && lhs.version == rhs.version
     }
 }
