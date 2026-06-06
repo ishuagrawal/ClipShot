@@ -51,6 +51,10 @@ enum DocumentRenderer {
         return ctx.makeImage()
     }
 
+    static func blurredBackgroundImage(for screenshot: CGImage, radius: CGFloat) -> CGImage? {
+        BlurExtendCache.shared.blurredImage(for: screenshot, radius: radius)
+    }
+
     private static func drawAnnotations(_ annotations: [Annotation], in ctx: CGContext) {
         for annotation in annotations {
             switch annotation.kind {
