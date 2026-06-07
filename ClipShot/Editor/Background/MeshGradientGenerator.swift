@@ -1,17 +1,20 @@
+import Foundation
 import CoreGraphics
 
-/// Pure, deterministic extraction of a 3×3 mesh-color grid from a screenshot.
-/// Gathers the image's prominent colors, places each near where it appears
-/// (spatial), then dims/desaturates the field so the screenshot card stays the
-/// most vivid, in-focus element — an Apple-Music-style backdrop, not a seamless
-/// extension of the image.
+/// Pure, deterministic generation of a 3×3 mesh-color grid from a screenshot.
+/// Expands the image's dominant color into a harmonized palette (analogous
+/// shifts + one accent + tint + shade), lays it out directionally (light→dark
+/// diagonal with an accent bloom), blends in OKLab for smooth vivid gradients,
+/// then dims/desaturates so the screenshot card stays the in-focus element.
 enum MeshGradientGenerator {
 
     private static let sampleSize = 100
-    private static let maxPaletteColors = 5
-    private static let distinctThreshold = 0.15
-    private static let contrastGap = 0.22
-    private static let desaturation = 0.88   // 1 = none, lower = greyer
+    private static let analogShiftDeg = 32.0
+    private static let accentShiftDeg = 72.0
+    private static let contrastGap = 0.13        // OKLab L units
+    private static let chromaScale = 0.82         // recessive desaturation
+    private static let minChroma = 0.05
+    private static let maxChroma = 0.22
 
     static func generate(screenshot: CGImage, selection: CGRect) -> MeshSpec {
         guard let small = downscaled(screenshot, selection: selection),
@@ -19,83 +22,129 @@ enum MeshGradientGenerator {
             return fallbackSpec()
         }
         let w = small.width, h = small.height
-        let colorsPalette = palette(in: pixels, width: w, height: h)
-        guard !colorsPalette.isEmpty else { return fallbackSpec() }
+        let pal = palette(in: pixels, width: w, height: h)
+        guard let dominant = pal.first else { return fallbackSpec() }
+        let secondary = pal.count > 1 ? pal[1] : nil
 
-        var colors: [CGColor] = []
-        for row in 0..<3 {
-            for col in 0..<3 {
-                colors.append(blend(palette: colorsPalette, x: Double(col) / 2, y: Double(row) / 2))
-            }
+        let avg = averageColor(in: pixels, width: w, height: h)
+        let cardL = oklab(linearFromSRGB(avg)).0
+
+        let anchors = anchors(dominant: dominant, secondary: secondary)
+        var grid = layout(anchors)                      // 9 LCh
+        grid = applyContrast(grid, cardL: cardL)
+        return MeshSpec(colors: grid.map { srgb(fromLCh: $0) })
+    }
+
+    // MARK: - Harmonized anchors
+
+    private struct LCh { var L: Double; var C: Double; var h: Double }   // h in radians
+
+    private struct Anchors {
+        var tint, analog1, base, analog2, shade, accent: LCh
+    }
+
+    private static func anchors(dominant: PaletteColor, secondary: PaletteColor?) -> Anchors {
+        let d = lch(fromSRGB: (dominant.r, dominant.g, dominant.b))
+        let baseC = min(maxChroma, max(minChroma, d.C * 1.15))
+        let h = d.h
+        func mk(_ L: Double, _ C: Double, _ degOffset: Double) -> LCh {
+            LCh(L: clampL(L), C: clampC(C), h: h + degOffset * .pi / 180)
         }
-        let cardL = averageLuminance(in: pixels, width: w, height: h)
-        return MeshSpec(colors: applyContrast(colors, cardLuminance: cardL))
+        let base = LCh(L: clampL(d.L), C: baseC, h: h)
+        let analog1 = mk(d.L + 0.06, baseC * 0.95, -analogShiftDeg)
+        let analog2 = mk(d.L - 0.06, baseC * 1.05, analogShiftDeg)
+        let tint = mk(d.L + 0.20, baseC * 0.65, -analogShiftDeg * 0.4)
+        let shade = mk(d.L - 0.20, baseC * 1.10, analogShiftDeg * 0.5)
+        let accent: LCh
+        if let s = secondary {
+            let a = lch(fromSRGB: (s.r, s.g, s.b))
+            accent = LCh(L: clampL(a.L), C: clampC(max(baseC, a.C) * 1.2), h: a.h)
+        } else {
+            accent = mk(d.L, baseC * 1.30, accentShiftDeg)
+        }
+        return Anchors(tint: tint, analog1: analog1, base: base,
+                       analog2: analog2, shade: shade, accent: accent)
     }
 
-    // MARK: - Palette with spatial centroids
-
-    private struct PaletteColor {
-        let r, g, b: Double
-        let cx, cy: Double      // normalized centroid, y from visual top
-        let count: Int
-        let key: Int
+    /// Directional 3×3 layout: light tint top-left → deep shade bottom-right
+    /// (diagonal depth), analogous sweep across the top, accent bloom bottom-left.
+    private static func layout(_ a: Anchors) -> [LCh] {
+        let tl = a.tint, tr = a.analog1, bl = a.accent, br = a.shade, c = a.base
+        return [
+            tl,                       // 0 TL
+            blend(tl, tr, 0.5),       // 1 T
+            tr,                       // 2 TR
+            blend(tl, bl, 0.5),       // 3 L
+            c,                        // 4 center
+            blend(tr, br, 0.5),       // 5 R
+            bl,                       // 6 BL
+            blend(bl, br, 0.5),       // 7 B
+            br                        // 8 BR
+        ]
     }
+
+    /// Perceptual blend through OKLab (lerp L,a,b), back to LCh.
+    private static func blend(_ x: LCh, _ y: LCh, _ t: Double) -> LCh {
+        let (lx, ax, bx) = labFromLCh(x)
+        let (ly, ay, by) = labFromLCh(y)
+        return lchFromLab(lx + (ly - lx) * t, ax + (ay - ax) * t, bx + (by - bx) * t)
+    }
+
+    // MARK: - Adaptive contrast
+
+    private static func applyContrast(_ grid: [LCh], cardL: Double) -> [LCh] {
+        let target = cardL >= 0.60 ? max(0.12, cardL - contrastGap)
+                                   : min(0.92, cardL + contrastGap)
+        let mean = grid.map(\.L).reduce(0, +) / Double(grid.count)
+        let dL = target - mean
+        return grid.map { LCh(L: clampL($0.L + dL), C: clampC($0.C * chromaScale), h: $0.h) }
+    }
+
+    private static func clampL(_ v: Double) -> Double { max(0.10, min(0.95, v)) }
+    private static func clampC(_ v: Double) -> Double { max(0, min(maxChroma, v)) }
+
+    // MARK: - Palette extraction (dominant + optional distinct secondary)
+
+    struct PaletteColor { let r, g, b: Double; let count: Int; let key: Int }
 
     private static func palette(in pixels: [UInt8], width w: Int, height h: Int) -> [PaletteColor] {
         var count = [Int: Int]()
         var sumR = [Int: Double](), sumG = [Int: Double](), sumB = [Int: Double]()
-        var sumX = [Int: Double](), sumY = [Int: Double]()
-        let denomX = Double(max(1, w - 1)), denomY = Double(max(1, h - 1))
         for y in 0..<h {
-            let ny = Double(y) / denomY      // buffer row 0 == visual top
             for x in 0..<w {
                 let i = (y * w + x) * 4
-                let r = Double(pixels[i]) / 255
-                let g = Double(pixels[i + 1]) / 255
-                let b = Double(pixels[i + 2]) / 255
+                let r = Double(pixels[i]) / 255, g = Double(pixels[i + 1]) / 255, b = Double(pixels[i + 2]) / 255
                 let key = (Int(r * 15) << 8) | (Int(g * 15) << 4) | Int(b * 15)
                 count[key, default: 0] += 1
-                sumR[key, default: 0] += r
-                sumG[key, default: 0] += g
-                sumB[key, default: 0] += b
-                sumX[key, default: 0] += Double(x) / denomX
-                sumY[key, default: 0] += ny
+                sumR[key, default: 0] += r; sumG[key, default: 0] += g; sumB[key, default: 0] += b
             }
         }
         let total = Double(w * h)
-        let minCount = max(1, Int(total * 0.005))    // ignore <0.5% specks
-        var candidates: [PaletteColor] = []
+        let minCount = max(1, Int(total * 0.005))
+        var cands: [PaletteColor] = []
         for (k, c) in count where c >= minCount {
             let n = Double(c)
-            candidates.append(PaletteColor(
-                r: sumR[k]! / n, g: sumG[k]! / n, b: sumB[k]! / n,
-                cx: sumX[k]! / n, cy: sumY[k]! / n, count: c, key: k))
+            cands.append(PaletteColor(r: sumR[k]! / n, g: sumG[k]! / n, b: sumB[k]! / n, count: c, key: k))
         }
-        if candidates.isEmpty {       // everything was specks → take the single most common
-            if let best = count.max(by: { $0.value != $1.value ? $0.value < $1.value : $0.key < $1.key }) {
-                let k = best.key, n = Double(best.value)
-                candidates.append(PaletteColor(
-                    r: sumR[k]! / n, g: sumG[k]! / n, b: sumB[k]! / n,
-                    cx: sumX[k]! / n, cy: sumY[k]! / n, count: best.value, key: k))
-            }
+        if cands.isEmpty, let best = count.max(by: { $0.value != $1.value ? $0.value < $1.value : $0.key < $1.key }) {
+            let k = best.key, n = Double(best.value)
+            cands.append(PaletteColor(r: sumR[k]! / n, g: sumG[k]! / n, b: sumB[k]! / n, count: best.value, key: k))
         }
-        // Prominent AND vivid first; deterministic tie-break by key.
-        candidates.sort {
+        cands.sort {
             let s0 = score($0), s1 = score($1)
             return s0 != s1 ? s0 > s1 : $0.key > $1.key
         }
         var chosen: [PaletteColor] = []
-        for cand in candidates {
-            if chosen.count >= maxPaletteColors { break }
-            if chosen.allSatisfy({ colorDistance($0, cand) > distinctThreshold }) {
-                chosen.append(cand)
-            }
+        for cand in cands {
+            if chosen.count >= 4 { break }
+            if chosen.allSatisfy({ colorDistance($0, cand) > 0.15 }) { chosen.append(cand) }
         }
         return chosen
     }
 
     private static func score(_ c: PaletteColor) -> Double {
-        let sat = Double(saturation(CGFloat(c.r), CGFloat(c.g), CGFloat(c.b)))
+        let maxC = max(c.r, c.g, c.b), minC = min(c.r, c.g, c.b)
+        let sat = maxC <= 0 ? 0 : (maxC - minC) / maxC
         return Double(c.count) * (0.35 + 0.65 * sat)
     }
 
@@ -104,69 +153,77 @@ enum MeshGradientGenerator {
         return (dr * dr + dg * dg + db * db).squareRoot()
     }
 
-    // MARK: - Spatial inverse-distance blend
-
-    private static func blend(palette: [PaletteColor], x px: Double, y py: Double) -> CGColor {
-        var wr = 0.0, wg = 0.0, wb = 0.0, wsum = 0.0
-        for p in palette {
-            let dx = px - p.cx, dy = py - p.cy
-            let weight = 1.0 / (dx * dx + dy * dy + 0.03)
-            wr += p.r * weight; wg += p.g * weight; wb += p.b * weight; wsum += weight
-        }
-        guard wsum > 0 else { return CGColor(srgbRed: 0.5, green: 0.5, blue: 0.5, alpha: 1) }
-        return CGColor(srgbRed: wr / wsum, green: wg / wsum, blue: wb / wsum, alpha: 1)
-    }
-
-    // MARK: - Adaptive contrast
-
-    private static func applyContrast(_ colors: [CGColor], cardLuminance cardL: Double) -> [CGColor] {
-        let targetMean = cardL >= 0.5 ? max(0.08, cardL - contrastGap)
-                                      : min(0.92, cardL + contrastGap)
-        let mean = max(0.001, colors.map(lum).reduce(0, +) / Double(colors.count))
-        let factor = targetMean / mean
-        return colors.map { c in
-            let comps = c.components ?? [0, 0, 0, 1]
-            var r = min(1, max(0, Double(comps[0]) * factor))
-            var g = min(1, max(0, Double(comps[1]) * factor))
-            var b = min(1, max(0, Double(comps[2]) * factor))
-            let grey = 0.2126 * r + 0.7152 * g + 0.0722 * b
-            r = r * desaturation + grey * (1 - desaturation)
-            g = g * desaturation + grey * (1 - desaturation)
-            b = b * desaturation + grey * (1 - desaturation)
-            return CGColor(srgbRed: r, green: g, blue: b, alpha: 1)
-        }
-    }
-
-    private static func lum(_ c: CGColor) -> Double {
-        let comps = c.components ?? [0, 0, 0, 1]
-        return 0.2126 * Double(comps[0]) + 0.7152 * Double(comps[1]) + 0.0722 * Double(comps[2])
-    }
-
-    private static func averageLuminance(in pixels: [UInt8], width w: Int, height h: Int) -> Double {
-        var sum = 0.0
+    private static func averageColor(in pixels: [UInt8], width w: Int, height h: Int) -> (Double, Double, Double) {
+        var r = 0.0, g = 0.0, b = 0.0
         let n = w * h
-        for p in 0..<n {
-            let i = p * 4
-            sum += 0.2126 * Double(pixels[i]) + 0.7152 * Double(pixels[i + 1]) + 0.0722 * Double(pixels[i + 2])
+        for p in 0..<n { let i = p * 4; r += Double(pixels[i]); g += Double(pixels[i + 1]); b += Double(pixels[i + 2]) }
+        let d = Double(n) * 255
+        return (r / d, g / d, b / d)
+    }
+
+    // MARK: - OKLab / OKLCh color math (Björn Ottosson)
+
+    private static func linearFromSRGB(_ c: (Double, Double, Double)) -> (Double, Double, Double) {
+        func f(_ v: Double) -> Double { v <= 0.04045 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4) }
+        return (f(c.0), f(c.1), f(c.2))
+    }
+    private static func srgbFromLinear(_ c: (Double, Double, Double)) -> (Double, Double, Double) {
+        func g(_ v: Double) -> Double {
+            let x = max(0, min(1, v))
+            return x <= 0.0031308 ? 12.92 * x : 1.055 * pow(x, 1 / 2.4) - 0.055
         }
-        return sum / (Double(n) * 255)
+        return (g(c.0), g(c.1), g(c.2))
+    }
+    private static func oklab(_ lin: (Double, Double, Double)) -> (Double, Double, Double) {
+        let (r, g, b) = lin
+        let l = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b
+        let m = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b
+        let s = 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b
+        let l_ = cbrt(l), m_ = cbrt(m), s_ = cbrt(s)
+        return (0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
+                1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
+                0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_)
+    }
+    private static func linearFromOKLab(_ lab: (Double, Double, Double)) -> (Double, Double, Double) {
+        let (L, a, b) = lab
+        let l_ = L + 0.3963377774 * a + 0.2158037573 * b
+        let m_ = L - 0.1055613458 * a - 0.0638541728 * b
+        let s_ = L - 0.0894841775 * a - 1.2914855480 * b
+        let l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_
+        return (4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+                -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+                -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s)
+    }
+
+    private static func labFromLCh(_ c: LCh) -> (Double, Double, Double) {
+        (c.L, c.C * cos(c.h), c.C * sin(c.h))
+    }
+    private static func lchFromLab(_ L: Double, _ a: Double, _ b: Double) -> LCh {
+        LCh(L: L, C: (a * a + b * b).squareRoot(), h: atan2(b, a))
+    }
+    private static func lch(fromSRGB c: (Double, Double, Double)) -> LCh {
+        let (L, a, b) = oklab(linearFromSRGB(c))
+        return lchFromLab(L, a, b)
+    }
+    private static func srgb(fromLCh c: LCh) -> CGColor {
+        let (L, a, b) = labFromLCh(c)
+        let (r, g, bb) = srgbFromLinear(linearFromOKLab((L, a, b)))
+        return CGColor(srgbRed: r, green: g, blue: bb, alpha: 1)
     }
 
     // MARK: - Downscale / pixels
 
     private static func downscaled(_ image: CGImage, selection: CGRect) -> CGImage? {
-        let crop = selection.integral.intersection(
-            CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        let crop = selection.integral.intersection(CGRect(x: 0, y: 0, width: image.width, height: image.height))
         let source = (crop.isNull || crop.isEmpty) ? image : (image.cropping(to: crop) ?? image)
         let longSide = max(source.width, source.height)
         guard longSide > 0 else { return nil }
         let scale = min(1.0, Double(sampleSize) / Double(longSide))
         let w = max(3, Int(Double(source.width) * scale))
         let h = max(3, Int(Double(source.height) * scale))
-        let ctx = CGContext(
-            data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
-            space: CGColorSpace(name: CGColorSpace.sRGB)!,
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                            space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
         ctx?.interpolationQuality = .medium
         ctx?.draw(source, in: CGRect(x: 0, y: 0, width: w, height: h))
         return ctx?.makeImage()
@@ -176,19 +233,13 @@ enum MeshGradientGenerator {
         let w = image.width, h = image.height
         var data = [UInt8](repeating: 0, count: w * h * 4)
         let ctx = data.withUnsafeMutableBytes { ptr -> CGContext? in
-            CGContext(
-                data: ptr.baseAddress, width: w, height: h, bitsPerComponent: 8,
-                bytesPerRow: w * 4, space: CGColorSpace(name: CGColorSpace.sRGB)!,
-                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+            CGContext(data: ptr.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                      space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
         }
         guard let ctx else { return nil }
         ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
         return data
-    }
-
-    private static func saturation(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat) -> CGFloat {
-        let maxC = max(r, g, b), minC = min(r, g, b)
-        return maxC <= 0 ? 0 : (maxC - minC) / maxC
     }
 
     private static func fallbackSpec() -> MeshSpec {
@@ -196,10 +247,8 @@ enum MeshGradientGenerator {
         let e = BackgroundStyle.defaultGradientEnd
         return MeshSpec(colors: [s, s, mid(s, e), s, mid(s, e), e, mid(s, e), e, e])
     }
-
     private static func mid(_ a: CGColor, _ b: CGColor) -> CGColor {
         let ca = a.components ?? [0, 0, 0, 1], cb = b.components ?? [0, 0, 0, 1]
-        return CGColor(srgbRed: (ca[0] + cb[0]) / 2, green: (ca[1] + cb[1]) / 2,
-                       blue: (ca[2] + cb[2]) / 2, alpha: 1)
+        return CGColor(srgbRed: (ca[0] + cb[0]) / 2, green: (ca[1] + cb[1]) / 2, blue: (ca[2] + cb[2]) / 2, alpha: 1)
     }
 }
