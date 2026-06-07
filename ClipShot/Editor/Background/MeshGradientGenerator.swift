@@ -26,7 +26,9 @@ enum MeshGradientGenerator {
         guard let dominant = pal.first else { return fallbackSpec() }
         let secondary = pal.count > 1 ? pal[1] : nil
 
-        let avg = averageColor(in: pixels, width: w, height: h)
+        guard let avg = averageColor(in: pixels, width: w, height: h) else {
+            return fallbackSpec()
+        }
         let cardL = oklab(linearFromSRGB(avg)).0
 
         let anchors = anchors(dominant: dominant, secondary: secondary)
@@ -105,30 +107,45 @@ enum MeshGradientGenerator {
 
     // MARK: - Palette extraction (dominant + optional distinct secondary)
 
-    struct PaletteColor { let r, g, b: Double; let count: Int; let key: Int }
+    struct PaletteColor { let r, g, b: Double; let weight: Double; let key: Int }
 
     private static func palette(in pixels: [UInt8], width w: Int, height h: Int) -> [PaletteColor] {
-        var count = [Int: Int]()
+        var weight = [Int: Double]()
         var sumR = [Int: Double](), sumG = [Int: Double](), sumB = [Int: Double]()
+        var totalWeight = 0.0
         for y in 0..<h {
             for x in 0..<w {
                 let i = (y * w + x) * 4
-                let r = Double(pixels[i]) / 255, g = Double(pixels[i + 1]) / 255, b = Double(pixels[i + 2]) / 255
+                guard let sample = visibleSample(in: pixels, at: i) else { continue }
+                let (r, g, b, alpha) = sample
                 let key = (Int(r * 15) << 8) | (Int(g * 15) << 4) | Int(b * 15)
-                count[key, default: 0] += 1
-                sumR[key, default: 0] += r; sumG[key, default: 0] += g; sumB[key, default: 0] += b
+                weight[key, default: 0] += alpha
+                sumR[key, default: 0] += r * alpha
+                sumG[key, default: 0] += g * alpha
+                sumB[key, default: 0] += b * alpha
+                totalWeight += alpha
             }
         }
-        let total = Double(w * h)
-        let minCount = max(1, Int(total * 0.005))
+        let minimumWeight = totalWeight * 0.005
         var cands: [PaletteColor] = []
-        for (k, c) in count where c >= minCount {
-            let n = Double(c)
-            cands.append(PaletteColor(r: sumR[k]! / n, g: sumG[k]! / n, b: sumB[k]! / n, count: c, key: k))
+        for (key, value) in weight where value >= minimumWeight {
+            cands.append(PaletteColor(
+                r: sumR[key]! / value,
+                g: sumG[key]! / value,
+                b: sumB[key]! / value,
+                weight: value,
+                key: key
+            ))
         }
-        if cands.isEmpty, let best = count.max(by: { $0.value != $1.value ? $0.value < $1.value : $0.key < $1.key }) {
-            let k = best.key, n = Double(best.value)
-            cands.append(PaletteColor(r: sumR[k]! / n, g: sumG[k]! / n, b: sumB[k]! / n, count: best.value, key: k))
+        if cands.isEmpty, let best = weight.max(by: { $0.value != $1.value ? $0.value < $1.value : $0.key < $1.key }) {
+            let key = best.key
+            cands.append(PaletteColor(
+                r: sumR[key]! / best.value,
+                g: sumG[key]! / best.value,
+                b: sumB[key]! / best.value,
+                weight: best.value,
+                key: key
+            ))
         }
         cands.sort {
             let s0 = score($0), s1 = score($1)
@@ -145,7 +162,7 @@ enum MeshGradientGenerator {
     private static func score(_ c: PaletteColor) -> Double {
         let maxC = max(c.r, c.g, c.b), minC = min(c.r, c.g, c.b)
         let sat = maxC <= 0 ? 0 : (maxC - minC) / maxC
-        return Double(c.count) * (0.35 + 0.65 * sat)
+        return c.weight * (0.35 + 0.65 * sat)
     }
 
     private static func colorDistance(_ a: PaletteColor, _ b: PaletteColor) -> Double {
@@ -153,12 +170,39 @@ enum MeshGradientGenerator {
         return (dr * dr + dg * dg + db * db).squareRoot()
     }
 
-    private static func averageColor(in pixels: [UInt8], width w: Int, height h: Int) -> (Double, Double, Double) {
-        var r = 0.0, g = 0.0, b = 0.0
-        let n = w * h
-        for p in 0..<n { let i = p * 4; r += Double(pixels[i]); g += Double(pixels[i + 1]); b += Double(pixels[i + 2]) }
-        let d = Double(n) * 255
-        return (r / d, g / d, b / d)
+    private static func averageColor(
+        in pixels: [UInt8],
+        width w: Int,
+        height h: Int
+    ) -> (Double, Double, Double)? {
+        var r = 0.0, g = 0.0, b = 0.0, totalWeight = 0.0
+        for p in 0..<(w * h) {
+            let i = p * 4
+            guard let sample = visibleSample(in: pixels, at: i) else { continue }
+            r += sample.r * sample.alpha
+            g += sample.g * sample.alpha
+            b += sample.b * sample.alpha
+            totalWeight += sample.alpha
+        }
+        guard totalWeight > 0 else { return nil }
+        return (r / totalWeight, g / totalWeight, b / totalWeight)
+    }
+
+    /// Pixel buffers are premultiplied RGBA. Ignore effectively transparent
+    /// pixels, then un-premultiply visible colors before extracting the palette.
+    private static func visibleSample(
+        in pixels: [UInt8],
+        at index: Int
+    ) -> (r: Double, g: Double, b: Double, alpha: Double)? {
+        let alphaByte = pixels[index + 3]
+        guard alphaByte > 8 else { return nil }
+        let divisor = Double(alphaByte)
+        return (
+            min(1, Double(pixels[index]) / divisor),
+            min(1, Double(pixels[index + 1]) / divisor),
+            min(1, Double(pixels[index + 2]) / divisor),
+            divisor / 255
+        )
     }
 
     // MARK: - OKLab / OKLCh color math (Björn Ottosson)

@@ -7,8 +7,8 @@ import Foundation
 /// reuses this output so Copy/Save and preview stay identical.
 enum DocumentRenderer {
 
-    static func dynamicBackgroundImage(for screenshot: CGImage, selection: CGRect, size: CGSize) -> CGImage? {
-        DynamicMeshCache.shared.meshImage(for: screenshot, selection: selection, size: size)
+    static func dynamicBackgroundImage(for screenshot: CGImage, selection: CGRect) -> CGImage? {
+        DynamicMeshCache.shared.meshImage(for: screenshot, selection: selection)
     }
 
     static func render(_ doc: EditorDocument) -> CGImage? {
@@ -182,9 +182,7 @@ enum DocumentRenderer {
         screenshot: CGImage,
         selection: CGRect
     ) {
-        guard let mesh = DynamicMeshCache.shared.meshImage(
-            for: screenshot, selection: selection, size: outputRect.size
-        ) else { return }
+        guard let mesh = DynamicMeshCache.shared.meshImage(for: screenshot, selection: selection) else { return }
         ctx.saveGState()
         ctx.clip(to: outputRect)
         ctx.translateBy(x: outputRect.minX, y: outputRect.maxY)

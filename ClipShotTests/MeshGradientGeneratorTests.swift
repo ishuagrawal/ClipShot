@@ -62,4 +62,42 @@ final class MeshGradientGeneratorTests: XCTestCase {
         let b = MeshGradientGenerator.generate(screenshot: img, selection: full)
         XCTAssertEqual(a, b)
     }
+
+    func test_generate_ignoresTransparentPixels() {
+        let color = CGColor(srgbRed: 0.8, green: 0.15, blue: 0.1, alpha: 1)
+        let visibleOnly = FixtureDocument.makeSolidImage(color: color, size: CGSize(width: 20, height: 20))
+        let transparentCanvas = transparentImageWithCenteredFill(
+            color: color,
+            canvasSize: CGSize(width: 60, height: 60),
+            fillRect: CGRect(x: 20, y: 20, width: 20, height: 20)
+        )
+
+        XCTAssertEqual(
+            MeshGradientGenerator.generate(screenshot: transparentCanvas, selection: full),
+            MeshGradientGenerator.generate(screenshot: visibleOnly, selection: full)
+        )
+    }
+
+    private func transparentImageWithCenteredFill(
+        color: CGColor,
+        canvasSize: CGSize,
+        fillRect: CGRect
+    ) -> CGImage {
+        let width = Int(canvasSize.width)
+        let height = Int(canvasSize.height)
+        let context = CGContext(
+            data: nil,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * 4,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                | CGBitmapInfo.byteOrder32Big.rawValue
+        )!
+        context.clear(CGRect(origin: .zero, size: canvasSize))
+        context.setFillColor(color)
+        context.fill(fillRect)
+        return context.makeImage()!
+    }
 }

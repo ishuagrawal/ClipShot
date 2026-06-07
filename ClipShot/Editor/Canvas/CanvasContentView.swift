@@ -15,6 +15,8 @@ final class CanvasContentView: NSView {
     private let selectionLayer: CALayer
     private let selectionMaskLayer: CAShapeLayer
     private let backgroundMaskLayer: CAShapeLayer
+    private var pendingDynamicSource: CGImage?
+    private var pendingDynamicSelection: CGRect = .null
 
     override init(frame frameRect: NSRect) {
         self.solidBackgroundLayer = CALayer()
@@ -118,13 +120,41 @@ final class CanvasContentView: NSView {
             gradientBackgroundLayer.isHidden = false
             applyOuterMask(to: gradientBackgroundLayer, doc: doc, size: backgroundFrame.size)
         case .dynamic:
-            dynamicBackgroundLayer.contents = DocumentRenderer.dynamicBackgroundImage(
-                for: doc.screenshot,
-                selection: doc.baseSelection,
-                size: backgroundFrame.size
-            )
+            updateDynamicBackground(for: doc)
             dynamicBackgroundLayer.isHidden = false
             applyOuterMask(to: dynamicBackgroundLayer, doc: doc, size: backgroundFrame.size)
+        }
+    }
+
+    private func updateDynamicBackground(for doc: EditorDocument) {
+        let screenshot = doc.screenshot
+        let selection = doc.baseSelection
+        if let cached = DynamicMeshCache.shared.cachedMeshImage(for: screenshot, selection: selection) {
+            dynamicBackgroundLayer.contents = cached
+            pendingDynamicSource = nil
+            pendingDynamicSelection = .null
+            return
+        }
+
+        dynamicBackgroundLayer.contents = nil
+        guard pendingDynamicSource !== screenshot || pendingDynamicSelection != selection else { return }
+        pendingDynamicSource = screenshot
+        pendingDynamicSelection = selection
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let image = DocumentRenderer.dynamicBackgroundImage(for: screenshot, selection: selection)
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if self.pendingDynamicSource === screenshot && self.pendingDynamicSelection == selection {
+                    self.pendingDynamicSource = nil
+                    self.pendingDynamicSelection = .null
+                }
+                guard let current = self.document,
+                      current.background.kind == .dynamic,
+                      current.screenshot === screenshot,
+                      current.baseSelection == selection else { return }
+                self.dynamicBackgroundLayer.contents = image
+            }
         }
     }
 

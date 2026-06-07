@@ -1,57 +1,53 @@
 import Foundation
 import CoreGraphics
 
-/// Caches the rendered dynamic-mesh background image, keyed by screenshot
-/// identity, the sampled selection rect, and the output size. Mirrors the
-/// shape of the former BlurExtendCache.
+/// Caches a normalized dynamic-mesh background image, keyed by screenshot
+/// identity and the sampled selection rect.
 final class DynamicMeshCache: @unchecked Sendable {
     static let shared = DynamicMeshCache()
 
-    /// The mesh is a low-frequency gradient, so rendering it above this size buys
-    /// no visible detail — consumers upscale it (CALayer `.resize` in preview,
-    /// `ctx.draw` stretch in export). Capping keeps padding-slider drags on large
-    /// Retina captures off the main-thread per-pixel render hotpath.
-    private static let maxRenderDimension = 512
+    /// The mesh is defined in normalized coordinates, so one square bitmap can
+    /// be stretched to every card size without regenerating it during padding edits.
+    private static let renderSize = CGSize(width: 512, height: 512)
 
     private let lock = NSLock()
     private var cachedImage: CGImage?
     private var cachedSource: CGImage?
     private var cachedSelection: CGRect = .null
-    private var cachedSize: CGSize = .zero
+    private var latestRequestSource: CGImage?
+    private var latestRequestSelection: CGRect = .null
 
-    func meshImage(for screenshot: CGImage, selection: CGRect, size: CGSize) -> CGImage? {
-        let w = max(1, Int(size.width.rounded()))
-        let h = max(1, Int(size.height.rounded()))
-        let key = CGSize(width: w, height: h)
+    func cachedMeshImage(for screenshot: CGImage, selection: CGRect) -> CGImage? {
+        lock.lock()
+        defer { lock.unlock() }
+        if let cachedImage, let cachedSource, cachedSource === screenshot,
+           cachedSelection == selection {
+            return cachedImage
+        }
+        return nil
+    }
 
+    func meshImage(for screenshot: CGImage, selection: CGRect) -> CGImage? {
         lock.lock()
         if let cachedImage, let cachedSource, cachedSource === screenshot,
-           cachedSelection == selection, cachedSize == key {
+           cachedSelection == selection {
             lock.unlock()
             return cachedImage
         }
+        latestRequestSource = screenshot
+        latestRequestSelection = selection
         lock.unlock()
 
         let spec = MeshGradientGenerator.generate(screenshot: screenshot, selection: selection)
-        guard let image = spec.render(size: Self.cappedSize(width: w, height: h)) else { return nil }
+        guard let image = spec.render(size: Self.renderSize) else { return nil }
 
         lock.lock()
-        cachedImage = image
-        cachedSource = screenshot
-        cachedSelection = selection
-        cachedSize = key
+        if latestRequestSource === screenshot, latestRequestSelection == selection {
+            cachedImage = image
+            cachedSource = screenshot
+            cachedSelection = selection
+        }
         lock.unlock()
         return image
-    }
-
-    /// Aspect-preserving cap so the long side never exceeds `maxRenderDimension`.
-    private static func cappedSize(width w: Int, height h: Int) -> CGSize {
-        let longSide = max(w, h)
-        guard longSide > maxRenderDimension else { return CGSize(width: w, height: h) }
-        let scale = Double(maxRenderDimension) / Double(longSide)
-        return CGSize(
-            width: max(1, Int((Double(w) * scale).rounded())),
-            height: max(1, Int((Double(h) * scale).rounded()))
-        )
     }
 }
