@@ -60,6 +60,36 @@ enum FixtureDocument {
         return (session, document)
     }
 
+    static func makeSolidImage(color: CGColor, size: CGSize) -> CGImage {
+        let w = Int(size.width), h = Int(size.height)
+        let ctx = CGContext(
+            data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )!
+        ctx.setFillColor(color)
+        ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
+        return ctx.makeImage()!
+    }
+
+    /// Top-left, top-right, bottom-left, bottom-right quadrant colors.
+    /// Note: CGContext origin is bottom-left, so "top" quadrants are the upper half.
+    static func makeQuadrantImage(tl: CGColor, tr: CGColor, bl: CGColor, br: CGColor,
+                                  size: CGSize) -> CGImage {
+        let w = Int(size.width), h = Int(size.height)
+        let ctx = CGContext(
+            data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )!
+        let halfW = CGFloat(w) / 2, halfH = CGFloat(h) / 2
+        ctx.setFillColor(bl); ctx.fill(CGRect(x: 0, y: 0, width: halfW, height: halfH))
+        ctx.setFillColor(br); ctx.fill(CGRect(x: halfW, y: 0, width: halfW, height: halfH))
+        ctx.setFillColor(tl); ctx.fill(CGRect(x: 0, y: halfH, width: halfW, height: halfH))
+        ctx.setFillColor(tr); ctx.fill(CGRect(x: halfW, y: halfH, width: halfW, height: halfH))
+        return ctx.makeImage()!
+    }
+
     /// Diagonal red/blue stripes — every pixel deterministic from coordinates, so any
     /// offset/scale/flip bug is immediately visible in a pixel comparison.
     static func makeStripedImage(size: CGSize) -> CGImage {

@@ -9,7 +9,6 @@ struct BackgroundToolView: View {
     @State private var gradientStart = Color(cgColor: BackgroundStyle.defaultGradientStart)
     @State private var gradientEnd = Color(cgColor: BackgroundStyle.defaultGradientEnd)
     @State private var gradientAngle = Double(BackgroundStyle.defaultGradientAngle)
-    @State private var blurRadius = 24.0
     @State private var isSyncingControls = false
 
     private var style: BackgroundStyle { state.document.background }
@@ -73,19 +72,22 @@ struct BackgroundToolView: View {
                     endPoint: .bottomTrailing
                 )
             )
-        case .blurExtend:
-            shape
-                .fill(
-                    LinearGradient(
-                        colors: [Color(white: 0.4), Color(white: 0.22)],
-                        startPoint: .top, endPoint: .bottom
-                    )
+        case .dynamic:
+            shape.fill(
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.95, green: 0.35, blue: 0.45),
+                        Color(red: 0.45, green: 0.45, blue: 0.95),
+                        Color(red: 0.35, green: 0.85, blue: 0.75)
+                    ],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
                 )
-                .overlay(
-                    Image(systemName: "drop.halffull")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.white.opacity(0.75))
-                )
+            )
+            .overlay(
+                Image(systemName: "sparkles")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.white.opacity(0.9))
+            )
         }
     }
 
@@ -97,8 +99,8 @@ struct BackgroundToolView: View {
             return "Solid"
         case .gradient:
             return "Gradient"
-        case .blurExtend:
-            return "Blur extend"
+        case .dynamic:
+            return "Dynamic"
         }
     }
 
@@ -153,23 +155,8 @@ struct BackgroundToolView: View {
                     InspectorValueLabel(text: "\(Int(gradientAngle))°")
                 }
             }
-        case .blurExtend:
-            HStack(spacing: 10) {
-                InspectorRowLabel(text: "Radius")
-                FlatSlider(
-                    value: Binding(
-                        get: { blurRadius },
-                        set: { newValue in
-                            blurRadius = newValue
-                            commit(.blurExtend(radius: CGFloat(newValue)))
-                        }
-                    ),
-                    range: 0...80,
-                    accessibilityLabel: "Blur radius",
-                    accessibilityValue: { "\(Int($0.rounded())) pixels" }
-                )
-                InspectorValueLabel(text: "\(Int(blurRadius))")
-            }
+        case .dynamic:
+            Text("Auto-generated from image").font(Theme.label(12)).foregroundStyle(Theme.textTertiary)
         }
     }
 
@@ -181,8 +168,8 @@ struct BackgroundToolView: View {
             commit(.solidColor(NSColor(solid).cgColor))
         case .gradient:
             applyGradient()
-        case .blurExtend:
-            commit(.blurExtend(radius: CGFloat(blurRadius)))
+        case .dynamic:
+            commit(.dynamic)
         }
     }
 
@@ -219,8 +206,8 @@ struct BackgroundToolView: View {
             gradientStart = Color(cgColor: start)
             gradientEnd = Color(cgColor: end)
             gradientAngle = Double(angle)
-        case .blurExtend(let radius):
-            blurRadius = Double(radius)
+        case .dynamic:
+            break
         }
     }
 }

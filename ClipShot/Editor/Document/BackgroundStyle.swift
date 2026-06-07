@@ -4,7 +4,7 @@ enum BackgroundStyle: Equatable {
     case none
     case solidColor(CGColor)
     case gradient(start: CGColor, end: CGColor, angleDegrees: CGFloat)
-    case blurExtend(radius: CGFloat)
+    case dynamic
 }
 
 extension BackgroundStyle {
@@ -13,7 +13,7 @@ extension BackgroundStyle {
         case none
         case solid
         case gradient
-        case blurExtend
+        case dynamic
     }
 
     var kind: Kind {
@@ -24,8 +24,8 @@ extension BackgroundStyle {
             return .solid
         case .gradient:
             return .gradient
-        case .blurExtend:
-            return .blurExtend
+        case .dynamic:
+            return .dynamic
         }
     }
 }

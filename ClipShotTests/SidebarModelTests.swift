@@ -40,7 +40,7 @@ final class SidebarModelTests: XCTestCase {
             ).kind,
             .gradient
         )
-        XCTAssertEqual(BackgroundStyle.blurExtend(radius: 10).kind, .blurExtend)
+        XCTAssertEqual(BackgroundStyle.dynamic.kind, .dynamic)
     }
 
     func testKindHasAllFourCases() {

@@ -254,7 +254,7 @@ struct PaddingToolView: View {
     private func applyAuto() {
         let auto = PaddingConfig.autoSweetSpot(forSelection: state.document.baseSelection.size)
         let currentBackground = state.document.background
-        let autoBackground = currentBackground == .none ? .defaultGradient : currentBackground
+        let autoBackground = currentBackground == .none ? .dynamic : currentBackground
         linked = true
         state.performCommand(
             ApplyAutoPaddingCommand(

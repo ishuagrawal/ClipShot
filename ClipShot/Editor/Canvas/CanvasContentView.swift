@@ -11,15 +11,17 @@ final class CanvasContentView: NSView {
 
     private let solidBackgroundLayer: CALayer
     private let gradientBackgroundLayer: CAGradientLayer
-    private let blurBackgroundLayer: CALayer
+    private let dynamicBackgroundLayer: CALayer
     private let selectionLayer: CALayer
     private let selectionMaskLayer: CAShapeLayer
     private let backgroundMaskLayer: CAShapeLayer
+    private var pendingDynamicSource: CGImage?
+    private var pendingDynamicSelection: CGRect = .null
 
     override init(frame frameRect: NSRect) {
         self.solidBackgroundLayer = CALayer()
         self.gradientBackgroundLayer = CAGradientLayer()
-        self.blurBackgroundLayer = CALayer()
+        self.dynamicBackgroundLayer = CALayer()
         self.selectionLayer = CALayer()
         self.selectionMaskLayer = CAShapeLayer()
         self.backgroundMaskLayer = CAShapeLayer()
@@ -28,16 +30,16 @@ final class CanvasContentView: NSView {
         layer?.backgroundColor = .clear
         layer?.masksToBounds = false
 
-        blurBackgroundLayer.contentsGravity = .resizeAspectFill
-        blurBackgroundLayer.magnificationFilter = .trilinear
-        blurBackgroundLayer.minificationFilter = .trilinear
+        dynamicBackgroundLayer.contentsGravity = .resize
+        dynamicBackgroundLayer.magnificationFilter = .trilinear
+        dynamicBackgroundLayer.minificationFilter = .trilinear
         selectionLayer.contentsGravity = .resize
         selectionLayer.magnificationFilter = .trilinear
         selectionLayer.minificationFilter = .trilinear
 
         layer?.addSublayer(solidBackgroundLayer)
         layer?.addSublayer(gradientBackgroundLayer)
-        layer?.addSublayer(blurBackgroundLayer)
+        layer?.addSublayer(dynamicBackgroundLayer)
         layer?.addSublayer(selectionLayer)
     }
 
@@ -51,8 +53,8 @@ final class CanvasContentView: NSView {
             frame = .zero
             solidBackgroundLayer.isHidden = true
             gradientBackgroundLayer.isHidden = true
-            blurBackgroundLayer.isHidden = true
-            blurBackgroundLayer.contents = nil
+            dynamicBackgroundLayer.isHidden = true
+            dynamicBackgroundLayer.contents = nil
             selectionLayer.contents = nil
             selectionLayer.mask = nil
             return
@@ -63,11 +65,14 @@ final class CanvasContentView: NSView {
         CATransaction.setDisableActions(true)
         defer { CATransaction.commit() }
 
+        let selectionMovedForDynamic = doc.background.kind == .dynamic
+            && previous?.baseSelection != doc.baseSelection
         let backgroundChanged = previous == nil
             || previous?.screenshot !== doc.screenshot
             || previous?.padding != doc.padding
             || previous?.background != doc.background
             || previous?.cardCornerOverride != doc.cardCornerOverride
+            || selectionMovedForDynamic
         if backgroundChanged {
             updateBackground(for: doc)
         }
@@ -76,6 +81,7 @@ final class CanvasContentView: NSView {
             || previous?.screenshot !== doc.screenshot
             || previous?.baseSelection != doc.baseSelection
             || previous?.selectionCornerRadii != doc.selectionCornerRadii
+            || previous?.padding != doc.padding
         if selectionChanged {
             updateSelection(for: doc)
         }
@@ -85,13 +91,13 @@ final class CanvasContentView: NSView {
         let backgroundFrame = doc.effectiveCrop.integral
         solidBackgroundLayer.frame = backgroundFrame
         gradientBackgroundLayer.frame = backgroundFrame
-        blurBackgroundLayer.frame = backgroundFrame
+        dynamicBackgroundLayer.frame = backgroundFrame
 
         solidBackgroundLayer.isHidden = true
         gradientBackgroundLayer.isHidden = true
-        blurBackgroundLayer.isHidden = true
+        dynamicBackgroundLayer.isHidden = true
 
-        for layer in [solidBackgroundLayer, gradientBackgroundLayer, blurBackgroundLayer] {
+        for layer in [solidBackgroundLayer, gradientBackgroundLayer, dynamicBackgroundLayer] {
             layer.mask = nil
             layer.cornerRadius = 0
             layer.masksToBounds = false
@@ -113,13 +119,42 @@ final class CanvasContentView: NSView {
             gradientBackgroundLayer.endPoint = points.end
             gradientBackgroundLayer.isHidden = false
             applyOuterMask(to: gradientBackgroundLayer, doc: doc, size: backgroundFrame.size)
-        case .blurExtend(let radius):
-            blurBackgroundLayer.contents = DocumentRenderer.blurredBackgroundImage(
-                for: doc.screenshot,
-                radius: radius
-            ) ?? doc.screenshot
-            blurBackgroundLayer.isHidden = false
-            applyOuterMask(to: blurBackgroundLayer, doc: doc, size: backgroundFrame.size)
+        case .dynamic:
+            updateDynamicBackground(for: doc)
+            dynamicBackgroundLayer.isHidden = false
+            applyOuterMask(to: dynamicBackgroundLayer, doc: doc, size: backgroundFrame.size)
+        }
+    }
+
+    private func updateDynamicBackground(for doc: EditorDocument) {
+        let screenshot = doc.screenshot
+        let selection = doc.baseSelection
+        if let cached = DynamicMeshCache.shared.cachedMeshImage(for: screenshot, selection: selection) {
+            dynamicBackgroundLayer.contents = cached
+            pendingDynamicSource = nil
+            pendingDynamicSelection = .null
+            return
+        }
+
+        dynamicBackgroundLayer.contents = nil
+        guard pendingDynamicSource !== screenshot || pendingDynamicSelection != selection else { return }
+        pendingDynamicSource = screenshot
+        pendingDynamicSelection = selection
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let image = DocumentRenderer.dynamicBackgroundImage(for: screenshot, selection: selection)
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if self.pendingDynamicSource === screenshot && self.pendingDynamicSelection == selection {
+                    self.pendingDynamicSource = nil
+                    self.pendingDynamicSelection = .null
+                }
+                guard let current = self.document,
+                      current.background.kind == .dynamic,
+                      current.screenshot === screenshot,
+                      current.baseSelection == selection else { return }
+                self.dynamicBackgroundLayer.contents = image
+            }
         }
     }
 
@@ -146,6 +181,7 @@ final class CanvasContentView: NSView {
             selectionLayer.frame = .zero
             selectionLayer.contents = nil
             selectionLayer.mask = nil
+            selectionLayer.shadowOpacity = 0
             return
         }
 
@@ -158,6 +194,22 @@ final class CanvasContentView: NSView {
             selectionMaskLayer.frame = CGRect(origin: .zero, size: selection.size)
             selectionMaskLayer.path = radii.path(in: selectionMaskLayer.bounds)
             selectionLayer.mask = selectionMaskLayer
+        }
+
+        if !doc.padding.isZero {
+            let shortSide = min(selection.width, selection.height)
+            selectionLayer.shadowColor = CGColor(srgbRed: 0, green: 0, blue: 0, alpha: 1)
+            selectionLayer.shadowOpacity = 0.30
+            selectionLayer.shadowRadius = max(8, shortSide * 0.02)
+            selectionLayer.shadowOffset = CGSize(width: 0, height: max(2, shortSide * 0.01))
+            let shadowRadii = doc.selectionCornerRadii.clamped(to: selection.size)
+            let bounds = CGRect(origin: .zero, size: selection.size)
+            selectionLayer.shadowPath = shadowRadii.isZero
+                ? CGPath(rect: bounds, transform: nil)
+                : shadowRadii.path(in: bounds)
+        } else {
+            selectionLayer.shadowOpacity = 0
+            selectionLayer.shadowPath = nil
         }
     }
 

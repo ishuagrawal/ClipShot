@@ -148,61 +148,6 @@ final class DocumentRendererTests: XCTestCase {
         XCTAssertEqual(buffer.pixels[3], 255, "gradient margin must be opaque")
     }
 
-    func test_render_blurExtendBackground_marginIsOpaque() throws {
-        let image = try XCTUnwrap(DocumentRenderer.render(paddedDoc(padding: 20, background: .blurExtend(radius: 12))))
-        let buffer = try XCTUnwrap(PixelBuffer.decode(image))
-        XCTAssertEqual(buffer.pixels[3], 255, "blur-extend margin must be opaque")
-    }
-
-    func test_render_blurExtendBackground_usesCurrentScreenshotForSameSizedCaptures() throws {
-        let red = TestImage.solid(.red, size: CGSize(width: 91, height: 91))
-        let blue = TestImage.solid(.blue, size: CGSize(width: 91, height: 91))
-        _ = DocumentRenderer.render(
-            document(
-                screenshot: red,
-                selection: CGRect(x: 25, y: 25, width: 41, height: 41),
-                padding: 25,
-                background: .blurExtend(radius: 7)
-            )
-        )
-
-        let image = try XCTUnwrap(
-            DocumentRenderer.render(
-                document(
-                    screenshot: blue,
-                    selection: CGRect(x: 25, y: 25, width: 41, height: 41),
-                    padding: 25,
-                    background: .blurExtend(radius: 7)
-                )
-            )
-        )
-        let buffer = try XCTUnwrap(PixelBuffer.decode(image))
-
-        XCTAssertLessThan(Int(buffer.pixels[0]), 20)
-        XCTAssertLessThan(Int(buffer.pixels[1]), 20)
-        XCTAssertGreaterThan(Int(buffer.pixels[2]), 235)
-    }
-
-    func test_render_blurExtendBackground_drawsUprightInPadding() throws {
-        let image = try XCTUnwrap(
-            DocumentRenderer.render(
-                document(
-                    screenshot: verticalSplitImage(size: CGSize(width: 73, height: 73)),
-                    selection: CGRect(x: 20, y: 20, width: 33, height: 33),
-                    padding: 20,
-                    background: .blurExtend(radius: 0)
-                )
-            )
-        )
-        let buffer = try XCTUnwrap(PixelBuffer.decode(image))
-
-        // The fixture is created in Core Graphics' y-up space, so its visual
-        // top half is blue. Upright rendering must keep the output top-left blue.
-        XCTAssertLessThan(Int(buffer.pixels[0]), 20)
-        XCTAssertLessThan(Int(buffer.pixels[1]), 80)
-        XCTAssertGreaterThan(Int(buffer.pixels[2]), 235)
-    }
-
     func test_render_arrow_overridesScreenshotPixels() throws {
         var doc = paddedDoc(padding: 0, background: .none)
         doc.annotations = [
@@ -328,6 +273,29 @@ final class DocumentRendererTests: XCTestCase {
         let image = try XCTUnwrap(DocumentRenderer.render(doc))
         let buffer = try XCTUnwrap(PixelBuffer.decode(image))
         XCTAssertEqual(Int(buffer.pixels[3]), 255, "rectangular shot keeps opaque corners")
+    }
+
+    func test_render_dynamicBackground_marginIsOpaque() throws {
+        let image = try XCTUnwrap(DocumentRenderer.render(paddedDoc(padding: 20, background: .dynamic)))
+        let buf = try XCTUnwrap(PixelBuffer.decode(image))
+        XCTAssertEqual(Int(buf.pixels[3]), 255, "dynamic background margin must be opaque")
+    }
+
+    func test_render_dynamicBackground_seamApproximatesEdgeColor() throws {
+        let solid = FixtureDocument.makeSolidImage(
+            color: CGColor(srgbRed: 0.85, green: 0.2, blue: 0.2, alpha: 1),
+            size: CGSize(width: 60, height: 60))
+        let doc = document(
+            screenshot: solid,
+            selection: CGRect(x: 0, y: 0, width: 60, height: 60),
+            padding: 24,
+            background: .dynamic
+        )
+        let image = try XCTUnwrap(DocumentRenderer.render(doc))
+        let buf = try XCTUnwrap(PixelBuffer.decode(image))
+        let i = (6 * buf.bytesPerRow) + 6 * 4
+        XCTAssertGreaterThan(Int(buf.pixels[i + 0]), Int(buf.pixels[i + 1]) + 30)
+        XCTAssertGreaterThan(Int(buf.pixels[i + 0]), Int(buf.pixels[i + 2]) + 30)
     }
 
     func test_render_concentricOuter_clipsAnnotationsAtCardCorners() throws {
