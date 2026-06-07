@@ -104,6 +104,33 @@ enum NativeCaptureError: Error {
     case captureFailed
 }
 
+enum NativeScreencaptureCLI {
+    /// Format a global, top-left-origin point rect as the system `screencapture`
+    /// tool's `-R x,y,w,h` argument. Whole points; the tool renders at the
+    /// display's native pixel scale (2x on Retina).
+    static func rectArgument(for rect: CGRect) -> String {
+        "\(Int(rect.minX.rounded())),\(Int(rect.minY.rounded())),"
+            + "\(Int(rect.width.rounded())),\(Int(rect.height.rounded()))"
+    }
+}
+
+enum NativeWindowShaping {
+    /// Convert a corner radius measured in the shape capture's pixel grid into the
+    /// color capture's pixel grid. The two share a scale on uniform-DPI displays
+    /// (→ unchanged), but the `screencapture` color crop and the
+    /// `CGWindowListCreateImage` shape can round to dimensions that differ by a
+    /// pixel; rescaling keeps the rounded mask aligned to the color image.
+    static func cornerRadius(shapeRadius: CGFloat,
+                             shapeSize: CGSize,
+                             colorSize: CGSize) -> CGFloat {
+        guard shapeRadius > 0, shapeSize.width > 0, shapeSize.height > 0 else { return shapeRadius }
+        return shapeRadius * min(
+            colorSize.width / shapeSize.width,
+            colorSize.height / shapeSize.height
+        )
+    }
+}
+
 @MainActor
 final class NativeScreenCapturer: @unchecked Sendable {
     func capture(region: NativeCaptureRegion) async throws -> NativeWindowShot {
@@ -130,7 +157,16 @@ final class NativeScreenCapturer: @unchecked Sendable {
             if let matchedWindow = leadingWindow(regionGlobal: regionGlobal, windows: content.windows) {
                 return try await captureWindow(matchedWindow, display: display, scale: scale)
             }
-            let bitmap = try await captureBitmap(region: region, display: display, scale: scale)
+            // Prefer the system `screencapture` tool (same path Apple's own
+            // screenshots use): true native pixels with none of the resampling
+            // softness ScreenCaptureKit applies to a cropped `sourceRect`. Fall
+            // back to the SCK bitmap path if it fails (sandbox/permission/tooling).
+            let bitmap: NativeCaptureBitmap
+            if let native = await captureNativeRect(globalRect: regionGlobal) {
+                bitmap = native
+            } else {
+                bitmap = try await captureBitmap(region: region, display: display, scale: scale)
+            }
             return NativeWindowShot(
                 image: bitmap.image,
                 pixelScale: bitmap.pixelScale,
@@ -138,6 +174,43 @@ final class NativeScreenCapturer: @unchecked Sendable {
                 cornerRadii: nil
             )
         }
+    }
+
+    /// Capture a global screen rect at native resolution via `/usr/sbin/screencapture`.
+    /// The tool writes a device-native PNG (2x on Retina) identical in fidelity to a
+    /// system screenshot — sharper than a ScreenCaptureKit cropped capture, which
+    /// resamples. Runs off the main actor; returns nil on any failure so the caller
+    /// can fall back to the SCK path. Requires Screen Recording permission, which the
+    /// app already holds for SCK.
+    private func captureNativeRect(globalRect: CGRect) async -> NativeCaptureBitmap? {
+        guard globalRect.width >= 1, globalRect.height >= 1 else { return nil }
+        let path = NSTemporaryDirectory() + "clipshot_capture_\(UUID().uuidString).png"
+        let rectArg = "-R" + NativeScreencaptureCLI.rectArgument(for: globalRect)
+
+        let succeeded: Bool = await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+                process.arguments = [rectArg, "-x", "-t", "png", path]
+                do {
+                    try process.run()
+                    process.waitUntilExit()
+                    continuation.resume(returning: process.terminationStatus == 0)
+                } catch {
+                    continuation.resume(returning: false)
+                }
+            }
+        }
+
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        guard succeeded,
+              let data = FileManager.default.contents(atPath: path),
+              let image = NSBitmapImageRep(data: data)?.cgImage else {
+            return nil
+        }
+
+        let scale = globalRect.width > 0 ? CGFloat(image.width) / globalRect.width : 1
+        return NativeCaptureBitmap(image: image, pixelScale: max(1, scale))
     }
 
     /// Frontmost eligible window containing a global point (SCShareableContent
@@ -169,29 +242,31 @@ final class NativeScreenCapturer: @unchecked Sendable {
             throw NativeCaptureError.captureFailed
         }
 
-        let pixelScale = window.frame.width > 0 && window.frame.height > 0
-            ? max(
-                CGFloat(windowShape.width) / window.frame.width,
-                CGFloat(windowShape.height) / window.frame.height
+        // Color crop at native fidelity. Prefer `screencapture` (sharp, like the
+        // system screenshot); fall back to the SCK bitmap forced onto the shape's
+        // pixel grid. `windowShape` supplies only the rounded-corner alpha.
+        let visibleBitmap: NativeCaptureBitmap
+        if let native = await captureNativeRect(globalRect: window.frame) {
+            visibleBitmap = native
+        } else {
+            let windowRegion = NativeCaptureRegion(
+                displayID: display.displayID,
+                sourceRect: displayLocalRect(for: window.frame, display: display)
             )
-            : scale
-        let windowRegion = NativeCaptureRegion(
-            displayID: display.displayID,
-            sourceRect: displayLocalRect(for: window.frame, display: display)
-        )
-        let visibleBitmap = try await captureBitmap(
-            region: windowRegion,
-            display: display,
-            scale: pixelScale,
-            outputPixelSize: CGSize(width: windowShape.width, height: windowShape.height)
-        )
+            visibleBitmap = try await captureBitmap(
+                region: windowRegion,
+                display: display,
+                scale: scale,
+                outputPixelSize: CGSize(width: windowShape.width, height: windowShape.height)
+            )
+        }
 
         let shaped = shapedWindowImage(
             visibleBitmap.image,
             windowShape: windowShape,
-            pixelScale: pixelScale
+            pixelScale: visibleBitmap.pixelScale
         )
-        let safeScale = max(1, pixelScale)
+        let safeScale = max(1, visibleBitmap.pixelScale)
         let cornerRadii: DOMCornerRadii?
         if shaped.cornerRadiusPixels > 0.5 {
             let pointRadius = Double(shaped.cornerRadiusPixels / safeScale)
@@ -224,7 +299,11 @@ final class NativeScreenCapturer: @unchecked Sendable {
         let height = visibleImage.height
         guard width > 0, height > 0 else { return (visibleImage, 0) }
 
-        let radius = cornerRadiusPixels(in: windowShape)
+        let radius = NativeWindowShaping.cornerRadius(
+            shapeRadius: cornerRadiusPixels(in: windowShape),
+            shapeSize: CGSize(width: windowShape.width, height: windowShape.height),
+            colorSize: CGSize(width: width, height: height)
+        )
         guard radius > 0.5,
               let mask = continuousCornerMask(
                 width: width, height: height, radius: radius, pixelScale: pixelScale
@@ -348,22 +427,34 @@ final class NativeScreenCapturer: @unchecked Sendable {
                                display: SCDisplay,
                                scale: CGFloat,
                                outputPixelSize: CGSize? = nil) async throws -> NativeCaptureBitmap {
-        let config = SCStreamConfiguration()
-        config.sourceRect = region.sourceRect
-        config.width = max(1, Int((outputPixelSize?.width ?? region.sourceRect.width * scale).rounded()))
-        config.height = max(1, Int((outputPixelSize?.height ?? region.sourceRect.height * scale).rounded()))
-        config.scalesToFit = false
-        config.showsCursor = false
+        let filter = SCContentFilter(display: display, excludingWindows: [])
+
+        // `pointPixelScale` is ScreenCaptureKit's own point→pixel factor for this
+        // display — the authoritative Retina backing scale, correct across mixed-DPI
+        // and external displays where the NSScreen value can be stale. Fall back to
+        // the caller's NSScreen-derived scale on systems without the property.
+        var pixelScale = scale
         if #available(macOS 14.0, *) {
-            config.captureResolution = .best
+            let sckScale = CGFloat(filter.pointPixelScale)
+            if sckScale > 0 { pixelScale = sckScale }
         }
 
-        let filter = SCContentFilter(display: display, excludingWindows: [])
+        let config = SCStreamConfiguration()
+        config.sourceRect = region.sourceRect
+        // For display capture the output pixel count is governed solely by width/
+        // height (point size × pixel scale). `captureResolution = .best` is omitted
+        // deliberately: per Apple's docs it only affects independent-window capture,
+        // so it is a no-op on this display filter.
+        config.width = max(1, Int((outputPixelSize?.width ?? region.sourceRect.width * pixelScale).rounded()))
+        config.height = max(1, Int((outputPixelSize?.height ?? region.sourceRect.height * pixelScale).rounded()))
+        config.scalesToFit = false
+        config.showsCursor = false
+
         let image = try await SCScreenshotManager.captureImage(
             contentFilter: filter,
             configuration: config
         )
-        return NativeCaptureBitmap(image: image, pixelScale: scale)
+        return NativeCaptureBitmap(image: image, pixelScale: pixelScale)
     }
 
     private func displayLocalRect(for globalRect: CGRect, display: SCDisplay) -> CGRect {

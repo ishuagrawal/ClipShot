@@ -4,6 +4,34 @@ import XCTest
 
 final class NativeWindowMatcherTests: XCTestCase {
 
+    func testScreencaptureRectArgumentRoundsGlobalPointRect() {
+        let arg = NativeScreencaptureCLI.rectArgument(
+            for: CGRect(x: 12.4, y: 80.6, width: 200.4, height: 100.2)
+        )
+
+        XCTAssertEqual(arg, "12,81,200,100")
+    }
+
+    func testWindowCornerRadiusRescalesIntoColorGrid() {
+        let radius = NativeWindowShaping.cornerRadius(
+            shapeRadius: 12,
+            shapeSize: CGSize(width: 800, height: 500),
+            colorSize: CGSize(width: 1600, height: 1000)
+        )
+
+        XCTAssertEqual(radius, 24)
+    }
+
+    func testWindowCornerRadiusUnchangedForEqualGrids() {
+        let radius = NativeWindowShaping.cornerRadius(
+            shapeRadius: 18,
+            shapeSize: CGSize(width: 800, height: 500),
+            colorSize: CGSize(width: 800, height: 500)
+        )
+
+        XCTAssertEqual(radius, 18)
+    }
+
     func testWholeWindowSelectionMatchesWindow() {
         let window = CGRect(x: 100, y: 120, width: 800, height: 500)
         let region = window.insetBy(dx: -8, dy: -8)
