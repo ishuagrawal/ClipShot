@@ -79,6 +79,7 @@ final class CanvasContentView: NSView {
             || previous?.screenshot !== doc.screenshot
             || previous?.baseSelection != doc.baseSelection
             || previous?.selectionCornerRadii != doc.selectionCornerRadii
+            || previous?.padding != doc.padding
         if selectionChanged {
             updateSelection(for: doc)
         }
@@ -150,6 +151,7 @@ final class CanvasContentView: NSView {
             selectionLayer.frame = .zero
             selectionLayer.contents = nil
             selectionLayer.mask = nil
+            selectionLayer.shadowOpacity = 0
             return
         }
 
@@ -162,6 +164,22 @@ final class CanvasContentView: NSView {
             selectionMaskLayer.frame = CGRect(origin: .zero, size: selection.size)
             selectionMaskLayer.path = radii.path(in: selectionMaskLayer.bounds)
             selectionLayer.mask = selectionMaskLayer
+        }
+
+        if !doc.padding.isZero {
+            let shortSide = min(selection.width, selection.height)
+            selectionLayer.shadowColor = CGColor(srgbRed: 0, green: 0, blue: 0, alpha: 1)
+            selectionLayer.shadowOpacity = 0.30
+            selectionLayer.shadowRadius = max(8, shortSide * 0.02)
+            selectionLayer.shadowOffset = CGSize(width: 0, height: max(2, shortSide * 0.01))
+            let shadowRadii = doc.selectionCornerRadii.clamped(to: selection.size)
+            let bounds = CGRect(origin: .zero, size: selection.size)
+            selectionLayer.shadowPath = shadowRadii.isZero
+                ? CGPath(rect: bounds, transform: nil)
+                : shadowRadii.path(in: bounds)
+        } else {
+            selectionLayer.shadowOpacity = 0
+            selectionLayer.shadowPath = nil
         }
     }
 

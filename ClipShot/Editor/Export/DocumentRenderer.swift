@@ -54,6 +54,10 @@ enum DocumentRenderer {
             drawBackground(doc.background, in: ctx, outputRect: outputRect,
                            screenshot: doc.screenshot, selection: doc.baseSelection)
         }
+        ctx.saveGState()
+        if !doc.padding.isZero {
+            applyCardShadow(in: ctx, dest: dest)
+        }
         drawScreenshot(
             doc.screenshot,
             selectionPx: selectionPx,
@@ -61,6 +65,7 @@ enum DocumentRenderer {
             cornerRadii: doc.selectionCornerRadii,
             in: ctx
         )
+        ctx.restoreGState()
         ctx.saveGState()
         ctx.translateBy(x: doc.padding.left, y: doc.padding.top)
         drawAnnotations(doc.annotations, in: ctx)
@@ -219,6 +224,19 @@ enum DocumentRenderer {
             options: [.drawsBeforeStartLocation, .drawsAfterEndLocation]
         )
         ctx.restoreGState()
+    }
+
+    private static func applyCardShadow(in ctx: CGContext, dest: CGRect) {
+        let shortSide = min(dest.width, dest.height)
+        let blur = max(12, shortSide * 0.03)
+        // Context is y-flipped (top-left origin), so a negative dy casts the
+        // shadow visually downward — light-from-above, card sits above its shadow.
+        let offset = CGSize(width: 0, height: -max(3, shortSide * 0.012))
+        ctx.setShadow(
+            offset: offset,
+            blur: blur,
+            color: CGColor(srgbRed: 0, green: 0, blue: 0, alpha: 0.30)
+        )
     }
 
     private static func drawScreenshot(
