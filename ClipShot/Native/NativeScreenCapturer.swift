@@ -7,14 +7,6 @@ struct NativeCaptureBitmap: @unchecked Sendable {
     let pixelScale: CGFloat
 }
 
-struct NativeWindowMatch: Equatable, Sendable {
-    let index: Int
-    let score: CGFloat
-    let windowCoverage: CGFloat
-    let regionCoverage: CGFloat
-    let area: CGFloat
-}
-
 struct NativeWindowShot: @unchecked Sendable {
     let image: CGImage
     let pixelScale: CGFloat
@@ -25,80 +17,6 @@ struct NativeWindowShot: @unchecked Sendable {
     let cornerRadii: DOMCornerRadii?
 }
 
-enum NativeWindowMatcher {
-    static func bestMatch(frames: [CGRect],
-                          in region: CGRect,
-                          minSide: CGFloat = 80,
-                          minWindowCoverage: CGFloat = 0.90,
-                          minRegionCoverage: CGFloat = 0.50,
-                          edgeTolerance: CGFloat = 24) -> NativeWindowMatch? {
-        rankedMatches(
-            frames: frames,
-            in: region,
-            maxResults: 1,
-            minSide: minSide,
-            minWindowCoverage: minWindowCoverage,
-            minRegionCoverage: minRegionCoverage,
-            edgeTolerance: edgeTolerance
-        ).first
-    }
-
-    static func rankedMatches(frames: [CGRect],
-                              in region: CGRect,
-                              maxResults: Int = 3,
-                              minSide: CGFloat = 80,
-                              minWindowCoverage: CGFloat = 0.90,
-                              minRegionCoverage: CGFloat = 0.50,
-                              edgeTolerance: CGFloat = 24) -> [NativeWindowMatch] {
-        let regionArea = area(region)
-        guard regionArea > 0 else { return [] }
-
-        let tolerantRegion = region.insetBy(
-            dx: -max(0, edgeTolerance),
-            dy: -max(0, edgeTolerance)
-        )
-
-        let matches = frames.enumerated().compactMap { index, frame -> NativeWindowMatch? in
-            guard frame.width >= minSide, frame.height >= minSide else { return nil }
-            let windowArea = area(frame)
-            guard windowArea > 0 else { return nil }
-
-            let intersection = frame.intersection(region)
-            guard !intersection.isNull, !intersection.isEmpty else { return nil }
-
-            let tolerantIntersection = frame.intersection(tolerantRegion)
-            guard !tolerantIntersection.isNull, !tolerantIntersection.isEmpty else { return nil }
-
-            let intersectionArea = area(intersection)
-            let windowCoverage = area(tolerantIntersection) / windowArea
-            let regionCoverage = intersectionArea / regionArea
-            guard windowCoverage >= minWindowCoverage,
-                  regionCoverage >= minRegionCoverage else { return nil }
-
-            return NativeWindowMatch(
-                index: index,
-                score: windowCoverage * regionCoverage,
-                windowCoverage: windowCoverage,
-                regionCoverage: regionCoverage,
-                area: windowArea
-            )
-        }
-
-        return matches
-            .sorted {
-                if abs($0.score - $1.score) > 0.02 { return $0.score > $1.score }
-                if abs($0.area - $1.area) > 1 { return $0.area > $1.area }
-                return $0.index < $1.index
-            }
-            .prefix(maxResults)
-            .map { $0 }
-    }
-
-    private static func area(_ rect: CGRect) -> CGFloat {
-        max(0, rect.width) * max(0, rect.height)
-    }
-}
-
 enum NativeCaptureError: Error {
     case noDisplay
     case captureFailed
@@ -107,10 +25,12 @@ enum NativeCaptureError: Error {
 enum NativeScreencaptureCLI {
     /// Format a global, top-left-origin point rect as the system `screencapture`
     /// tool's `-R x,y,w,h` argument. Whole points; the tool renders at the
-    /// display's native pixel scale (2x on Retina).
+    /// display's native pixel scale (2x on Retina). Round outward so fractional
+    /// drag coordinates never clip an edge of the user's selection.
     static func rectArgument(for rect: CGRect) -> String {
-        "\(Int(rect.minX.rounded())),\(Int(rect.minY.rounded())),"
-            + "\(Int(rect.width.rounded())),\(Int(rect.height.rounded()))"
+        let captureRect = rect.standardized.integral
+        return "\(Int(captureRect.minX)),\(Int(captureRect.minY)),"
+            + "\(Int(captureRect.width)),\(Int(captureRect.height))"
     }
 }
 
@@ -154,9 +74,6 @@ final class NativeScreenCapturer: @unchecked Sendable {
             return try await captureWindow(window, display: display, scale: scale)
 
         case .rect:
-            if let matchedWindow = leadingWindow(regionGlobal: regionGlobal, windows: content.windows) {
-                return try await captureWindow(matchedWindow, display: display, scale: scale)
-            }
             // Prefer the system `screencapture` tool (same path Apple's own
             // screenshots use): true native pixels with none of the resampling
             // softness ScreenCaptureKit applies to a cropped `sourceRect`. Fall
@@ -184,8 +101,9 @@ final class NativeScreenCapturer: @unchecked Sendable {
     /// app already holds for SCK.
     private func captureNativeRect(globalRect: CGRect) async -> NativeCaptureBitmap? {
         guard globalRect.width >= 1, globalRect.height >= 1 else { return nil }
+        let captureRect = globalRect.standardized.integral
         let path = NSTemporaryDirectory() + "clipshot_capture_\(UUID().uuidString).png"
-        let rectArg = "-R" + NativeScreencaptureCLI.rectArgument(for: globalRect)
+        let rectArg = "-R" + NativeScreencaptureCLI.rectArgument(for: captureRect)
 
         let succeeded: Bool = await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
@@ -209,7 +127,7 @@ final class NativeScreenCapturer: @unchecked Sendable {
             return nil
         }
 
-        let scale = globalRect.width > 0 ? CGFloat(image.width) / globalRect.width : 1
+        let scale = captureRect.width > 0 ? CGFloat(image.width) / captureRect.width : 1
         return NativeCaptureBitmap(image: image, pixelScale: max(1, scale))
     }
 
@@ -461,24 +379,6 @@ final class NativeScreenCapturer: @unchecked Sendable {
         globalRect
             .intersection(display.frame)
             .offsetBy(dx: -display.frame.minX, dy: -display.frame.minY)
-    }
-
-    private func leadingWindow(regionGlobal: CGRect,
-                               windows: [SCWindow]) -> SCWindow? {
-        let eligible = windows.filter { window in
-            let frame = window.frame
-            return window.isOnScreen
-                && window.windowLayer == 0
-                && frame.width > 0
-                && frame.height > 0
-                && window.owningApplication?.bundleIdentifier != Bundle.main.bundleIdentifier
-        }
-        guard let match = NativeWindowMatcher.bestMatch(
-            frames: eligible.map(\.frame),
-            in: regionGlobal
-        ) else { return nil }
-
-        return eligible[match.index]
     }
 
     private func backingScale(forDisplayID displayID: CGDirectDisplayID) -> CGFloat {

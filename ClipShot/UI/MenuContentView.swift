@@ -24,7 +24,7 @@ struct MenuContentView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Screen capture")
                     .font(.subheadline.weight(.semibold))
-                Text("Press Control Shift 5, then drag around a window or selected region.")
+                Text("Press Control Shift 5, then drag an exact region or click a window.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
