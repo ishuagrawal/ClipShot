@@ -75,7 +75,9 @@ final class DocumentRendererTests: XCTestCase {
     }
 
     func test_render_noneBackground_marginIsTransparent() throws {
-        let image = try XCTUnwrap(DocumentRenderer.render(paddedDoc(padding: 10, background: .none)))
+        var doc = paddedDoc(padding: 10, background: .none)
+        doc.shadow.isEnabled = false  // isolate background fill from the card's (default-on) drop shadow
+        let image = try XCTUnwrap(DocumentRenderer.render(doc))
         let buffer = try XCTUnwrap(PixelBuffer.decode(image))
         XCTAssertEqual(buffer.pixels[3], 0, "top-left margin alpha must be 0 for .none")
     }
@@ -368,6 +370,141 @@ final class DocumentRendererTests: XCTestCase {
         XCTAssertGreaterThan(Int(buffer.pixels[idx + 2]), 200, "padding band is the blue background")
     }
 
+    // MARK: - Background effects / shadow / screenshot corners
+
+    func test_render_withBackgroundEffects_outputSizeUnchanged() throws {
+        let plain = try XCTUnwrap(DocumentRenderer.render(paddedDoc(padding: 20, background: .dynamic)))
+        var doc = paddedDoc(padding: 20, background: .dynamic)
+        doc.backgroundEffects = BackgroundEffects(blurRadius: 8, noiseOpacity: 0.2)
+        let withFx = try XCTUnwrap(DocumentRenderer.render(doc))
+        XCTAssertEqual(plain.width, withFx.width)
+        XCTAssertEqual(plain.height, withFx.height)
+    }
+
+    func test_composedBackgroundImage_matchesCropSize() throws {
+        var doc = paddedDoc(padding: 20, background: .solidColor(CGColor(red: 0, green: 0, blue: 1, alpha: 1)))
+        doc.backgroundEffects = BackgroundEffects(blurRadius: 0, noiseOpacity: 0.3)
+        let image = try XCTUnwrap(DocumentRenderer.composedBackgroundImage(for: doc))
+        let crop = doc.effectiveCrop.integral
+        XCTAssertEqual(image.width, Int(crop.width))
+        XCTAssertEqual(image.height, Int(crop.height))
+    }
+
+    func test_render_blurredNoisyMargin_staysOpaque() throws {
+        var doc = paddedDoc(padding: 20, background: .solidColor(CGColor(red: 0, green: 0, blue: 1, alpha: 1)))
+        doc.backgroundEffects = BackgroundEffects(blurRadius: 6, noiseOpacity: 0.15)
+        let image = try XCTUnwrap(DocumentRenderer.render(doc))
+        let buffer = try XCTUnwrap(PixelBuffer.decode(image))
+        XCTAssertEqual(Int(buffer.pixels[3]), 255, "blurred + noisy solid margin must stay opaque")
+    }
+
+    func test_composedBackground_noisePreservesSolidHue() throws {
+        let baseDoc = paddedDoc(
+            padding: 20,
+            background: .solidColor(CGColor(red: 0, green: 0, blue: 1, alpha: 1))
+        )
+        var doc = baseDoc
+        doc.backgroundEffects = BackgroundEffects(blurRadius: 0, noiseOpacity: 0.30)
+
+        let baseImage = try XCTUnwrap(DocumentRenderer.composedBackgroundImage(for: baseDoc))
+        let image = try XCTUnwrap(DocumentRenderer.composedBackgroundImage(for: doc))
+        let baseAverages = averageRGB(try XCTUnwrap(PixelBuffer.decode(baseImage)))
+        let buffer = try XCTUnwrap(PixelBuffer.decode(image))
+        let averages = averageRGB(buffer)
+        let baseHSV = hsv(baseAverages)
+        let noisyHSV = hsv(averages)
+
+        XCTAssertEqual(noisyHSV.hue, baseHSV.hue, accuracy: 0.015)
+        XCTAssertEqual(noisyHSV.saturation, baseHSV.saturation, accuracy: 0.04)
+    }
+
+    func test_composedBackground_blurSoftensNoise() throws {
+        var sharpDoc = paddedDoc(
+            padding: 20,
+            background: .solidColor(CGColor(gray: 0.5, alpha: 1))
+        )
+        sharpDoc.backgroundEffects = BackgroundEffects(blurRadius: 0, noiseOpacity: 0.30)
+        var blurredDoc = sharpDoc
+        blurredDoc.backgroundEffects.blurRadius = 12
+
+        let sharp = try XCTUnwrap(PixelBuffer.decode(
+            try XCTUnwrap(DocumentRenderer.composedBackgroundImage(for: sharpDoc))
+        ))
+        let blurred = try XCTUnwrap(PixelBuffer.decode(
+            try XCTUnwrap(DocumentRenderer.composedBackgroundImage(for: blurredDoc))
+        ))
+
+        XCTAssertLessThan(
+            averageHorizontalLuminanceDelta(blurred),
+            averageHorizontalLuminanceDelta(sharp) * 0.5,
+            "blur must soften the complete background, including its noise"
+        )
+    }
+
+    func test_render_shadowVisibleOutsideRoundedScreenshotWithNoise() throws {
+        var doc = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 80, height: 80)),
+            viewport: CGSize(width: 80, height: 80),
+            pageTitle: "Shadow",
+            pageURL: "https://example.com",
+            baseSelection: CGRect(x: 20, y: 20, width: 40, height: 40),
+            selectionCornerRadii: .uniform(12),
+            padding: .uniform(20),
+            background: .solidColor(CGColor(gray: 1, alpha: 1))
+        )
+        doc.backgroundEffects = BackgroundEffects(blurRadius: 0, noiseOpacity: 0.10)
+        doc.shadow = ShadowConfig(
+            isEnabled: true,
+            blur: 12,
+            offsetX: 0,
+            offsetY: 0,
+            opacity: 1,
+            color: CGColor(gray: 0, alpha: 1)
+        )
+
+        let image = try XCTUnwrap(DocumentRenderer.render(doc))
+        let buffer = try XCTUnwrap(PixelBuffer.decode(image))
+        let leftShadowBand = averageLuminance(
+            buffer,
+            xRange: 17..<20,
+            yRange: 28..<52
+        )
+        let surroundingBackground = averageLuminance(
+            buffer,
+            xRange: 0..<8,
+            yRange: 24..<56
+        )
+
+        XCTAssertLessThan(
+            leftShadowBand,
+            surroundingBackground - 8,
+            "rounded screenshot shadow must remain visibly darker than its noisy background"
+        )
+    }
+
+    func test_render_shadowDisabled_rendersAtCropSize() throws {
+        var doc = paddedDoc(padding: 20, background: .solidColor(CGColor(red: 0, green: 0, blue: 1, alpha: 1)))
+        doc.shadow.isEnabled = false
+        let image = try XCTUnwrap(DocumentRenderer.render(doc))
+        XCTAssertEqual(image.width, 120)
+        XCTAssertEqual(image.height, 100)
+    }
+
+    func test_render_screenshotCornerOverride_roundsScreenshot() throws {
+        var doc = EditorDocument(
+            screenshot: TestImage.solid(.red, size: CGSize(width: 48, height: 48)),
+            viewport: CGSize(width: 48, height: 48),
+            pageTitle: "Rounded",
+            pageURL: "https://example.com",
+            baseSelection: CGRect(x: 4, y: 4, width: 40, height: 40),
+            background: .none
+        )
+        doc.screenshotCornerOverride = 14
+        let image = try XCTUnwrap(DocumentRenderer.render(doc))
+        let buffer = try XCTUnwrap(PixelBuffer.decode(image))
+        XCTAssertEqual(buffer.pixels[3], 0, "overridden screenshot corner must be transparent")
+    }
+
     private func paddedDoc(padding: CGFloat, background: BackgroundStyle) -> EditorDocument {
         document(
             screenshot: TestImage.solid(.red, size: CGSize(width: 200, height: 200)),
@@ -413,5 +550,81 @@ final class DocumentRendererTests: XCTestCase {
         context.setFillColor(CGColor(red: 0, green: 0, blue: 1, alpha: 1))
         context.fill(CGRect(x: 0, y: height / 2, width: width, height: height - height / 2))
         return context.makeImage()!
+    }
+
+    private func averageRGB(_ buffer: PixelBuffer.Buffer) -> (red: Double, green: Double, blue: Double) {
+        var red = 0.0
+        var green = 0.0
+        var blue = 0.0
+        let count = Double(buffer.width * buffer.height)
+        for y in 0..<buffer.height {
+            for x in 0..<buffer.width {
+                let index = y * buffer.bytesPerRow + x * 4
+                red += Double(buffer.pixels[index])
+                green += Double(buffer.pixels[index + 1])
+                blue += Double(buffer.pixels[index + 2])
+            }
+        }
+        return (red / count, green / count, blue / count)
+    }
+
+    private func hsv(
+        _ rgb: (red: Double, green: Double, blue: Double)
+    ) -> (hue: Double, saturation: Double, value: Double) {
+        let red = rgb.red / 255
+        let green = rgb.green / 255
+        let blue = rgb.blue / 255
+        let maximum = max(red, green, blue)
+        let minimum = min(red, green, blue)
+        let delta = maximum - minimum
+        let hue: Double
+        if delta == 0 {
+            hue = 0
+        } else if maximum == red {
+            hue = ((green - blue) / delta).truncatingRemainder(dividingBy: 6) / 6
+        } else if maximum == green {
+            hue = (((blue - red) / delta) + 2) / 6
+        } else {
+            hue = (((red - green) / delta) + 4) / 6
+        }
+        let normalizedHue = hue < 0 ? hue + 1 : hue
+        let saturation = maximum == 0 ? 0 : delta / maximum
+        return (normalizedHue, saturation, maximum)
+    }
+
+    private func averageHorizontalLuminanceDelta(_ buffer: PixelBuffer.Buffer) -> Double {
+        var total = 0.0
+        var count = 0
+        for y in 0..<buffer.height {
+            for x in 1..<buffer.width {
+                let previous = y * buffer.bytesPerRow + (x - 1) * 4
+                let current = y * buffer.bytesPerRow + x * 4
+                total += abs(luminance(buffer.pixels, at: current) - luminance(buffer.pixels, at: previous))
+                count += 1
+            }
+        }
+        return total / Double(max(1, count))
+    }
+
+    private func averageLuminance(
+        _ buffer: PixelBuffer.Buffer,
+        xRange: Range<Int>,
+        yRange: Range<Int>
+    ) -> Double {
+        var total = 0.0
+        var count = 0
+        for y in yRange {
+            for x in xRange {
+                total += luminance(buffer.pixels, at: y * buffer.bytesPerRow + x * 4)
+                count += 1
+            }
+        }
+        return total / Double(max(1, count))
+    }
+
+    private func luminance(_ pixels: Data, at index: Int) -> Double {
+        0.2126 * Double(pixels[index])
+            + 0.7152 * Double(pixels[index + 1])
+            + 0.0722 * Double(pixels[index + 2])
     }
 }

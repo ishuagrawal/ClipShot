@@ -23,6 +23,8 @@ enum PaddingSide: CaseIterable {
 }
 
 extension PaddingConfig {
+    static let maximum: CGFloat = 200
+
     static func uniform(_ value: CGFloat) -> PaddingConfig {
         PaddingConfig(top: value, right: value, bottom: value, left: value)
     }
@@ -55,7 +57,7 @@ extension PaddingConfig {
         return copy
     }
 
-    func clamped(to range: ClosedRange<CGFloat> = 0...256) -> PaddingConfig {
+    func clamped(to range: ClosedRange<CGFloat> = 0...PaddingConfig.maximum) -> PaddingConfig {
         func clamp(_ value: CGFloat) -> CGFloat {
             min(max(value, range.lowerBound), range.upperBound)
         }

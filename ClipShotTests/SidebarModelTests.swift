@@ -24,7 +24,7 @@ final class SidebarModelTests: XCTestCase {
 
     func testClampedBoundsEachSide() {
         let padding = PaddingConfig(top: -5, right: 9999, bottom: 30, left: 0).clamped()
-        XCTAssertEqual(padding, PaddingConfig(top: 0, right: 256, bottom: 30, left: 0))
+        XCTAssertEqual(padding, PaddingConfig(top: 0, right: 200, bottom: 30, left: 0))
     }
 
     // MARK: BackgroundStyle.Kind

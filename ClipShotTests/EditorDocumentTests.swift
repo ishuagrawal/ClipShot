@@ -324,7 +324,7 @@ final class EditorDocumentTests: XCTestCase {
         XCTAssertEqual(doc.outerCornerRadii.isZero, false)
     }
 
-    func test_cardCornerRadius_isScreenshotRadiusNotOffset() {
+    func test_cardCornerRadius_autoModeMatchesScreenshotRadius() {
         let doc = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 400, height: 400)),
             viewport: CGSize(width: 400, height: 400),
@@ -334,7 +334,7 @@ final class EditorDocumentTests: XCTestCase {
             contentCornerRadii: .uniform(18),
             padding: .uniform(40)
         )
-        XCTAssertEqual(doc.cardCornerRadius, 18) // screenshot radius, NOT 18+40
+        XCTAssertEqual(doc.cardCornerRadius, 18)
     }
 
     func test_cardCornerRadius_nilWithoutPaddingOrRadius() {
@@ -391,6 +391,74 @@ final class EditorDocumentTests: XCTestCase {
         // Auto value is the derived concentric radius regardless of override.
         XCTAssertEqual(overrideDoc(60).autoCardCornerRadius, 18)
         XCTAssertEqual(overrideDoc(nil).autoCardCornerRadius, 18)
+    }
+
+    func test_isCardCornerConcentric_whenManualOuterMatchesRenderedInner() {
+        var doc = overrideDoc(18)
+        XCTAssertTrue(doc.isCardCornerConcentric)
+
+        doc.cardCornerOverride = 19
+        XCTAssertFalse(doc.isCardCornerConcentric)
+    }
+
+    func test_isCardCornerConcentric_whenCornersAreLockedTogether() {
+        var doc = overrideDoc(50)
+        doc.lockCornersToCard = true
+        XCTAssertTrue(doc.isCardCornerConcentric)
+    }
+
+    // MARK: - Shadow / background effects / screenshot corners
+
+    func test_shadowConfig_defaultIsEnabledSoftBlack() {
+        XCTAssertTrue(ShadowConfig.default.isEnabled)
+        XCTAssertEqual(ShadowConfig.default.opacity, 0.30, accuracy: 0.0001)
+        XCTAssertEqual(ShadowConfig.default.blur, 30)
+    }
+
+    func test_backgroundEffects_isActiveOnlyWhenBlurOrNoise() {
+        XCTAssertFalse(BackgroundEffects.none.isActive)
+        XCTAssertTrue(BackgroundEffects(blurRadius: 2, noiseOpacity: 0).isActive)
+        XCTAssertTrue(BackgroundEffects(blurRadius: 0, noiseOpacity: 0.1).isActive)
+    }
+
+    func test_document_defaults_shadowEnabled_noEffects_noCornerOverride() {
+        let doc = makeDoc()
+        XCTAssertTrue(doc.shadow.isEnabled)
+        XCTAssertFalse(doc.backgroundEffects.isActive)
+        XCTAssertNil(doc.screenshotCornerOverride)
+        XCTAssertFalse(doc.lockCornersToCard)
+    }
+
+    func test_screenshotCornerOverride_drivesEffectiveSelectionRadii() {
+        var doc = roundedDoc(padding: .zero, radius: 0)
+        XCTAssertEqual(doc.effectiveSelectionCornerRadii.uniformRadius, nil)
+        doc.screenshotCornerOverride = 24
+        XCTAssertEqual(doc.effectiveSelectionCornerRadii.uniformRadius, 24)
+    }
+
+    func test_screenshotCornerOverride_drivesConcentricOuter() {
+        var doc = roundedDoc(padding: .uniform(10), radius: 0)
+        XCTAssertTrue(doc.outerCornerRadii.isZero, "no captured radius → no concentric card")
+        doc.screenshotCornerOverride = 18
+        XCTAssertEqual(doc.outerCornerRadii, .uniform(28)) // 18 + 10
+        XCTAssertEqual(doc.autoCardCornerRadius, 18)
+    }
+
+    func test_lockCornersToCard_mirrorsCardRadius() {
+        var doc = overrideDoc(50) // cardCornerOverride 50, padding 40
+        XCTAssertEqual(doc.cardCornerRadius, 50)
+        doc.lockCornersToCard = true
+        XCTAssertEqual(doc.effectiveSelectionCornerRadii.uniformRadius, 50)
+    }
+
+    func test_version_bumpsForShadowEffectsAndCornerFields() {
+        var doc = makeDoc()
+        let v0 = doc.version
+        doc.shadow = .default
+        doc.backgroundEffects = BackgroundEffects(blurRadius: 5, noiseOpacity: 0)
+        doc.screenshotCornerOverride = 10
+        doc.lockCornersToCard = true
+        XCTAssertEqual(doc.version, v0 + 4)
     }
 }
 

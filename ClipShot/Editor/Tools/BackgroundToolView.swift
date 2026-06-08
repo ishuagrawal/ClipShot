@@ -9,7 +9,10 @@ struct BackgroundToolView: View {
     @State private var gradientStart = Color(cgColor: BackgroundStyle.defaultGradientStart)
     @State private var gradientEnd = Color(cgColor: BackgroundStyle.defaultGradientEnd)
     @State private var gradientAngle = Double(BackgroundStyle.defaultGradientAngle)
+    @State private var blur = 0.0
+    @State private var noise = 0.0
     @State private var isSyncingControls = false
+    @State private var isSyncingEffects = false
 
     private var style: BackgroundStyle { state.document.background }
 
@@ -20,11 +23,46 @@ struct BackgroundToolView: View {
                 .foregroundStyle(Theme.textPrimary)
             tiles
             config
+            effects
         }
         .padding(16)
-        .onAppear { syncControls(from: style) }
+        .onAppear {
+            syncControls(from: style)
+            syncEffects(state.document.backgroundEffects)
+        }
         .onChange(of: style) { _, newStyle in
             syncControls(from: newStyle)
+        }
+        .onChange(of: state.document.backgroundEffects) { _, fx in
+            syncEffects(fx)
+        }
+    }
+
+    /// Stackable post-effects (blur + grain) on top of any non-empty background.
+    @ViewBuilder
+    private var effects: some View {
+        if style.kind != .none {
+            Rectangle().fill(Theme.hairline).frame(height: 1).padding(.vertical, 2)
+            HStack(spacing: 10) {
+                InspectorRowLabel(text: "Blur")
+                FlatSlider(
+                    value: Binding(get: { blur }, set: { blur = $0; commitEffects() }),
+                    range: 0...Double(BackgroundEffects.maximumBlurRadius),
+                    accessibilityLabel: "Background blur",
+                    accessibilityValue: { "\(Int($0.rounded()))" }
+                )
+                InspectorValueLabel(text: "\(Int(blur))")
+            }
+            HStack(spacing: 10) {
+                InspectorRowLabel(text: "Noise")
+                FlatSlider(
+                    value: Binding(get: { noise }, set: { noise = $0; commitEffects() }),
+                    range: 0...Double(BackgroundEffects.maximumNoiseOpacity * 100),
+                    accessibilityLabel: "Background noise",
+                    accessibilityValue: { "\(Int($0.rounded())) percent" }
+                )
+                InspectorValueLabel(text: "\(Int(noise))%")
+            }
         }
     }
 
@@ -209,5 +247,23 @@ struct BackgroundToolView: View {
         case .dynamic:
             break
         }
+    }
+
+    private func commitEffects() {
+        guard !isSyncingEffects else { return }
+        let from = state.document.backgroundEffects
+        let to = BackgroundEffects(blurRadius: CGFloat(blur), noiseOpacity: CGFloat(noise / 100))
+        guard to != from else { return }
+        state.performCommand(SetBackgroundEffectsCommand(from: from, to: to))
+    }
+
+    private func syncEffects(_ fx: BackgroundEffects) {
+        let nextBlur = Double(fx.blurRadius)
+        let nextNoise = Double(fx.noiseOpacity * 100)
+        guard blur != nextBlur || noise != nextNoise else { return }
+        isSyncingEffects = true
+        defer { Task { @MainActor in isSyncingEffects = false } }
+        blur = nextBlur
+        noise = nextNoise
     }
 }

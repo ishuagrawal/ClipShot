@@ -51,21 +51,24 @@ enum DocumentRenderer {
         }
 
         if !doc.padding.isZero {
-            drawBackground(doc.background, in: ctx, outputRect: outputRect,
-                           screenshot: doc.screenshot, selection: doc.baseSelection)
+            drawDocumentBackground(doc, in: ctx, outputRect: outputRect)
         }
-        ctx.saveGState()
         if !doc.padding.isZero {
-            applyCardShadow(in: ctx, dest: dest)
+            drawScreenshotShadow(
+                doc.shadow,
+                dest: dest,
+                cornerRadii: doc.effectiveSelectionCornerRadii,
+                outputRect: outputRect,
+                in: ctx
+            )
         }
         drawScreenshot(
             doc.screenshot,
             selectionPx: selectionPx,
             dest: dest,
-            cornerRadii: doc.selectionCornerRadii,
+            cornerRadii: doc.effectiveSelectionCornerRadii,
             in: ctx
         )
-        ctx.restoreGState()
         ctx.saveGState()
         ctx.translateBy(x: doc.padding.left, y: doc.padding.top)
         drawAnnotations(doc.annotations, in: ctx)
@@ -224,17 +227,174 @@ enum DocumentRenderer {
         ctx.restoreGState()
     }
 
-    private static func applyCardShadow(in ctx: CGContext, dest: CGRect) {
-        let shortSide = min(dest.width, dest.height)
-        let blur = max(12, shortSide * 0.03)
-        // Context is y-flipped (top-left origin), so a negative dy casts the
-        // shadow visually downward — light-from-above, card sits above its shadow.
-        let offset = CGSize(width: 0, height: -max(3, shortSide * 0.012))
+    private static func drawScreenshotShadow(
+        _ shadow: ShadowConfig,
+        dest: CGRect,
+        cornerRadii: SelectionCornerRadii,
+        outputRect: CGRect,
+        in ctx: CGContext
+    ) {
+        guard let image = screenshotShadowImage(
+            shadow,
+            dest: dest,
+            cornerRadii: cornerRadii,
+            outputSize: outputRect.size
+        ) else { return }
+        drawTopLeftImage(image, in: ctx, outputRect: outputRect)
+    }
+
+    /// Renders only the pixels outside the screenshot shape. Drawing the shadow
+    /// in a temporary bitmap avoids clipping it when the screenshot itself is
+    /// subsequently masked to rounded corners.
+    private static func screenshotShadowImage(
+        _ config: ShadowConfig,
+        dest: CGRect,
+        cornerRadii: SelectionCornerRadii,
+        outputSize: CGSize
+    ) -> CGImage? {
+        let shadow = config.clamped
+        guard shadow.isEnabled, shadow.opacity > 0 else { return nil }
+        let width = Int(outputSize.width)
+        let height = Int(outputSize.height)
+        guard width > 0, height > 0 else { return nil }
+        let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
+        guard let ctx = CGContext(
+            data: nil,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * 4,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                | CGBitmapInfo.byteOrder32Big.rawValue
+        ) else { return nil }
+
+        ctx.translateBy(x: 0, y: CGFloat(height))
+        ctx.scaleBy(x: 1, y: -1)
+        let color = shadow.color.copy(alpha: shadow.opacity)
+            ?? CGColor(srgbRed: 0, green: 0, blue: 0, alpha: shadow.opacity)
         ctx.setShadow(
-            offset: offset,
-            blur: blur,
-            color: CGColor(srgbRed: 0, green: 0, blue: 0, alpha: 0.30)
+            offset: CGSize(width: shadow.offsetX, height: -shadow.offsetY),
+            blur: shadow.blur,
+            color: color
         )
+        let path = screenshotPath(dest: dest, cornerRadii: cornerRadii)
+        ctx.setFillColor(CGColor(gray: 0, alpha: 1))
+        ctx.addPath(path)
+        ctx.fillPath()
+
+        // Remove the opaque shape that cast the shadow, leaving shadow pixels only.
+        ctx.setShadow(offset: .zero, blur: 0, color: nil)
+        ctx.setBlendMode(.clear)
+        ctx.addPath(path)
+        ctx.fillPath()
+        return ctx.makeImage()
+    }
+
+    // MARK: - Background composition (blur + noise)
+
+    private static let ciContext = CIContext(options: nil)
+
+    /// Draws the document's background into the (already card-clipped) context,
+    /// using the composed blur+noise image when effects are active, else the
+    /// plain style fill.
+    private static func drawDocumentBackground(
+        _ doc: EditorDocument,
+        in ctx: CGContext,
+        outputRect: CGRect
+    ) {
+        if doc.backgroundEffects.isActive, doc.background.kind != .none,
+           let composed = composedBackgroundImage(for: doc) {
+            drawTopLeftImage(composed, in: ctx, outputRect: outputRect)
+        } else {
+            drawBackground(doc.background, in: ctx, outputRect: outputRect,
+                           screenshot: doc.screenshot, selection: doc.baseSelection)
+        }
+    }
+
+    /// Full-crop background image with blur + noise baked in (top-left oriented).
+    /// Returns the plain base when no effect is active. Used by both export and
+    /// the live canvas so the two stay pixel-identical.
+    static func composedBackgroundImage(for doc: EditorDocument) -> CGImage? {
+        let size = doc.effectiveCrop.integral.size
+        guard let base = baseBackgroundImage(doc, size: size) else { return nil }
+        let fx = doc.backgroundEffects.clamped
+        guard fx.isActive else { return base }
+
+        var image = CIImage(cgImage: base)
+        let extent = image.extent
+        if fx.noiseOpacity > 0 {
+            image = applyingLuminanceNoise(to: image, strength: fx.noiseOpacity, extent: extent)
+        }
+        if fx.blurRadius > 0 {
+            image = image.clampedToExtent()
+                .applyingGaussianBlur(sigma: Double(fx.blurRadius))
+                .cropped(to: extent)
+        }
+        return ciContext.createCGImage(image, from: extent) ?? base
+    }
+
+    /// Rasterizes the plain style fill at crop size. Replicates render()'s y-down
+    /// top-left space so the dynamic mesh (and gradients) draw upright/identically.
+    private static func baseBackgroundImage(_ doc: EditorDocument, size: CGSize) -> CGImage? {
+        let width = Int(size.width), height = Int(size.height)
+        guard width > 0, height > 0 else { return nil }
+        let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
+        guard let ctx = CGContext(
+            data: nil, width: width, height: height, bitsPerComponent: 8,
+            bytesPerRow: width * 4, space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                | CGBitmapInfo.byteOrder32Big.rawValue
+        ) else { return nil }
+        ctx.translateBy(x: 0, y: CGFloat(height))
+        ctx.scaleBy(x: 1, y: -1)
+        drawBackground(doc.background, in: ctx,
+                       outputRect: CGRect(origin: .zero, size: size),
+                       screenshot: doc.screenshot, selection: doc.baseSelection)
+        return ctx.makeImage()
+    }
+
+    /// Blends monochrome grain through neutral soft light. Mid-grey is a no-op,
+    /// so the texture changes local brightness without washing the background
+    /// toward grey or adding a color cast.
+    private static func applyingLuminanceNoise(
+        to image: CIImage,
+        strength: CGFloat,
+        extent: CGRect
+    ) -> CIImage {
+        let noise = CIFilter(name: "CIRandomGenerator")?.outputImage
+            ?? CIImage(color: CIColor(red: 0.5, green: 0.5, blue: 0.5))
+        let mono = noise.applyingFilter("CIColorControls", parameters: ["inputSaturation": 0])
+        let grain = mono.applyingFilter("CIColorMatrix", parameters: [
+            "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 0),
+            "inputBiasVector": CIVector(x: 0, y: 0, z: 0, w: Double(strength))
+        ]).cropped(to: extent)
+        return grain
+            .applyingFilter("CISoftLightBlendMode", parameters: [
+                kCIInputBackgroundImageKey: image
+            ])
+            .cropped(to: extent)
+    }
+
+    private static func drawTopLeftImage(
+        _ image: CGImage,
+        in ctx: CGContext,
+        outputRect: CGRect
+    ) {
+        ctx.saveGState()
+        ctx.clip(to: outputRect)
+        ctx.translateBy(x: outputRect.minX, y: outputRect.maxY)
+        ctx.scaleBy(x: 1, y: -1)
+        ctx.draw(image, in: CGRect(origin: .zero, size: outputRect.size))
+        ctx.restoreGState()
+    }
+
+    private static func screenshotPath(
+        dest: CGRect,
+        cornerRadii: SelectionCornerRadii
+    ) -> CGPath {
+        let radii = cornerRadii.clamped(to: dest.size)
+        return radii.isZero ? CGPath(rect: dest, transform: nil) : radii.path(in: dest)
     }
 
     private static func drawScreenshot(
@@ -251,7 +411,7 @@ enum DocumentRenderer {
         ctx.saveGState()
         let radii = cornerRadii.clamped(to: dest.size)
         if !radii.isZero {
-            ctx.addPath(radii.path(in: dest))
+            ctx.addPath(screenshotPath(dest: dest, cornerRadii: radii))
             ctx.clip()
         }
         ctx.translateBy(x: dest.minX, y: dest.maxY)
