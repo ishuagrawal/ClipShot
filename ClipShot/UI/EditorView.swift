@@ -53,12 +53,18 @@ private struct EditorShell: View {
                 .padding(.top, 10)
         }
         .overlay(alignment: .topTrailing) {
+            ExportPanelView(state: state)
+                .padding(.trailing, Theme.chromeMargin)
+                .padding(.top, 10)
+        }
+        .overlay(alignment: .topTrailing) {
             InspectorView(
                 state: state,
                 onCanvasFocusRequested: canvasFocusProxy.requestKeyboardFocus
             )
             .padding(.trailing, Theme.chromeMargin)
-            .padding(.vertical, Theme.chromeMargin)
+            .padding(.top, 56)
+            .padding(.bottom, Theme.chromeMargin)
         }
         .overlay(alignment: .bottom) {
             DockView(state: state, zoom: zoomController)

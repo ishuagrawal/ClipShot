@@ -264,7 +264,8 @@ struct GlassPanel: ViewModifier {
                     .overlay(shape.stroke(Theme.hairlineStrong, lineWidth: 1))
             }
         }
-        .shadow(color: Theme.floatShadow.opacity(0.6), radius: 18, y: 8)
+        // Wide, faint, low: ambient occlusion rather than a cast shadow.
+        .shadow(color: Color.black.opacity(0.16), radius: 30, y: 10)
     }
 }
 

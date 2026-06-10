@@ -35,25 +35,19 @@ struct TitleChipView: View {
     }
 }
 
-/// Export panel: pinned at the foot of the inspector column — the live output
+/// Export capsule, top right — the title chip's counterweight: the live output
 /// size and the two ways out. The only solid vermilion button in the chrome.
 struct ExportPanelView: View {
     @ObservedObject var state: EditorState
 
     var body: some View {
-        HStack(spacing: 8) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text("PNG")
-                    .font(Theme.section(9.5))
-                    .foregroundStyle(Theme.textTertiary)
-                Text(exportSizeText)
-                    .font(Theme.mono(11, .semibold))
-                    .foregroundStyle(Theme.textSecondary)
-                    .lineLimit(1)
-                    .fixedSize()
-            }
-            .accessibilityElement(children: .combine)
-            Spacer(minLength: 8)
+        HStack(spacing: 10) {
+            Text(exportSizeText)
+                .font(Theme.mono(11, .semibold))
+                .foregroundStyle(Theme.textTertiary)
+                .lineLimit(1)
+                .fixedSize()
+                .accessibilityLabel("Export size \(exportSizeText) pixels")
             Button("Copy") { copyToClipboard() }
                 .buttonStyle(GhostButtonStyle())
                 .help("Copy PNG to clipboard")
@@ -61,9 +55,10 @@ struct ExportPanelView: View {
                 .buttonStyle(AccentButtonStyle())
                 .help("Export PNG")
         }
-        .padding(.horizontal, 14)
-        .frame(width: Theme.inspectorWidth, height: 52)
-        .glassPanel(cornerRadius: 26)
+        .padding(.leading, 14)
+        .padding(.trailing, 8)
+        .frame(height: 36)
+        .glassPanel(cornerRadius: 18)
     }
 
     private var exportSizeText: String {
