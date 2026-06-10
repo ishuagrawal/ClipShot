@@ -1,38 +1,37 @@
 import SwiftUI
 
-/// Right-hand inspector: a fixed stack of collapsible sections, always visible.
-/// No routing, no back/close chrome — what you can edit is always where it was.
-/// Contextual sections (selection, tool defaults) appear at the top when relevant.
+/// Right-hand inspector: a loose column of floating glass cards over the stage.
+/// Contextual cards (selection, tool defaults) surface at the top when relevant;
+/// Layers, Frame, and Background are always present, always in the same order.
 struct InspectorView: View {
     @ObservedObject var state: EditorState
     var onCanvasFocusRequested: () -> Void = {}
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 10) {
                 if state.selectedAnnotation != nil {
-                    selectionSection
+                    selectionCard
                 } else if state.activeTool.isDrawTool || state.inProgressTextDraft != nil {
-                    toolDefaultsSection
+                    toolDefaultsCard
                 }
-                layersSection
-                InspectorSection("Frame") {
+                layersCard
+                GlassCard("Frame") {
                     PaddingToolView(state: state)
                 }
-                InspectorSection("Background") {
+                GlassCard("Background") {
                     BackgroundToolView(state: state)
                 }
             }
+            .padding(.vertical, 2)
         }
-        .frame(width: Theme.sidebarWidth)
-        .background(Theme.surface)
-        .overlay(alignment: .leading) {
-            Rectangle().fill(Theme.hairline).frame(width: 1)
-        }
+        // Card shadows bleed past the scroll bounds instead of getting cropped.
+        .scrollClipDisabled()
+        .frame(width: Theme.inspectorWidth)
     }
 
-    private var selectionSection: some View {
-        InspectorSection(selectionTitle) {
+    private var selectionCard: some View {
+        GlassCard(selectionTitle) {
             IconButton(systemName: "trash") { state.deleteSelectedAnnotation() }
                 .help("Delete annotation")
                 .accessibilityLabel("Delete annotation")
@@ -41,9 +40,9 @@ struct InspectorView: View {
         }
     }
 
-    private var toolDefaultsSection: some View {
+    private var toolDefaultsCard: some View {
         let tool = state.inProgressTextDraft != nil ? EditorTool.text : state.activeTool
-        return InspectorSection("\(tool.displayName) defaults") {
+        return GlassCard("\(tool.displayName) defaults") {
             switch tool {
             case .arrow:     ArrowToolView(state: state)
             case .rectangle: RectangleToolView(state: state)
@@ -53,8 +52,8 @@ struct InspectorView: View {
         }
     }
 
-    private var layersSection: some View {
-        InspectorSection("Layers") {
+    private var layersCard: some View {
+        GlassCard("Layers") {
             if !state.document.annotations.isEmpty {
                 Text("\(state.document.annotations.count)")
                     .font(Theme.mono(11, .semibold))

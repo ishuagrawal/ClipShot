@@ -20,6 +20,10 @@ struct EditorView: View {
     }
 }
 
+/// One full-bleed stage; every piece of chrome floats over it as Liquid Glass.
+/// No bars, no rails, no docked columns — the capture owns the whole window and
+/// the controls hover where the hand expects them: tools left, properties right,
+/// commands top, instruments bottom.
 private struct EditorShell: View {
     @StateObject private var state: EditorState
     @StateObject private var canvasFocusProxy = CanvasFocusProxy()
@@ -30,47 +34,60 @@ private struct EditorShell: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            TopToolBarView(state: state)
-            Rectangle().fill(Theme.hairline).frame(height: 1)
-            HStack(spacing: 0) {
-                ToolRailView(state: state)
-                stage
-                InspectorView(
-                    state: state,
-                    onCanvasFocusRequested: canvasFocusProxy.requestKeyboardFocus
-                )
-            }
-            Rectangle().fill(Theme.hairline).frame(height: 1)
-            statusBar
-        }
-        .frame(minWidth: 960, minHeight: 600)
-        .background(Theme.surface)
-    }
-
-    /// The workbench: dot-grid backdrop, transparent canvas scroll view on top,
-    /// registration ticks framing the corners.
-    private var stage: some View {
         ZStack {
             StageBackdrop()
             CanvasView(state: state, focusProxy: canvasFocusProxy, zoomController: zoomController)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            StageCornerTicks()
+                // Inset the working viewport so fit-to-view centers the artboard
+                // in the clear area between the floating panels.
+                .padding(.top, 58)
+                .padding(.bottom, 64)
+                .padding(.leading, 76)
+                .padding(.trailing, Theme.inspectorWidth + Theme.chromeMargin * 2)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .overlay(alignment: .topLeading) {
+            TitleChipView(state: state)
+                .padding(.leading, 78)
+                .padding(.top, 10)
+        }
+        .overlay(alignment: .topTrailing) {
+            CommandClusterView(state: state)
+                .padding(.trailing, Theme.chromeMargin)
+                .padding(.top, 10)
+        }
+        .overlay(alignment: .leading) {
+            ToolPodView(state: state)
+                .padding(.leading, Theme.chromeMargin)
+        }
+        .overlay(alignment: .topTrailing) {
+            InspectorView(
+                state: state,
+                onCanvasFocusRequested: canvasFocusProxy.requestKeyboardFocus
+            )
+            .padding(.trailing, Theme.chromeMargin)
+            .padding(.top, 56)
+            .padding(.bottom, Theme.chromeMargin)
+        }
+        .overlay(alignment: .bottom) {
+            instrumentPill
+                .padding(.bottom, Theme.chromeMargin)
+        }
+        .ignoresSafeArea()
+        .frame(minWidth: 980, minHeight: 620)
     }
 
-    /// Instrument strip: live export dimensions on the left, zoom cluster on the right.
-    private var statusBar: some View {
-        HStack(spacing: 16) {
+    /// Floating instrument pill: live export size + the zoom cluster. The only
+    /// place numbers live, and it hovers — there is no status bar.
+    private var instrumentPill: some View {
+        HStack(spacing: 12) {
             HUDReadout(label: "PNG", value: exportSizeText)
-            Spacer(minLength: 12)
+            Rectangle()
+                .fill(Theme.hairlineStrong)
+                .frame(width: 1, height: 14)
             ZoomControlsView(zoom: zoomController)
         }
-        .padding(.horizontal, 14)
-        .frame(height: Theme.statusBarHeight)
-        .frame(maxWidth: .infinity)
-        .background(Theme.surface)
+        .padding(.horizontal, 16)
+        .frame(height: 40)
+        .glassPanel(cornerRadius: 20)
     }
 
     private var exportSizeText: String {
@@ -107,7 +124,11 @@ private struct EmptyEditorView: View {
                         .padding(.leading, 6)
                 }
             }
+            .padding(.horizontal, 44)
+            .padding(.vertical, 40)
+            .glassPanel(cornerRadius: 24)
         }
+        .ignoresSafeArea()
         .frame(minWidth: 860, minHeight: 560)
     }
 }

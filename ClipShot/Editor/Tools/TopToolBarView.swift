@@ -2,31 +2,46 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Single command bar across the top. Left: wordmark. Center: capture title.
-/// Right: history + export actions. Tools live in the left `ToolRailView`,
-/// properties in the right `InspectorView`.
-struct TopToolBarView: View {
+/// Floating identity chip, sitting to the right of the traffic lights: the brand
+/// tick, the wordmark, and the capture's page title in one quiet glass capsule.
+struct TitleChipView: View {
     @ObservedObject var state: EditorState
 
-    /// Clearance for the traffic lights (window uses `.fullSizeContentView`).
-    private let trafficLightInset: CGFloat = 76
+    var body: some View {
+        HStack(spacing: 9) {
+            BrandTickGlyph()
+                .frame(width: 12, height: 12)
+            Text("ClipShot")
+                .font(Theme.title(12.5))
+                .foregroundStyle(Theme.textPrimary)
+            if !state.document.pageTitle.isEmpty {
+                Rectangle()
+                    .fill(Theme.hairlineStrong)
+                    .frame(width: 1, height: 12)
+                Text(state.document.pageTitle)
+                    .font(Theme.label(11.5))
+                    .foregroundStyle(Theme.textTertiary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .frame(maxWidth: 260)
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 36)
+        .glassPanel(cornerRadius: 18)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("ClipShot — \(state.document.pageTitle)")
+    }
+}
+
+/// Floating command cluster, top right: history on the left of the seam, export
+/// on the right. The only solid vermilion in the chrome is the Save action.
+struct CommandClusterView: View {
+    @ObservedObject var state: EditorState
 
     var body: some View {
         HStack(spacing: 4) {
-            wordmark
-                .padding(.leading, trafficLightInset)
-
-            Spacer(minLength: 12)
-
-            Text(state.document.pageTitle)
-                .font(Theme.label(12))
-                .foregroundStyle(Theme.textTertiary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .frame(maxWidth: 320)
-
-            Spacer(minLength: 12)
-
             IconButton(systemName: "arrow.uturn.backward") { state.performUndo() }
                 .accessibilityLabel("Undo")
                 .disabled(!state.undoStack.canUndo)
@@ -40,9 +55,9 @@ struct TopToolBarView: View {
                 .help("Redo")
 
             Rectangle()
-                .fill(Theme.hairline)
-                .frame(width: 1, height: 18)
-                .padding(.horizontal, 8)
+                .fill(Theme.hairlineStrong)
+                .frame(width: 1, height: 16)
+                .padding(.horizontal, 6)
 
             Button("Copy") { copyToClipboard() }
                 .buttonStyle(GhostButtonStyle())
@@ -52,22 +67,9 @@ struct TopToolBarView: View {
                 .buttonStyle(AccentButtonStyle())
                 .help("Export PNG")
         }
-        .padding(.trailing, 14)
-        .frame(height: Theme.topBarHeight)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.surface)
-    }
-
-    /// Identity mark: a vermilion registration tick next to the name. Quiet on purpose.
-    private var wordmark: some View {
-        HStack(spacing: 7) {
-            BrandTickGlyph()
-                .frame(width: 13, height: 13)
-            Text("ClipShot")
-                .font(Theme.title(13))
-                .foregroundStyle(Theme.textPrimary)
-        }
-        .accessibilityHidden(true)
+        .padding(.horizontal, 8)
+        .frame(height: 44)
+        .glassPanel(cornerRadius: 22)
     }
 
     // MARK: - Export

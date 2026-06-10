@@ -37,12 +37,17 @@ enum Theme {
     static let accentCG = CGColor(red: 1.0, green: 0.361, blue: 0.220, alpha: 1)
     static let stageCG  = CGColor(red: 0.075, green: 0.067, blue: 0.059, alpha: 1)
 
+    // MARK: Glass
+    /// Warm tint mixed into every Liquid Glass panel so the floating chrome stays
+    /// in the graphite family instead of going system-gray.
+    static let glassTint = Color(red: 0.114, green: 0.102, blue: 0.090).opacity(0.26)
+
     // MARK: Geometry
     static let radiusControl: CGFloat = 7
     static let radiusPill: CGFloat = 11
-    static let sidebarWidth: CGFloat = 276
-    static let topBarHeight: CGFloat = 52
-    static let statusBarHeight: CGFloat = 34
+    static let radiusPanel: CGFloat = 18
+    static let inspectorWidth: CGFloat = 272
+    static let chromeMargin: CGFloat = 14
 
     // MARK: Type — SF Pro for labels, SF Mono for every measured value
     static func title(_ size: CGFloat = 14, _ weight: Font.Weight = .semibold) -> Font {
@@ -227,20 +232,28 @@ struct InsetField: ViewModifier {
     }
 }
 
-/// Floating container: surface fill + hairline + one soft drop shadow (it floats).
-struct FloatingBar: ViewModifier {
-    var cornerRadius: CGFloat = Theme.radiusPill
+/// Liquid Glass panel: the one material for every piece of floating chrome.
+/// Real `glassEffect` (macOS 26) with a warm graphite tint so panels refract the
+/// stage behind them but stay in the brand family. The soft shadow separates the
+/// glass from the dot grid when nothing colorful is underneath.
+struct GlassPanel: ViewModifier {
+    var cornerRadius: CGFloat = Theme.radiusPanel
+
+    @ViewBuilder
     func body(content: Content) -> some View {
-        content
-            .background(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Theme.surface)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(Theme.hairline, lineWidth: 1)
-            )
-            .shadow(color: Theme.floatShadow, radius: 16, y: 6)
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        Group {
+            if #available(macOS 26.0, *) {
+                content.glassEffect(.regular.tint(Theme.glassTint), in: shape)
+            } else {
+                // Pre-Tahoe fallback: frosted material with a refraction hairline.
+                content
+                    .background(.ultraThinMaterial, in: shape)
+                    .background(shape.fill(Theme.glassTint))
+                    .overlay(shape.stroke(Theme.hairlineStrong, lineWidth: 1))
+            }
+        }
+        .shadow(color: Theme.floatShadow.opacity(0.6), radius: 18, y: 8)
     }
 }
 
@@ -248,20 +261,18 @@ extension View {
     func insetField(cornerRadius: CGFloat = Theme.radiusControl) -> some View {
         modifier(InsetField(cornerRadius: cornerRadius))
     }
-    func floatingBar(cornerRadius: CGFloat = Theme.radiusPill) -> some View {
-        modifier(FloatingBar(cornerRadius: cornerRadius))
+    func glassPanel(cornerRadius: CGFloat = Theme.radiusPanel) -> some View {
+        modifier(GlassPanel(cornerRadius: cornerRadius))
     }
 }
 
-/// Collapsible inspector section: chevron + title header, optional trailing accessory,
-/// hairline below. The inspector is a stack of these — no routing, no close buttons.
-struct InspectorSection<Accessory: View, Content: View>: View {
+/// One floating inspector card: a glass panel with a title row and its controls.
+/// The inspector is a loose column of these — every card always open, always in
+/// the same place. No chevrons, no routing, no collapse state to manage.
+struct GlassCard<Accessory: View, Content: View>: View {
     let title: String
     @ViewBuilder var accessory: () -> Accessory
     @ViewBuilder var content: () -> Content
-
-    @State private var expanded = true
-    @State private var hovering = false
 
     init(
         _ title: String,
@@ -275,46 +286,31 @@ struct InspectorSection<Accessory: View, Content: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Button {
-                expanded.toggle()
-            } label: {
-                HStack(spacing: 7) {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 8.5, weight: .bold))
-                        .foregroundStyle(Theme.textTertiary)
-                        .rotationEffect(.degrees(expanded ? 90 : 0))
-                    Text(title)
-                        .font(Theme.section(11.5))
-                        .foregroundStyle(hovering ? Theme.textPrimary : Theme.textSecondary)
-                    Spacer(minLength: 8)
-                }
-                .padding(.horizontal, 14)
-                .frame(height: 38)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .onHover { hovering = $0 }
-            .overlay(alignment: .trailing) {
+            HStack(spacing: 8) {
+                Text(title)
+                    .font(Theme.section(11.5))
+                    .foregroundStyle(Theme.textSecondary)
+                Spacer(minLength: 8)
                 accessory()
-                    .padding(.trailing, 14)
             }
-            .accessibilityLabel(title)
-            .accessibilityValue(expanded ? "Expanded" : "Collapsed")
+            .padding(.horizontal, 16)
+            .padding(.top, 13)
+            .padding(.bottom, 10)
 
-            if expanded {
-                content()
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 16)
-            }
-
-            Rectangle().fill(Theme.hairline).frame(height: 1)
+            content()
+                .padding(.horizontal, 16)
+                .padding(.bottom, 15)
         }
-        .animation(.easeOut(duration: 0.16), value: expanded)
+        .frame(width: Theme.inspectorWidth)
+        .glassPanel()
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(title)
     }
 }
 
-/// Vertical tool-rail button: icon with a left-edge accent tick when active,
-/// the rail's version of a pressed drafting tool.
+/// Tool-pod button: icon that fills with the accent when its tool is engaged.
+/// Lives inside the floating glass pod, so state is carried by the fill, not an
+/// edge tick that would escape the glass shape.
 struct ToolRailButton: View {
     let systemName: String
     let label: String
@@ -327,20 +323,12 @@ struct ToolRailButton: View {
         Button(action: action) {
             Image(systemName: systemName)
                 .font(.system(size: 14.5, weight: .medium))
-                .foregroundStyle(isActive ? Theme.accentText : (hovering ? Theme.textPrimary : Theme.textSecondary))
+                .foregroundStyle(isActive ? Theme.accentInk : (hovering ? Theme.textPrimary : Theme.textSecondary))
                 .frame(width: 36, height: 36)
                 .background(
-                    RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
-                        .fill(isActive ? Theme.accentDim : (hovering ? Theme.surfaceHover : .clear))
+                    RoundedRectangle(cornerRadius: Theme.radiusPill, style: .continuous)
+                        .fill(isActive ? Theme.accent : (hovering ? Theme.surfaceHover : .clear))
                 )
-                .overlay(alignment: .leading) {
-                    if isActive {
-                        Capsule()
-                            .fill(Theme.accent)
-                            .frame(width: 2, height: 18)
-                            .offset(x: -7)
-                    }
-                }
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// Fixed left tool rail — the single home for every cursor tool. Select plus the
-/// annotation tools, top-aligned, full height. Picking a draw tool sets the canvas
-/// cursor mode; finishing a draw auto-returns to Select (see `EditorState.commitDraw`).
-struct ToolRailView: View {
+/// Floating glass tool pod, vertically centered on the left edge — the single
+/// home for every cursor tool. Picking a draw tool sets the canvas cursor mode;
+/// finishing a draw auto-returns to Select (see `EditorState.commitDraw`).
+struct ToolPodView: View {
     @ObservedObject var state: EditorState
 
     private let tools: [(EditorTool, String?)] = [
@@ -14,7 +14,7 @@ struct ToolRailView: View {
     ]
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 4) {
             ForEach(tools, id: \.0) { tool, shortcut in
                 ToolRailButton(
                     systemName: tool.symbolName,
@@ -25,14 +25,10 @@ struct ToolRailView: View {
                     state.selectCursorTool(tool)
                 }
             }
-            Spacer()
         }
-        .padding(.top, 12)
-        .frame(width: 52)
-        .frame(maxHeight: .infinity)
-        .background(Theme.surface)
-        .overlay(alignment: .trailing) {
-            Rectangle().fill(Theme.hairline).frame(width: 1)
-        }
+        .padding(8)
+        .glassPanel(cornerRadius: 26)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Tools")
     }
 }
