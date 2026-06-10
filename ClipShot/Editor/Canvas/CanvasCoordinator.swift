@@ -131,6 +131,7 @@ final class CanvasCoordinator {
 
     private func apply(document: EditorDocument, placement: CanvasInitialPlacement) {
         container.frame = placement.canvasFrame
+        scrollView.imageKeepVisibleRect = placement.imageFrame
         contentView.document = document          // didSet sizes contentView's frame
         contentView.frame = placement.imageFrame
         overlayView.resizeToDocument(document)   // sizes overlay frame

@@ -2,43 +2,54 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Floating control bar just below the system titlebar: brand tick and the
-/// capture's editable title on the left, the two ways out (Copy / Save) on the
-/// right. The title doubles as the export filename; the app name itself lives
-/// in the titlebar with the stoplights.
+/// Floating controls just below the titlebar strip: two separate glass pods —
+/// brand tick and the capture's editable title on the left, the two ways out
+/// (Copy / Save) on the right. The title doubles as the export filename; the
+/// app name itself lives in the titlebar strip with the stoplights.
 struct TitleBarView: View {
     @ObservedObject var state: EditorState
     @FocusState private var titleFocused: Bool
 
     var body: some View {
-        HStack(spacing: 9) {
-            BrandTickGlyph()
-                .frame(width: 12, height: 12)
-            titleField
+        HStack {
+            HStack(spacing: 9) {
+                BrandTickGlyph()
+                    .frame(width: 12, height: 12)
+                titleField
+            }
+            .padding(.horizontal, 14)
+            .frame(height: Theme.topBarHeight)
+            .glassPanel()
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Capture title")
+
             Spacer(minLength: 16)
-            Button {
-                copyToClipboard()
-            } label: {
-                Label("Copy", systemImage: "square.on.square")
-                    .labelStyle(.titleAndIcon)
+
+            HStack(spacing: 8) {
+                Button {
+                    copyToClipboard()
+                } label: {
+                    Label("Copy", systemImage: "square.on.square")
+                        .labelStyle(.titleAndIcon)
+                }
+                .buttonStyle(GhostButtonStyle())
+                .help("Copy PNG to clipboard")
+                Button {
+                    save()
+                } label: {
+                    Label("Save", systemImage: "square.and.arrow.down")
+                        .labelStyle(.titleAndIcon)
+                }
+                .buttonStyle(AccentButtonStyle())
+                .help("Export PNG")
             }
-            .buttonStyle(GhostButtonStyle())
-            .help("Copy PNG to clipboard")
-            Button {
-                save()
-            } label: {
-                Label("Save", systemImage: "square.and.arrow.down")
-                    .labelStyle(.titleAndIcon)
-            }
-            .buttonStyle(AccentButtonStyle())
-            .help("Export PNG")
+            .padding(.horizontal, 10)
+            .frame(height: Theme.topBarHeight)
+            .glassPanel()
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Export")
         }
-        .padding(.horizontal, 14)
-        .frame(height: Theme.topBarHeight)
         .frame(maxWidth: .infinity)
-        .glassPanel(cornerRadius: Theme.topBarHeight / 2)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Control bar")
     }
 
     private var titleField: some View {

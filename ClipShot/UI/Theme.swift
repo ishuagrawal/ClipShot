@@ -67,9 +67,18 @@ enum Theme {
     static let scrollFadeClear: CGFloat = 24
     static let scrollFadeBand: CGFloat = 48
     static var scrollFadeInset: CGFloat { scrollFadeClear + scrollFadeBand }
-    /// Total width of the floating right chrome (inspector column + gutters +
-    /// margin). The canvas fit and the dock both center in the space left of it.
-    static var rightChromeWidth: CGFloat { inspectorWidth + 32 + chromeMargin }
+    /// Soft shadow the glass panels cast onto the stage; it visually occupies
+    /// space beside the inspector, so centering math counts it as chrome.
+    static let panelShadowAllowance: CGFloat = 12
+    /// Distance from the window's right edge to the visible left edge of the
+    /// inspector cards (card width + the near 16pt scroll gutter + margin +
+    /// the cards' cast shadow). The far gutter is excluded — measuring to the
+    /// wrapper edge instead of the visible cards left the image reading
+    /// off-center. The canvas fit and the dock both center in the space left
+    /// of this.
+    static var rightChromeWidth: CGFloat {
+        inspectorWidth + 16 + chromeMargin + panelShadowAllowance
+    }
 
     // MARK: Type — SF Pro for labels, SF Mono for every measured value
     static func title(_ size: CGFloat = 14, _ weight: Font.Weight = .semibold) -> Font {

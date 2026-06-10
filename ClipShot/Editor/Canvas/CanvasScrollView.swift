@@ -21,6 +21,13 @@ final class CanvasScrollView: NSScrollView {
     var occludedWidth: CGFloat { occlusionInsets.left + occlusionInsets.right }
     var occludedHeight: CGFloat { occlusionInsets.top + occlusionInsets.bottom }
 
+    /// The image's frame in document (container) coordinates. Panning is clamped
+    /// so this rect can never leave the viewport entirely.
+    var imageKeepVisibleRect: CGRect {
+        get { (contentView as? CenteringClipView)?.keepVisibleRect ?? .null }
+        set { (contentView as? CenteringClipView)?.keepVisibleRect = newValue }
+    }
+
     /// Closure that fits the document into view. Held until the scroll view has a
     /// real laid-out size, then run exactly once (see `layout()`). Avoids fitting
     /// against a zero/placeholder size during the first render pass.
@@ -69,10 +76,23 @@ final class CanvasScrollView: NSScrollView {
             name: NSScrollView.didEndLiveMagnifyNotification,
             object: self
         )
+        // Trackpad pans clamp back once the gesture lifts (momentum is handled
+        // by the debounce in scrollWheel).
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(liveScrollDidEnd),
+            name: NSScrollView.didEndLiveScrollNotification,
+            object: self
+        )
     }
 
     @objc private func liveMagnifyDidEnd() {
         magnificationDidChange?(magnification)
+        enforceImageVisible()
+    }
+
+    @objc private func liveScrollDidEnd() {
+        enforceImageVisible()
     }
 
     /// Set zoom from the control bar, centered on the current viewport center.
@@ -151,6 +171,11 @@ final class CanvasScrollView: NSScrollView {
         userInteractionDidStart?()
         guard event.modifierFlags.contains(.command) else {
             super.scrollWheel(with: event)
+            // The scrolling engine animates toward its own target and overrides
+            // mid-gesture corrections, so the keep-image-visible clamp runs once
+            // events stop arriving (covers momentum and legacy wheel scrolls;
+            // trackpad gesture-end is covered by didEndLiveScroll).
+            scheduleKeepVisibleEnforcement()
             return
         }
         // Trackpad precise deltas are small/continuous; a physical mouse wheel sends
@@ -177,6 +202,63 @@ final class CanvasScrollView: NSScrollView {
         userInteractionDidStart?()
         super.smartMagnify(with: event)
         magnificationDidChange?(magnification)
+    }
+
+    private var keepVisibleEnforceTimer: Timer?
+
+    /// Debounce: fires shortly after the last scroll event, when the scrolling
+    /// engine has settled enough for a programmatic correction to stick.
+    private func scheduleKeepVisibleEnforcement() {
+        keepVisibleEnforceTimer?.invalidate()
+        keepVisibleEnforceTimer = Timer.scheduledTimer(
+            timeInterval: 0.15,
+            target: self,
+            selector: #selector(enforceImageVisibleNow),
+            userInfo: nil,
+            repeats: false
+        )
+    }
+
+    @objc private func enforceImageVisibleNow() {
+        enforceImageVisible()
+    }
+
+    /// Snap the viewport back so the image overlaps the UNOCCLUDED region (the
+    /// part of the canvas not covered by the top bar, dock, or inspector) by at
+    /// least ~96 view points on each axis. A sliver at the raw viewport edge
+    /// would hide under the floating chrome and read as "image gone".
+    private func enforceImageVisible() {
+        guard let clip = contentView as? CenteringClipView else { return }
+        let keep = clip.keepVisibleRect
+        guard !keep.isNull, !keep.isEmpty, magnification > 0,
+              clip.bounds.width > 0, clip.bounds.height > 0 else { return }
+
+        let scale = 1 / magnification   // view points → document points
+        var visible = clip.bounds
+        visible.origin.x += occlusionInsets.left * scale
+        visible.origin.y += occlusionInsets.top * scale
+        visible.size.width -= occludedWidth * scale
+        visible.size.height -= occludedHeight * scale
+        guard visible.width > 0, visible.height > 0 else { return }
+
+        let peekX = min(96 * scale, keep.width / 2)
+        let peekY = min(96 * scale, keep.height / 2)
+        let dx = visible.origin.x
+            .clamped(to: (keep.minX + peekX - visible.width)...(keep.maxX - peekX))
+            - visible.origin.x
+        let dy = visible.origin.y
+            .clamped(to: (keep.minY + peekY - visible.height)...(keep.maxY - peekY))
+            - visible.origin.y
+        guard dx != 0 || dy != 0 else { return }
+
+        let target = CGPoint(x: clip.bounds.origin.x + dx, y: clip.bounds.origin.y + dy)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.22
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            context.allowsImplicitAnimation = true
+            clip.animator().setBoundsOrigin(target)
+            reflectScrolledClipView(clip)
+        }
     }
 
     private func centerDocumentPoint(_ point: CGPoint) {
@@ -213,6 +295,9 @@ final class CanvasScrollView: NSScrollView {
 /// Clip view that centers the document view when it is smaller than the visible
 /// area in either axis, instead of NSClipView's default corner pinning.
 private final class CenteringClipView: NSClipView {
+    /// See `CanvasScrollView.imageKeepVisibleRect`.
+    var keepVisibleRect: CGRect = .null
+
     override func constrainBoundsRect(_ proposedBounds: NSRect) -> NSRect {
         var rect = super.constrainBoundsRect(proposedBounds)
         guard let documentView else { return rect }
@@ -225,6 +310,7 @@ private final class CenteringClipView: NSClipView {
         }
         return rect
     }
+
 }
 
 private extension Comparable {
