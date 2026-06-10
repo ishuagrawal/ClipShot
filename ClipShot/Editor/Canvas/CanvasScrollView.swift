@@ -11,10 +11,15 @@ final class CanvasScrollView: NSScrollView {
     /// control bar), so the SwiftUI percentage readout can track it.
     var magnificationDidChange: ((CGFloat) -> Void)?
 
-    /// Width of floating chrome occluding the right edge (the inspector column).
-    /// Fit-and-center operations aim for the unobstructed region left of it, so
-    /// the document reads as centered in the empty space the user actually sees.
-    var rightOcclusionInset: CGFloat = 0
+    /// Chrome occluding the viewport edges (top bar, bottom dock, inspector
+    /// column). Fit-and-center operations aim for the unobstructed region inside
+    /// these insets, so the document reads as filling and centered in the empty
+    /// space the user actually sees.
+    var occlusionInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
+
+    /// Total chrome occlusion per axis.
+    var occludedWidth: CGFloat { occlusionInsets.left + occlusionInsets.right }
+    var occludedHeight: CGFloat { occlusionInsets.top + occlusionInsets.bottom }
 
     /// Closure that fits the document into view. Held until the scroll view has a
     /// real laid-out size, then run exactly once (see `layout()`). Avoids fitting
@@ -89,7 +94,8 @@ final class CanvasScrollView: NSScrollView {
         guard !rect.isNull, !rect.isEmpty else { return }
         var viewportSize = viewportSizeForFitting
         guard viewportSize.width > 0, viewportSize.height > 0 else { return }
-        viewportSize.width = max(1, viewportSize.width - rightOcclusionInset)
+        viewportSize.width = max(1, viewportSize.width - occludedWidth)
+        viewportSize.height = max(1, viewportSize.height - occludedHeight)
 
         let targetMagnification = Self.fitMagnification(
             for: rect,
@@ -101,11 +107,12 @@ final class CanvasScrollView: NSScrollView {
         setMagnification(targetMagnification, centeredAt: center)
         layoutSubtreeIfNeeded()
         // Putting the fit center in the middle of the unobstructed region means
-        // centering the viewport on a document point half the occluded width to
-        // the right of it (converted to document points).
+        // centering the viewport on a document point offset by half the occlusion
+        // imbalance per axis (converted to document points; the document view is
+        // flipped, so +y is downward and a bottom-heavy occlusion pushes up).
         let shifted = CGPoint(
-            x: center.x + (rightOcclusionInset / 2) / targetMagnification,
-            y: center.y
+            x: center.x + (occlusionInsets.right - occlusionInsets.left) / 2 / targetMagnification,
+            y: center.y + (occlusionInsets.bottom - occlusionInsets.top) / 2 / targetMagnification
         )
         centerDocumentPoint(shifted)
         magnificationDidChange?(targetMagnification)

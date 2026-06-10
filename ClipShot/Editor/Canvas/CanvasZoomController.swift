@@ -82,9 +82,6 @@ final class CanvasZoomController: ObservableObject {
     func zoomOut() { coordinator?.controlZoom(to: ZoomMath.stepped(magnification, direction: -1)) }
     func setZoom(_ value: CGFloat) { coordinator?.controlZoom(to: value) }
 
-    /// Scale so the selected screenshot region fills the viewport.
-    func fitToSelection() { coordinator?.fitSelectionToCanvas() }
-
     /// Restore the framing the canvas shows on first load (selection centered with margin).
     func resetToCenter() { coordinator?.resetToInitialFit() }
 }

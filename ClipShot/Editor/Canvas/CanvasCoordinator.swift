@@ -5,8 +5,9 @@ import AppKit
 /// so no Combine subscription is needed.
 @MainActor
 final class CanvasCoordinator {
-    private nonisolated static let preferredInitialViewportMargin: CGFloat = 96
-    private nonisolated static let minimumInitialViewportMargin: CGFloat = 32
+    /// Breathing gap between the document and the surrounding chrome on initial
+    /// load. The fit otherwise fills the entire unobstructed viewport region.
+    private nonisolated static let preferredInitialViewportMargin: CGFloat = 16
 
     let scrollView: CanvasScrollView
     let contentView: CanvasContentView
@@ -62,9 +63,14 @@ final class CanvasCoordinator {
             self?.overlayView.hoveredAnnotationID = id
         }
         scrollView.documentView = container
-        // The floating inspector column covers this much of the right edge;
-        // fits center the document in the clear space left of it.
-        scrollView.rightOcclusionInset = Theme.rightChromeWidth
+        // The top bar, dock, and inspector column cover these slices of the
+        // viewport; fits fill and center the document in the clear space inside.
+        scrollView.occlusionInsets = NSEdgeInsets(
+            top: Theme.topChromeHeight,
+            left: 0,
+            bottom: Theme.bottomChromeHeight,
+            right: Theme.rightChromeWidth
+        )
         scrollView.viewportSizeDidChange = { [weak self] viewportSize in
             self?.refitInitialSelectionIfNeeded(viewportSize: viewportSize)
         }
@@ -82,19 +88,6 @@ final class CanvasCoordinator {
     func controlZoom(to value: CGFloat) {
         isTrackingInitialSelectionFit = false
         scrollView.setMagnificationFromControl(value)
-    }
-
-    /// Fill the viewport with the selected screenshot region (edge-to-edge, no margin).
-    func fitSelectionToCanvas() {
-        guard let document = latestDocument else { return }
-        isTrackingInitialSelectionFit = false
-        let imageBounds = document.imageBounds
-        let selection = document.baseSelection.integral.intersection(imageBounds)
-        let target = (selection.isNull || selection.isEmpty) ? imageBounds : selection
-        let placement = initialPlacement ?? CanvasInitialPlacement.default(imageBounds: imageBounds)
-        // `selection` is image-space (origin = image top-left); offset into container space.
-        let rectInContainer = target.offsetBy(dx: placement.imageFrame.minX, dy: placement.imageFrame.minY)
-        scrollView.magnify(toFitCenteredOn: rectInContainer)
     }
 
     /// Restore the initial load framing (padded card centered with a comfortable margin).
@@ -166,7 +159,8 @@ final class CanvasCoordinator {
         // Build the fit against the unobstructed region so its aspect matches
         // what magnify(toFitCenteredOn:) will fit into.
         var effectiveViewport = viewportSize
-        effectiveViewport.width = max(1, effectiveViewport.width - scrollView.rightOcclusionInset)
+        effectiveViewport.width = max(1, effectiveViewport.width - scrollView.occludedWidth)
+        effectiveViewport.height = max(1, effectiveViewport.height - scrollView.occludedHeight)
         let fitRect = Self.initialFitRect(
             for: focusBounds,
             in: effectiveViewport
@@ -224,12 +218,8 @@ final class CanvasCoordinator {
         let shortestSide = min(viewportSize.width, viewportSize.height)
         guard shortestSide > 0 else { return 0 }
 
-        let adaptiveMargin = min(
-            preferredInitialViewportMargin,
-            max(minimumInitialViewportMargin, shortestSide * 0.16)
-        )
         let maximumUsableMargin = max(0, (shortestSide - 1) / 2)
-        return min(adaptiveMargin, maximumUsableMargin)
+        return min(preferredInitialViewportMargin, maximumUsableMargin)
     }
 }
 

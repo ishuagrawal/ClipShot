@@ -51,6 +51,13 @@ enum Theme {
     static let radiusPanel: CGFloat = 18
     static let inspectorWidth: CGFloat = 272
     static let chromeMargin: CGFloat = 14
+    /// Full-width glass bar across the top of the window (under the traffic lights).
+    static let topBarHeight: CGFloat = 48
+    /// The floating dock's bar height (used by layout and canvas-fit occlusion).
+    static let dockHeight: CGFloat = 52
+    /// Vertical chrome the canvas fit must stay clear of.
+    static var topChromeHeight: CGFloat { topBarHeight }
+    static var bottomChromeHeight: CGFloat { dockHeight + chromeMargin }
     /// Inspector edge treatment, identical top and bottom: cards stay fully
     /// transparent within `scrollFadeClear` of the window edge, then dissolve
     /// in across `scrollFadeBand`. `scrollFadeInset` is the total reserved depth.
@@ -274,44 +281,32 @@ struct Keycap: View {
 
 // MARK: - Containers
 
-/// Frosted glass panel: the one material for every piece of floating chrome.
-/// Backdrop-blurring material with a warm graphite tint, so panels frost the
-/// canvas running underneath but stay in the brand family. Deliberately NOT
-/// `glassEffect`: its material casts an intrinsic soft shadow onto the stage,
-/// which reads as a dirty band around the panels. Depth comes from inside the
-/// pane instead — lit from above, settling darker at the base, with a top rim
-/// catching the room light.
+/// Liquid Glass panel: the one material for every piece of floating chrome.
+/// Real `glassEffect` with a warm graphite tint on macOS 26 so panels lens the
+/// canvas running underneath; frosted material fallback on older systems.
 struct GlassPanel: ViewModifier {
     var cornerRadius: CGFloat = Theme.radiusPanel
 
+    @ViewBuilder
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        return content
-            // Interior volume: a faint vertical light falloff across the pane,
-            // behind the controls so legibility is untouched. Casts nothing.
-            .background(
-                shape.fill(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.05),
-                            .clear,
-                            Color.black.opacity(0.10)
-                        ],
-                        startPoint: .top, endPoint: .bottom
+        if #available(macOS 26.0, *) {
+            content
+                .glassEffect(.regular.tint(Theme.glassTint), in: shape)
+        } else {
+            content
+                .background(.ultraThinMaterial, in: shape)
+                .background(shape.fill(Theme.glassTint))
+                .overlay(
+                    shape.strokeBorder(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.22), Color.white.opacity(0.04)],
+                            startPoint: .top, endPoint: .bottom
+                        ),
+                        lineWidth: 1
                     )
                 )
-            )
-            .background(.ultraThinMaterial, in: shape)
-            .background(shape.fill(Theme.glassTint))
-            .overlay(
-                shape.strokeBorder(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.22), Color.white.opacity(0.04)],
-                        startPoint: .top, endPoint: .bottom
-                    ),
-                    lineWidth: 1
-                )
-            )
+        }
     }
 }
 

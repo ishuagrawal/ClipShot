@@ -43,17 +43,17 @@ private struct EditorShell: View {
             // glass panel, so the chrome refracts the work itself.
             CanvasView(state: state, focusProxy: canvasFocusProxy, zoomController: zoomController)
         }
-        .overlay(alignment: .topLeading) {
-            TitleBarView(state: state)
-                .padding(.leading, 78)
-                .padding(.top, 10)
-        }
         .overlay(alignment: .trailing) {
             InspectorView(
                 state: state,
                 onCanvasFocusRequested: canvasFocusProxy.requestKeyboardFocus
             )
+            // Cards live in the zone between the top bar and the bottom dock.
+            .padding(.top, Theme.topBarHeight)
             .padding(.trailing, Theme.chromeMargin)
+        }
+        .overlay(alignment: .top) {
+            TitleBarView(state: state)
         }
         .ignoresSafeArea()
         .bottomDockBar {
