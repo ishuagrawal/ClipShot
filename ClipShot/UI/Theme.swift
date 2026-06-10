@@ -41,7 +41,9 @@ enum Theme {
     // MARK: Glass
     /// Warm tint mixed into every Liquid Glass panel so the floating chrome stays
     /// in the graphite family instead of going system-gray.
-    static let glassTint = Color(red: 0.114, green: 0.102, blue: 0.090).opacity(0.26)
+    // Strong enough that text stays readable when the white artboard slides
+    // underneath the glass; weak enough that color still refracts through.
+    static let glassTint = Color(red: 0.114, green: 0.102, blue: 0.090).opacity(0.4)
 
     // MARK: Geometry
     static let radiusControl: CGFloat = 7
@@ -273,17 +275,28 @@ struct GlassPanel: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        // No added shadow: the glass material carries its own depth, and panels
-        // should sit in the stage's light, not stamp halos on it.
-        if #available(macOS 26.0, *) {
-            content.glassEffect(.regular.tint(Theme.glassTint), in: shape)
-        } else {
-            // Pre-Tahoe fallback: frosted material with a refraction hairline.
-            content
-                .background(.ultraThinMaterial, in: shape)
-                .background(shape.fill(Theme.glassTint))
-                .overlay(shape.stroke(Theme.hairlineStrong, lineWidth: 1))
+        // Regular glass frosts whatever runs underneath (the canvas is full
+        // bleed, so there is always something to refract). Depth comes from a
+        // lit top rim fading to nothing — a pane catching the room light.
+        Group {
+            if #available(macOS 26.0, *) {
+                content.glassEffect(.regular.tint(Theme.glassTint), in: shape)
+            } else {
+                // Pre-Tahoe fallback: frosted material with a refraction hairline.
+                content
+                    .background(.ultraThinMaterial, in: shape)
+                    .background(shape.fill(Theme.glassTint))
+            }
         }
+        .overlay(
+            shape.strokeBorder(
+                LinearGradient(
+                    colors: [Color.white.opacity(0.22), Color.white.opacity(0.04)],
+                    startPoint: .top, endPoint: .bottom
+                ),
+                lineWidth: 1
+            )
+        )
     }
 }
 

@@ -39,19 +39,18 @@ private struct EditorShell: View {
         ZStack {
             StageBackdrop()
             AmbientGlowView(colors: ambientColors)
+            // Full bleed: the document and its background run underneath every
+            // glass panel, so the chrome refracts the work itself.
             CanvasView(state: state, focusProxy: canvasFocusProxy, zoomController: zoomController)
-                // Inset the working viewport so fit-to-view centers the artboard
-                // in the clear area between the floating panels.
-                .padding(.top, 58)
-                .padding(.bottom, 86)
-                .padding(.leading, 24)
-                .padding(.trailing, Theme.inspectorWidth + 32 + Theme.chromeMargin)
         }
-        .overlay(alignment: .top) {
-            TopBarView(state: state)
+        .overlay(alignment: .topLeading) {
+            TitleBarView(state: state)
                 .padding(.leading, 78)
-                .padding(.trailing, Theme.inspectorWidth + 32 + Theme.chromeMargin)
-                .padding(.top, 8)
+                .padding(.top, 10)
+        }
+        .overlay(alignment: .leading) {
+            AnnotationPanelView(state: state)
+                .padding(.leading, Theme.chromeMargin)
         }
         .overlay(alignment: .trailing) {
             InspectorView(
@@ -64,7 +63,6 @@ private struct EditorShell: View {
         .bottomDockBar {
             DockView(state: state, zoom: zoomController)
                 .padding(.bottom, Theme.chromeMargin)
-                .padding(.trailing, Theme.inspectorWidth + Theme.chromeMargin)
         }
         .frame(minWidth: 980, minHeight: 620)
         .onAppear {

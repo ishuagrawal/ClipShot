@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Right-hand inspector: a loose column of floating glass cards over the stage.
-/// Contextual cards (selection, tool defaults) surface at the top when relevant;
-/// Layers, Frame, and Background are always present, always in the same order.
+/// Right-hand inspector: a loose column of floating glass cards over the stage,
+/// always the same three — Layers, Frame, Background. Annotation styling lives
+/// in the left `AnnotationPanelView` so document properties never jump around.
 struct InspectorView: View {
     @ObservedObject var state: EditorState
     var onCanvasFocusRequested: () -> Void = {}
@@ -10,11 +10,6 @@ struct InspectorView: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 10) {
-                if state.selectedAnnotation != nil {
-                    selectionCard
-                } else if state.activeTool.isDrawTool || state.inProgressTextDraft != nil {
-                    toolDefaultsCard
-                }
                 layersCard
                 GlassCard("Frame") {
                     PaddingToolView(state: state)
@@ -41,28 +36,6 @@ struct InspectorView: View {
         .frame(width: Theme.inspectorWidth + 32)
     }
 
-    private var selectionCard: some View {
-        GlassCard(selectionTitle) {
-            IconButton(systemName: "trash") { state.deleteSelectedAnnotation() }
-                .help("Delete annotation")
-                .accessibilityLabel("Delete annotation")
-        } content: {
-            SelectToolView(state: state)
-        }
-    }
-
-    private var toolDefaultsCard: some View {
-        let tool = state.inProgressTextDraft != nil ? EditorTool.text : state.activeTool
-        return GlassCard("\(tool.displayName) defaults") {
-            switch tool {
-            case .arrow:     ArrowToolView(state: state)
-            case .rectangle: RectangleToolView(state: state)
-            case .text:      TextToolView(state: state)
-            default:         EmptyView()
-            }
-        }
-    }
-
     private var layersCard: some View {
         GlassCard("Layers") {
             if !state.document.annotations.isEmpty {
@@ -75,6 +48,47 @@ struct InspectorView: View {
                 state: state,
                 onCanvasFocusRequested: onCanvasFocusRequested
             )
+        }
+    }
+}
+
+/// Left annotation panel: a single floating squircle of glass that appears when
+/// an annotation is selected or a draw tool is armed, carrying that shape's
+/// style controls. Gone when there is nothing to style — the stage stays clear.
+struct AnnotationPanelView: View {
+    @ObservedObject var state: EditorState
+
+    var body: some View {
+        Group {
+            if state.selectedAnnotation != nil {
+                GlassCard(selectionTitle) {
+                    IconButton(systemName: "trash") { state.deleteSelectedAnnotation() }
+                        .help("Delete annotation")
+                        .accessibilityLabel("Delete annotation")
+                } content: {
+                    SelectToolView(state: state)
+                }
+            } else if state.activeTool.isDrawTool || state.inProgressTextDraft != nil {
+                GlassCard("\(activeDrawTool.displayName) defaults") {
+                    toolDefaults
+                }
+            }
+        }
+        .animation(.easeOut(duration: 0.15), value: state.selectedAnnotationID)
+        .animation(.easeOut(duration: 0.15), value: state.activeTool)
+    }
+
+    private var activeDrawTool: EditorTool {
+        state.inProgressTextDraft != nil ? .text : state.activeTool
+    }
+
+    @ViewBuilder
+    private var toolDefaults: some View {
+        switch activeDrawTool {
+        case .arrow:     ArrowToolView(state: state)
+        case .rectangle: RectangleToolView(state: state)
+        case .text:      TextToolView(state: state)
+        default:         EmptyView()
         }
     }
 
