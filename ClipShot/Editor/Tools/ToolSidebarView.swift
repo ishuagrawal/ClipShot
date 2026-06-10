@@ -9,18 +9,9 @@ struct InspectorView: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            Group {
-                // One shared glass container: the cards' effects merge into a
-                // single backdrop sampling pass instead of one per card, which
-                // keeps panning the canvas underneath cheap.
-                if #available(macOS 26.0, *) {
-                    GlassEffectContainer(spacing: 10) { cardColumn }
-                } else {
-                    cardColumn
-                }
-            }
-            .padding(.vertical, 2)
-            .padding(.horizontal, 16)
+            cardColumn
+                .padding(.vertical, 2)
+                .padding(.horizontal, 16)
         }
         .defaultScrollAnchor(.top)
         // Cards blur and fade at the scroll bounds instead of hard-clipping. The

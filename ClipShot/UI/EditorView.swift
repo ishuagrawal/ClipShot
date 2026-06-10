@@ -58,6 +58,9 @@ private struct EditorShell: View {
         .ignoresSafeArea()
         .bottomDockBar {
             DockView(state: state, zoom: zoomController)
+                // Center the dock in the clear space the image occupies, not
+                // the full window: shift left by the right chrome's width.
+                .padding(.trailing, Theme.rightChromeWidth)
                 .padding(.bottom, Theme.chromeMargin)
         }
         .frame(minWidth: 980, minHeight: 620)

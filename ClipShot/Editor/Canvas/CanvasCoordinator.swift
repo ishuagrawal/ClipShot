@@ -64,7 +64,7 @@ final class CanvasCoordinator {
         scrollView.documentView = container
         // The floating inspector column covers this much of the right edge;
         // fits center the document in the clear space left of it.
-        scrollView.rightOcclusionInset = Theme.inspectorWidth + 32 + Theme.chromeMargin
+        scrollView.rightOcclusionInset = Theme.rightChromeWidth
         scrollView.viewportSizeDidChange = { [weak self] viewportSize in
             self?.refitInitialSelectionIfNeeded(viewportSize: viewportSize)
         }

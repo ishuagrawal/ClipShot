@@ -52,12 +52,14 @@ enum Theme {
     static let inspectorWidth: CGFloat = 272
     static let chromeMargin: CGFloat = 14
     /// Inspector edge treatment, identical top and bottom: cards stay fully
-    /// transparent within `scrollFadeClear` of the window edge (the zone the
-    /// dock occupies: 52pt bar + 14pt margin), then dissolve in across
-    /// `scrollFadeBand`. `scrollFadeInset` is the total reserved depth.
-    static let scrollFadeClear: CGFloat = 66
-    static let scrollFadeBand: CGFloat = 56
+    /// transparent within `scrollFadeClear` of the window edge, then dissolve
+    /// in across `scrollFadeBand`. `scrollFadeInset` is the total reserved depth.
+    static let scrollFadeClear: CGFloat = 24
+    static let scrollFadeBand: CGFloat = 48
     static var scrollFadeInset: CGFloat { scrollFadeClear + scrollFadeBand }
+    /// Total width of the floating right chrome (inspector column + gutters +
+    /// margin). The canvas fit and the dock both center in the space left of it.
+    static var rightChromeWidth: CGFloat { inspectorWidth + 32 + chromeMargin }
 
     // MARK: Type — SF Pro for labels, SF Mono for every measured value
     static func title(_ size: CGFloat = 14, _ weight: Font.Weight = .semibold) -> Font {
@@ -272,38 +274,44 @@ struct Keycap: View {
 
 // MARK: - Containers
 
-/// Liquid Glass panel: the one material for every piece of floating chrome.
-/// Real `glassEffect` (macOS 26) with a warm graphite tint so panels refract the
-/// stage behind them but stay in the brand family. The soft shadow separates the
-/// glass from the dot grid when nothing colorful is underneath.
+/// Frosted glass panel: the one material for every piece of floating chrome.
+/// Backdrop-blurring material with a warm graphite tint, so panels frost the
+/// canvas running underneath but stay in the brand family. Deliberately NOT
+/// `glassEffect`: its material casts an intrinsic soft shadow onto the stage,
+/// which reads as a dirty band around the panels. Depth comes from inside the
+/// pane instead — lit from above, settling darker at the base, with a top rim
+/// catching the room light.
 struct GlassPanel: ViewModifier {
     var cornerRadius: CGFloat = Theme.radiusPanel
 
-    @ViewBuilder
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        // Regular glass frosts whatever runs underneath (the canvas is full
-        // bleed, so there is always something to refract). Depth comes from a
-        // lit top rim fading to nothing — a pane catching the room light.
-        Group {
-            if #available(macOS 26.0, *) {
-                content.glassEffect(.regular.tint(Theme.glassTint), in: shape)
-            } else {
-                // Pre-Tahoe fallback: frosted material with a refraction hairline.
-                content
-                    .background(.ultraThinMaterial, in: shape)
-                    .background(shape.fill(Theme.glassTint))
-            }
-        }
-        .overlay(
-            shape.strokeBorder(
-                LinearGradient(
-                    colors: [Color.white.opacity(0.22), Color.white.opacity(0.04)],
-                    startPoint: .top, endPoint: .bottom
-                ),
-                lineWidth: 1
+        return content
+            // Interior volume: a faint vertical light falloff across the pane,
+            // behind the controls so legibility is untouched. Casts nothing.
+            .background(
+                shape.fill(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.05),
+                            .clear,
+                            Color.black.opacity(0.10)
+                        ],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                )
             )
-        )
+            .background(.ultraThinMaterial, in: shape)
+            .background(shape.fill(Theme.glassTint))
+            .overlay(
+                shape.strokeBorder(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.22), Color.white.opacity(0.04)],
+                        startPoint: .top, endPoint: .bottom
+                    ),
+                    lineWidth: 1
+                )
+            )
     }
 }
 

@@ -3,10 +3,9 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// The dock: one floating glass bar under the stage — history, cursor tools,
-/// zoom, and the two ways out, each group sitting in its own recessed well so
-/// the bar reads as subsections rather than a continuous strip. Picking a draw
-/// tool sets the canvas cursor mode; finishing a draw auto-returns to Select
-/// (see `EditorState.commitDraw`).
+/// zoom, and the two ways out, separated by hairlines, in working order left
+/// to right. Picking a draw tool sets the canvas cursor mode; finishing a draw
+/// auto-returns to Select (see `EditorState.commitDraw`).
 struct DockView: View {
     @ObservedObject var state: EditorState
     @ObservedObject var zoom: CanvasZoomController
@@ -19,58 +18,55 @@ struct DockView: View {
     ]
 
     var body: some View {
-        HStack(spacing: 8) {
-            section("History") {
-                IconButton(systemName: "arrow.uturn.backward") { state.performUndo() }
-                    .accessibilityLabel("Undo")
-                    .disabled(!state.undoStack.canUndo)
-                    .opacity(state.undoStack.canUndo ? 1 : 0.35)
-                    .help("Undo")
+        HStack(spacing: 4) {
+            IconButton(systemName: "arrow.uturn.backward") { state.performUndo() }
+                .accessibilityLabel("Undo")
+                .disabled(!state.undoStack.canUndo)
+                .opacity(state.undoStack.canUndo ? 1 : 0.35)
+                .help("Undo")
 
-                IconButton(systemName: "arrow.uturn.forward") { state.performRedo() }
-                    .accessibilityLabel("Redo")
-                    .disabled(!state.undoStack.canRedo)
-                    .opacity(state.undoStack.canRedo ? 1 : 0.35)
-                    .help("Redo")
-            }
+            IconButton(systemName: "arrow.uturn.forward") { state.performRedo() }
+                .accessibilityLabel("Redo")
+                .disabled(!state.undoStack.canRedo)
+                .opacity(state.undoStack.canRedo ? 1 : 0.35)
+                .help("Redo")
 
-            section("Tools") {
-                ForEach(tools, id: \.0) { tool, shortcut in
-                    ToolRailButton(
-                        systemName: tool.symbolName,
-                        label: tool.displayName,
-                        shortcut: shortcut,
-                        isActive: state.activeTool == tool
-                    ) {
-                        state.selectCursorTool(tool)
-                    }
+            divider
+
+            ForEach(tools, id: \.0) { tool, shortcut in
+                ToolRailButton(
+                    systemName: tool.symbolName,
+                    label: tool.displayName,
+                    shortcut: shortcut,
+                    isActive: state.activeTool == tool
+                ) {
+                    state.selectCursorTool(tool)
                 }
             }
 
-            section("Zoom") {
-                ZoomControlsView(zoom: zoom)
-            }
+            divider
 
-            section("Export") {
+            ZoomControlsView(zoom: zoom)
+
+            divider
+
+            HStack(spacing: 8) {
                 exportButtons
             }
+            .padding(.leading, 2)
         }
-        .padding(.horizontal, 7)
+        .padding(.horizontal, 12)
         .frame(height: 52)
         .glassPanel(cornerRadius: 26)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Dock")
     }
 
-    /// One recessed well inside the bar — a darker capsule that groups the
-    /// controls it contains without splitting the dock into separate islands.
-    private func section(_ label: String, @ViewBuilder content: () -> some View) -> some View {
-        HStack(spacing: 3, content: content)
-            .padding(.horizontal, 6)
-            .frame(height: 40)
-            .background(Capsule().fill(Color.black.opacity(0.18)))
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel(label)
+    private var divider: some View {
+        Rectangle()
+            .fill(Theme.hairlineStrong)
+            .frame(width: 1, height: 18)
+            .padding(.horizontal, 7)
     }
 
     /// Liquid Glass action buttons on macOS 26; flat capsules otherwise.
