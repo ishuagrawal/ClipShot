@@ -49,7 +49,7 @@ private struct EditorShell: View {
                 .padding(.top, 10)
         }
         .overlay(alignment: .leading) {
-            AnnotationPanelView(state: state)
+            ToolRailView(state: state)
                 .padding(.leading, Theme.chromeMargin)
         }
         .overlay(alignment: .trailing) {

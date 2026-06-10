@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Right-hand inspector: a loose column of floating glass cards over the stage,
-/// always the same three — Layers, Frame, Background. Annotation styling lives
-/// in the left `AnnotationPanelView` so document properties never jump around.
+/// Right-hand inspector: a loose column of floating glass cards over the stage.
+/// Contextual cards (selection, tool defaults) surface at the top when relevant;
+/// Layers, Frame, and Background are always present, always in the same order.
 struct InspectorView: View {
     @ObservedObject var state: EditorState
     var onCanvasFocusRequested: () -> Void = {}
@@ -10,6 +10,11 @@ struct InspectorView: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 10) {
+                if state.selectedAnnotation != nil {
+                    selectionCard
+                } else if state.activeTool.isDrawTool || state.inProgressTextDraft != nil {
+                    toolDefaultsCard
+                }
                 layersCard
                 GlassCard("Frame") {
                     PaddingToolView(state: state)
@@ -23,17 +28,51 @@ struct InspectorView: View {
         }
         .defaultScrollAnchor(.top)
         // Cards blur and fade at the scroll bounds instead of hard-clipping. The
-        // clear safe-area bars mark where those soft edges live (clear of the
-        // window top and the bottom edge); the outer ignoresSafeArea strips
-        // safeAreaPadding, so explicit inset bars are used instead.
+        // clear safe-area bars mark where those soft edges live — the same
+        // elevation top and bottom, sized so cards finish fading before they
+        // would slide under the dock (52pt bar + its margin). The outer
+        // ignoresSafeArea strips safeAreaPadding, so explicit inset bars are
+        // used instead.
         .softVerticalScrollEdges()
         .safeAreaInset(edge: .top, spacing: 0) {
-            Color.clear.frame(height: 52)
+            Color.clear.frame(height: Theme.scrollFadeInset)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            Color.clear.frame(height: Theme.chromeMargin)
+            Color.clear.frame(height: Theme.scrollFadeInset)
         }
         .frame(width: Theme.inspectorWidth + 32)
+    }
+
+    private var selectionCard: some View {
+        GlassCard(selectionTitle) {
+            IconButton(systemName: "trash") { state.deleteSelectedAnnotation() }
+                .help("Delete annotation")
+                .accessibilityLabel("Delete annotation")
+        } content: {
+            SelectToolView(state: state)
+        }
+    }
+
+    private var toolDefaultsCard: some View {
+        let tool = state.inProgressTextDraft != nil ? EditorTool.text : state.activeTool
+        return GlassCard("\(tool.displayName) defaults") {
+            switch tool {
+            case .arrow:     ArrowToolView(state: state)
+            case .rectangle: RectangleToolView(state: state)
+            case .text:      TextToolView(state: state)
+            default:         EmptyView()
+            }
+        }
+    }
+
+    private var selectionTitle: String {
+        switch state.selectedAnnotation?.kind {
+        case .arrow: return "Arrow"
+        case .rect:  return "Rectangle"
+        case .text:  return "Text"
+        case .blur:  return "Blur"
+        case .none:  return ""
+        }
     }
 
     private var layersCard: some View {
@@ -52,53 +91,36 @@ struct InspectorView: View {
     }
 }
 
-/// Left annotation panel: a single floating squircle of glass that appears when
-/// an annotation is selected or a draw tool is armed, carrying that shape's
-/// style controls. Gone when there is nothing to style — the stage stays clear.
-struct AnnotationPanelView: View {
+/// Left tool rail: one floating squircle of glass holding the cursor tools
+/// (Select, Arrow, Rectangle, Text) stacked vertically — the drawing hand of
+/// the editor, opposite the inspector. Picking a draw tool sets the canvas
+/// cursor mode; finishing a draw auto-returns to Select.
+struct ToolRailView: View {
     @ObservedObject var state: EditorState
 
+    private let tools: [(EditorTool, String?)] = [
+        (.select, "V"),
+        (.arrow, "A"),
+        (.rectangle, "R"),
+        (.text, "T")
+    ]
+
     var body: some View {
-        Group {
-            if state.selectedAnnotation != nil {
-                GlassCard(selectionTitle) {
-                    IconButton(systemName: "trash") { state.deleteSelectedAnnotation() }
-                        .help("Delete annotation")
-                        .accessibilityLabel("Delete annotation")
-                } content: {
-                    SelectToolView(state: state)
-                }
-            } else if state.activeTool.isDrawTool || state.inProgressTextDraft != nil {
-                GlassCard("\(activeDrawTool.displayName) defaults") {
-                    toolDefaults
+        VStack(spacing: 4) {
+            ForEach(tools, id: \.0) { tool, shortcut in
+                ToolRailButton(
+                    systemName: tool.symbolName,
+                    label: tool.displayName,
+                    shortcut: shortcut,
+                    isActive: state.activeTool == tool
+                ) {
+                    state.selectCursorTool(tool)
                 }
             }
         }
-        .animation(.easeOut(duration: 0.15), value: state.selectedAnnotationID)
-        .animation(.easeOut(duration: 0.15), value: state.activeTool)
-    }
-
-    private var activeDrawTool: EditorTool {
-        state.inProgressTextDraft != nil ? .text : state.activeTool
-    }
-
-    @ViewBuilder
-    private var toolDefaults: some View {
-        switch activeDrawTool {
-        case .arrow:     ArrowToolView(state: state)
-        case .rectangle: RectangleToolView(state: state)
-        case .text:      TextToolView(state: state)
-        default:         EmptyView()
-        }
-    }
-
-    private var selectionTitle: String {
-        switch state.selectedAnnotation?.kind {
-        case .arrow: return "Arrow"
-        case .rect:  return "Rectangle"
-        case .text:  return "Text"
-        case .blur:  return "Blur"
-        case .none:  return ""
-        }
+        .padding(8)
+        .glassPanel(cornerRadius: 22)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Tools")
     }
 }
