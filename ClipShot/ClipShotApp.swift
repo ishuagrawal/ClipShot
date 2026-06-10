@@ -6,7 +6,7 @@ struct ClipShotApp: App {
     @StateObject private var appState = AppState.shared
 
     var body: some Scene {
-        MenuBarExtra("ClipShot", systemImage: "crop") {
+        MenuBarExtra("ClipShot", systemImage: "viewfinder") {
             MenuContentView()
                 .environmentObject(appState)
         }

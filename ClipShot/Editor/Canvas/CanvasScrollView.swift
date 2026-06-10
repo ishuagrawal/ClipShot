@@ -38,8 +38,10 @@ final class CanvasScrollView: NSScrollView {
         hasHorizontalScroller = false
         hasVerticalScroller = false
         autohidesScrollers = true
-        drawsBackground = true
-        backgroundColor = NSColor(white: 0.04, alpha: 1)
+        // Transparent: the SwiftUI StageBackdrop (dot grid + vignette) sits behind
+        // this scroll view and provides the stage surface.
+        drawsBackground = false
+        contentView.drawsBackground = false
         horizontalScrollElasticity = .none
         verticalScrollElasticity = .none
         // Pinch / smart-magnify run through AppKit's live magnify; observe its end to

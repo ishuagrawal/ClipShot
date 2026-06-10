@@ -63,7 +63,6 @@ struct RectangleToolView: View {
                 InspectorValueLabel(text: "\(Int(corner.rounded()))")
             }
         }
-        .padding(16)
         .onAppear { syncFromState() }
         .onChange(of: state.selectedAnnotationID) { _, _ in syncFromState() }
         .onChange(of: state.document.version) { _, _ in syncFromState() }

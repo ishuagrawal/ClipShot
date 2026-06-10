@@ -33,7 +33,6 @@ struct PaddingToolView: View {
             screenshotCornerRow
             shadowSection
         }
-        .padding(16)
         .onAppear {
             linked = padding.isLinked
             shadowColor = Color(cgColor: state.document.shadow.color)
@@ -49,41 +48,24 @@ struct PaddingToolView: View {
 
     private var header: some View {
         HStack {
-            Text("Layout")
-                .font(Theme.title(13))
-                .foregroundStyle(Theme.textPrimary)
-            Spacer()
-            Button("Auto") { applyAuto() }
-                .buttonStyle(.plain)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Theme.accent)
-                .padding(.horizontal, 8)
-                .frame(height: 24)
-                .background {
-                    RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
-                        .fill(Theme.accentDim)
-                }
-                .help("Auto padding + background")
-            Button {
+            ChipToggle(
+                label: "Auto",
+                systemName: "wand.and.stars",
+                isOn: true,
+                isMomentary: true,
+                help: "Auto padding + background"
+            ) { applyAuto() }
+            ChipToggle(
+                systemName: linked ? "link" : "link.slash",
+                isOn: linked,
+                help: linked ? "Sides linked" : "Sides independent"
+            ) {
                 linked.toggle()
                 if linked {
                     commit(.uniform(padding.top))
                 }
-            } label: {
-                Image(systemName: linked ? "link" : "link.slash")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(linked ? Theme.accent : Theme.textTertiary)
-                    .frame(width: 26, height: 24)
-                    .background {
-                        if linked {
-                            RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
-                                .fill(Theme.accentDim)
-                        }
-                    }
-                    .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
-            .help(linked ? "Sides linked" : "Sides independent")
+            Spacer()
         }
     }
 
@@ -162,19 +144,11 @@ struct PaddingToolView: View {
             HStack {
                 SectionLabel(text: "Corner radius")
                 Spacer()
-                Button("Concentric") { applyConcentricCorner() }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(isConcentricCorner ? Theme.accent : Theme.textTertiary)
-                    .padding(.horizontal, 7)
-                    .frame(height: 20)
-                    .background {
-                        if isConcentricCorner {
-                            RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
-                                .fill(Theme.accentDim)
-                        }
-                    }
-                    .help("Match the screenshot corners (concentric)")
+                ChipToggle(
+                    label: "Concentric",
+                    isOn: isConcentricCorner,
+                    help: "Match the screenshot corners (concentric)"
+                ) { applyConcentricCorner() }
             }
             HStack(spacing: 10) {
                 FlatSlider(
@@ -233,22 +207,11 @@ struct PaddingToolView: View {
             HStack {
                 SectionLabel(text: "Screenshot corners")
                 Spacer()
-                Button { toggleCornerLock() } label: {
-                    Image(systemName: isCornerLocked ? "lock" : "lock.open")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(isCornerLocked ? Theme.accent : Theme.textTertiary)
-                        .padding(.horizontal, 7)
-                        .frame(height: 20)
-                        .background {
-                            if isCornerLocked {
-                                RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
-                                    .fill(Theme.accentDim)
-                            }
-                        }
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help("Lock the screenshot corners to the card radius")
+                ChipToggle(
+                    systemName: isCornerLocked ? "lock" : "lock.open",
+                    isOn: isCornerLocked,
+                    help: "Lock the screenshot corners to the card radius"
+                ) { toggleCornerLock() }
             }
             HStack(spacing: 10) {
                 FlatSlider(

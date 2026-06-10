@@ -199,6 +199,11 @@ final class CanvasInteractionView: NSView {
             return
         }
 
+        if let tool = Self.toolShortcut(for: event) {
+            state.selectCursorTool(tool)
+            return
+        }
+
         super.keyDown(with: event)
     }
 
@@ -209,6 +214,21 @@ final class CanvasInteractionView: NSView {
             canvasOriginInImage: imageSpaceOrigin,
             baseSelection: baseSelection
         )
+    }
+
+    /// Single-letter tool shortcuts (V/A/R/T), matching the tool-rail tooltips.
+    /// Only fires with no modifiers so it never shadows menu commands; text editing
+    /// is unaffected because the in-canvas text editor is first responder then.
+    nonisolated static func toolShortcut(for event: NSEvent) -> EditorTool? {
+        guard event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
+              let chars = event.charactersIgnoringModifiers?.lowercased() else { return nil }
+        switch chars {
+        case "v": return .select
+        case "a": return .arrow
+        case "r": return .rectangle
+        case "t": return .text
+        default:  return nil
+        }
     }
 
     nonisolated static func keyboardNudgeDelta(for event: NSEvent) -> CGSize? {

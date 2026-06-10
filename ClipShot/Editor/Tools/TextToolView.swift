@@ -33,7 +33,6 @@ struct TextToolView: View {
                 InspectorValueLabel(text: "\(Int(size.rounded()))")
             }
         }
-        .padding(16)
         .onAppear { syncFromState() }
         .onChange(of: state.selectedAnnotationID) { _, _ in syncFromState() }
         .onChange(of: state.document.version) { _, _ in syncFromState() }

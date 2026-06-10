@@ -1,27 +1,38 @@
 import SwiftUI
 
-/// Floating drawing-tools palette, centred at the top of the canvas. Arrow / Rectangle /
-/// Text — the annotation tools. Picking one sets the canvas cursor mode; finishing a draw
-/// auto-returns to Select and opens the component inspector (see `EditorState.commitDraw`).
-/// Select itself lives in the top bar (`TopToolBarView`), not here.
-struct ToolPaletteView: View {
+/// Fixed left tool rail — the single home for every cursor tool. Select plus the
+/// annotation tools, top-aligned, full height. Picking a draw tool sets the canvas
+/// cursor mode; finishing a draw auto-returns to Select (see `EditorState.commitDraw`).
+struct ToolRailView: View {
     @ObservedObject var state: EditorState
 
-    private let tools: [EditorTool] = [.arrow, .rectangle, .text]
+    private let tools: [(EditorTool, String?)] = [
+        (.select, "V"),
+        (.arrow, "A"),
+        (.rectangle, "R"),
+        (.text, "T")
+    ]
 
     var body: some View {
-        HStack(spacing: 4) {
-            ForEach(tools) { tool in
-                ToolPaletteButton(
+        VStack(spacing: 6) {
+            ForEach(tools, id: \.0) { tool, shortcut in
+                ToolRailButton(
                     systemName: tool.symbolName,
                     label: tool.displayName,
+                    shortcut: shortcut,
                     isActive: state.activeTool == tool
                 ) {
                     state.selectCursorTool(tool)
                 }
             }
+            Spacer()
         }
-        .padding(5)
-        .floatingBar(cornerRadius: Theme.radiusPill)
+        .padding(.top, 12)
+        .frame(width: 52)
+        .frame(maxHeight: .infinity)
+        .background(Theme.surface)
+        .overlay(alignment: .trailing) {
+            Rectangle().fill(Theme.hairline).frame(width: 1)
+        }
     }
 }

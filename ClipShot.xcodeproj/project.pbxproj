@@ -31,7 +31,6 @@
 		01A00000000000000000020B /* CanvasScrollView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000020B /* CanvasScrollView.swift */; };
 		01A00000000000000000020C /* CanvasCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000020C /* CanvasCoordinator.swift */; };
 		01A00000000000000000020D /* CanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000020D /* CanvasView.swift */; };
-		01A00000000000000000020E /* BottomBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000020E /* BottomBarView.swift */; };
 		01A00000000000000000020F /* ToolSidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000020F /* ToolSidebarView.swift */; };
 		01A000000000000000000210 /* SetPaddingCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000210 /* SetPaddingCommand.swift */; };
 		01A000000000000000000211 /* SetBackgroundCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000211 /* SetBackgroundCommand.swift */; };
@@ -54,7 +53,6 @@
 		01A000000000000000000222 /* ComponentListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000222 /* ComponentListView.swift */; };
 		01A000000000000000000223 /* CanvasZoomController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000223 /* CanvasZoomController.swift */; };
 		01A000000000000000000224 /* ZoomControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000224 /* ZoomControlsView.swift */; };
-		01A000000000000000000225 /* CanvasToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000225 /* CanvasToolView.swift */; };
 		01A000000000000000000250 /* ConcentricCardMask.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000250 /* ConcentricCardMask.swift */; };
 		01A000000000000000000299 /* SetCardCornerCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000299 /* SetCardCornerCommand.swift */; };
 		01A000000000000000000301 /* EditorDocumentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000301 /* EditorDocumentTests.swift */; };
@@ -118,7 +116,6 @@
 		01B00000000000000000020B /* CanvasScrollView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasScrollView.swift; sourceTree = "<group>"; };
 		01B00000000000000000020C /* CanvasCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasCoordinator.swift; sourceTree = "<group>"; };
 		01B00000000000000000020D /* CanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasView.swift; sourceTree = "<group>"; };
-		01B00000000000000000020E /* BottomBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomBarView.swift; sourceTree = "<group>"; };
 		01B00000000000000000020F /* ToolSidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolSidebarView.swift; sourceTree = "<group>"; };
 		01B000000000000000000210 /* SetPaddingCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetPaddingCommand.swift; sourceTree = "<group>"; };
 		01B000000000000000000211 /* SetBackgroundCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetBackgroundCommand.swift; sourceTree = "<group>"; };
@@ -141,7 +138,6 @@
 		01B000000000000000000222 /* ComponentListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComponentListView.swift; sourceTree = "<group>"; };
 		01B000000000000000000223 /* CanvasZoomController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasZoomController.swift; sourceTree = "<group>"; };
 		01B000000000000000000224 /* ZoomControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomControlsView.swift; sourceTree = "<group>"; };
-		01B000000000000000000225 /* CanvasToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasToolView.swift; sourceTree = "<group>"; };
 		01B000000000000000000250 /* ConcentricCardMask.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConcentricCardMask.swift; sourceTree = "<group>"; };
 		01B000000000000000000299 /* SetCardCornerCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetCardCornerCommand.swift; sourceTree = "<group>"; };
 		01B000000000000000000301 /* EditorDocumentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorDocumentTests.swift; sourceTree = "<group>"; };
@@ -319,7 +315,6 @@
 		01D000000000000000000203 /* Toolbar */ = {
 			isa = PBXGroup;
 			children = (
-				01B00000000000000000020E /* BottomBarView.swift */,
 				01B000000000000000000224 /* ZoomControlsView.swift */,
 			);
 			path = Toolbar;
@@ -332,7 +327,6 @@
 				01B000000000000000000215 /* TopToolBarView.swift */,
 				01B000000000000000000221 /* ToolPaletteView.swift */,
 				01B000000000000000000222 /* ComponentListView.swift */,
-				01B000000000000000000225 /* CanvasToolView.swift */,
 				01B000000000000000000212 /* PaddingToolView.swift */,
 				01B000000000000000000213 /* BackgroundToolView.swift */,
 				01B00000000000000000021D /* SelectToolView.swift */,
@@ -484,12 +478,10 @@
 				01A000000000000000000216 /* CanvasGeometry.swift in Sources */,
 				01A00000000000000000021B /* CanvasInteractionView.swift in Sources */,
 				01A00000000000000000021C /* CanvasTextEditor.swift in Sources */,
-				01A00000000000000000020E /* BottomBarView.swift in Sources */,
 				01A00000000000000000020F /* ToolSidebarView.swift in Sources */,
 				01A000000000000000000215 /* TopToolBarView.swift in Sources */,
 				01A000000000000000000221 /* ToolPaletteView.swift in Sources */,
 				01A000000000000000000222 /* ComponentListView.swift in Sources */,
-				01A000000000000000000225 /* CanvasToolView.swift in Sources */,
 				01A000000000000000000210 /* SetPaddingCommand.swift in Sources */,
 				01A000000000000000000299 /* SetCardCornerCommand.swift in Sources */,
 				01A000000000000000000211 /* SetBackgroundCommand.swift in Sources */,

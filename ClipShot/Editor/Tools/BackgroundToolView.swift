@@ -18,14 +18,10 @@ struct BackgroundToolView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Background")
-                .font(Theme.title(13))
-                .foregroundStyle(Theme.textPrimary)
             tiles
             config
             effects
         }
-        .padding(16)
         .onAppear {
             syncControls(from: style)
             syncEffects(state.document.backgroundEffects)

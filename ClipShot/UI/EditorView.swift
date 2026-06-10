@@ -34,65 +34,81 @@ private struct EditorShell: View {
             TopToolBarView(state: state)
             Rectangle().fill(Theme.hairline).frame(height: 1)
             HStack(spacing: 0) {
-                if state.isInspectorVisible {
-                    ToolSidebarView(
-                        state: state,
-                        onCanvasFocusRequested: canvasFocusProxy.requestKeyboardFocus
-                    )
-                }
-                canvasArea
+                ToolRailView(state: state)
+                stage
+                InspectorView(
+                    state: state,
+                    onCanvasFocusRequested: canvasFocusProxy.requestKeyboardFocus
+                )
             }
             Rectangle().fill(Theme.hairline).frame(height: 1)
             statusBar
         }
-        .frame(minWidth: 900, minHeight: 600)
-        .background(Theme.canvas)
-    }
-
-    private var statusBar: some View {
-        HStack(spacing: 0) {
-            Spacer(minLength: 12)
-            ZoomControlsView(zoom: zoomController)
-        }
-        .padding(.horizontal, 12)
-        .frame(height: 36)
-        .frame(maxWidth: .infinity)
+        .frame(minWidth: 960, minHeight: 600)
         .background(Theme.surface)
     }
 
-    private var canvasArea: some View {
+    /// The workbench: dot-grid backdrop, transparent canvas scroll view on top,
+    /// registration ticks framing the corners.
+    private var stage: some View {
         ZStack {
+            StageBackdrop()
             CanvasView(state: state, focusProxy: canvasFocusProxy, zoomController: zoomController)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Theme.canvas)
-            VStack {
-                ToolPaletteView(state: state)
-                    .padding(.top, 14)
-                Spacer()
-            }
-            VStack {
-                Spacer()
-                BottomBarView(state: state)
-                    .padding(.bottom, 20)
-            }
+            StageCornerTicks()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    /// Instrument strip: live export dimensions on the left, zoom cluster on the right.
+    private var statusBar: some View {
+        HStack(spacing: 16) {
+            HUDReadout(label: "PNG", value: exportSizeText)
+            Spacer(minLength: 12)
+            ZoomControlsView(zoom: zoomController)
+        }
+        .padding(.horizontal, 14)
+        .frame(height: Theme.statusBarHeight)
+        .frame(maxWidth: .infinity)
+        .background(Theme.surface)
+    }
+
+    private var exportSizeText: String {
+        let size = state.document.paddedDocumentSize
+        return "\(Int(size.width.rounded())) × \(Int(size.height.rounded())) px"
+    }
 }
 
 private struct EmptyEditorView: View {
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "crop")
-                .font(.system(size: 34, weight: .medium))
-                .foregroundStyle(Theme.textTertiary)
-            Text("No capture session")
-                .font(Theme.title(16))
-                .foregroundStyle(Theme.textSecondary)
+        ZStack {
+            StageBackdrop()
+            StageCornerTicks()
+            VStack(spacing: 0) {
+                Image(systemName: "viewfinder")
+                    .font(.system(size: 30, weight: .regular))
+                    .foregroundStyle(Theme.textTertiary)
+                    .padding(.bottom, 18)
+                Text("Nothing captured yet")
+                    .font(Theme.title(15))
+                    .foregroundStyle(Theme.textPrimary)
+                    .padding(.bottom, 6)
+                Text("Capture a component and it lands here, ready to frame.")
+                    .font(Theme.label(12))
+                    .foregroundStyle(Theme.textSecondary)
+                    .padding(.bottom, 22)
+                HStack(spacing: 5) {
+                    Keycap(text: "⌃")
+                    Keycap(text: "⇧")
+                    Keycap(text: "5")
+                    Text("in the browser, then pick a component")
+                        .font(Theme.label(12))
+                        .foregroundStyle(Theme.textTertiary)
+                        .padding(.leading, 6)
+                }
+            }
         }
         .frame(minWidth: 860, minHeight: 560)
-        .background(Theme.canvas)
     }
 }
 

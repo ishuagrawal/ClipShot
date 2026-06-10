@@ -33,7 +33,6 @@ struct ArrowToolView: View {
                 InspectorValueLabel(text: "\(Int(weight.rounded()))")
             }
         }
-        .padding(16)
         .onAppear { syncFromState() }
         .onChange(of: state.selectedAnnotationID) { _, _ in syncFromState() }
         .onChange(of: state.document.version) { _, _ in syncFromState() }
