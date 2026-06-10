@@ -11,6 +11,11 @@ final class CanvasScrollView: NSScrollView {
     /// control bar), so the SwiftUI percentage readout can track it.
     var magnificationDidChange: ((CGFloat) -> Void)?
 
+    /// Width of floating chrome occluding the right edge (the inspector column).
+    /// Fit-and-center operations aim for the unobstructed region left of it, so
+    /// the document reads as centered in the empty space the user actually sees.
+    var rightOcclusionInset: CGFloat = 0
+
     /// Closure that fits the document into view. Held until the scroll view has a
     /// real laid-out size, then run exactly once (see `layout()`). Avoids fitting
     /// against a zero/placeholder size during the first render pass.
@@ -82,8 +87,9 @@ final class CanvasScrollView: NSScrollView {
 
     func magnify(toFitCenteredOn rect: CGRect) {
         guard !rect.isNull, !rect.isEmpty else { return }
-        let viewportSize = viewportSizeForFitting
+        var viewportSize = viewportSizeForFitting
         guard viewportSize.width > 0, viewportSize.height > 0 else { return }
+        viewportSize.width = max(1, viewportSize.width - rightOcclusionInset)
 
         let targetMagnification = Self.fitMagnification(
             for: rect,
@@ -94,7 +100,14 @@ final class CanvasScrollView: NSScrollView {
 
         setMagnification(targetMagnification, centeredAt: center)
         layoutSubtreeIfNeeded()
-        centerDocumentPoint(center)
+        // Putting the fit center in the middle of the unobstructed region means
+        // centering the viewport on a document point half the occluded width to
+        // the right of it (converted to document points).
+        let shifted = CGPoint(
+            x: center.x + (rightOcclusionInset / 2) / targetMagnification,
+            y: center.y
+        )
+        centerDocumentPoint(shifted)
         magnificationDidChange?(targetMagnification)
     }
 

@@ -51,10 +51,13 @@ enum Theme {
     static let radiusPanel: CGFloat = 18
     static let inspectorWidth: CGFloat = 272
     static let chromeMargin: CGFloat = 14
-    /// Soft scroll-edge fade depth, identical top and bottom, deep enough that
-    /// inspector cards finish fading before they reach the dock (52pt bar +
-    /// its chrome margin = 66pt of bottom chrome).
-    static let scrollFadeInset: CGFloat = 72
+    /// Inspector edge treatment, identical top and bottom: cards stay fully
+    /// transparent within `scrollFadeClear` of the window edge (the zone the
+    /// dock occupies: 52pt bar + 14pt margin), then dissolve in across
+    /// `scrollFadeBand`. `scrollFadeInset` is the total reserved depth.
+    static let scrollFadeClear: CGFloat = 66
+    static let scrollFadeBand: CGFloat = 56
+    static var scrollFadeInset: CGFloat { scrollFadeClear + scrollFadeBand }
 
     // MARK: Type — SF Pro for labels, SF Mono for every measured value
     static func title(_ size: CGFloat = 14, _ weight: Font.Weight = .semibold) -> Font {

@@ -62,6 +62,9 @@ final class CanvasCoordinator {
             self?.overlayView.hoveredAnnotationID = id
         }
         scrollView.documentView = container
+        // The floating inspector column covers this much of the right edge;
+        // fits center the document in the clear space left of it.
+        scrollView.rightOcclusionInset = Theme.inspectorWidth + 32 + Theme.chromeMargin
         scrollView.viewportSizeDidChange = { [weak self] viewportSize in
             self?.refitInitialSelectionIfNeeded(viewportSize: viewportSize)
         }
@@ -160,9 +163,13 @@ final class CanvasCoordinator {
         )
         guard viewportSize.width > 0, viewportSize.height > 0 else { return }
 
+        // Build the fit against the unobstructed region so its aspect matches
+        // what magnify(toFitCenteredOn:) will fit into.
+        var effectiveViewport = viewportSize
+        effectiveViewport.width = max(1, effectiveViewport.width - scrollView.rightOcclusionInset)
         let fitRect = Self.initialFitRect(
             for: focusBounds,
-            in: viewportSize
+            in: effectiveViewport
         )
         let targetRect = fitRect.isNull || fitRect.isEmpty ? imageBounds : fitRect
         let placement = CanvasInitialPlacement(
@@ -252,7 +259,12 @@ struct CanvasInitialPlacement: Equatable {
     }
 
     init(imageBounds: CGRect, targetRect: CGRect) {
-        let canvasBounds = imageBounds.union(targetRect)
+        // Free-roam margin: the canvas extends well past the document on every
+        // side, so the image can be panned anywhere in the viewport instead of
+        // stopping at its own edges.
+        let union = imageBounds.union(targetRect)
+        let margin = max(union.width, union.height)
+        let canvasBounds = union.insetBy(dx: -margin, dy: -margin)
         let offset = CGPoint(x: -canvasBounds.minX, y: -canvasBounds.minY)
         canvasFrame = CGRect(origin: .zero, size: canvasBounds.size)
         imageFrame = imageBounds.offsetBy(dx: offset.x, dy: offset.y)

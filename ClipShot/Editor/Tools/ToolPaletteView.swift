@@ -2,10 +2,11 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The dock: a row of floating glass pods under the stage — history, cursor
-/// tools, zoom, and the two ways out, each group its own island, in working
-/// order left to right. Picking a draw tool sets the canvas cursor mode;
-/// finishing a draw auto-returns to Select (see `EditorState.commitDraw`).
+/// The dock: one floating glass bar under the stage — history, cursor tools,
+/// zoom, and the two ways out, each group sitting in its own recessed well so
+/// the bar reads as subsections rather than a continuous strip. Picking a draw
+/// tool sets the canvas cursor mode; finishing a draw auto-returns to Select
+/// (see `EditorState.commitDraw`).
 struct DockView: View {
     @ObservedObject var state: EditorState
     @ObservedObject var zoom: CanvasZoomController
@@ -18,8 +19,8 @@ struct DockView: View {
     ]
 
     var body: some View {
-        HStack(spacing: 10) {
-            pod("History") {
+        HStack(spacing: 8) {
+            section("History") {
                 IconButton(systemName: "arrow.uturn.backward") { state.performUndo() }
                     .accessibilityLabel("Undo")
                     .disabled(!state.undoStack.canUndo)
@@ -33,7 +34,7 @@ struct DockView: View {
                     .help("Redo")
             }
 
-            pod("Tools") {
+            section("Tools") {
                 ForEach(tools, id: \.0) { tool, shortcut in
                     ToolRailButton(
                         systemName: tool.symbolName,
@@ -46,24 +47,28 @@ struct DockView: View {
                 }
             }
 
-            pod("Zoom") {
+            section("Zoom") {
                 ZoomControlsView(zoom: zoom)
             }
 
-            pod("Export") {
+            section("Export") {
                 exportButtons
             }
         }
+        .padding(.horizontal, 7)
+        .frame(height: 52)
+        .glassPanel(cornerRadius: 26)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Dock")
     }
 
-    /// One glass island in the dock row.
-    private func pod(_ label: String, @ViewBuilder content: () -> some View) -> some View {
-        HStack(spacing: 4, content: content)
-            .padding(.horizontal, 10)
-            .frame(height: 52)
-            .glassPanel(cornerRadius: 26)
+    /// One recessed well inside the bar — a darker capsule that groups the
+    /// controls it contains without splitting the dock into separate islands.
+    private func section(_ label: String, @ViewBuilder content: () -> some View) -> some View {
+        HStack(spacing: 3, content: content)
+            .padding(.horizontal, 6)
+            .frame(height: 40)
+            .background(Capsule().fill(Color.black.opacity(0.18)))
             .accessibilityElement(children: .contain)
             .accessibilityLabel(label)
     }

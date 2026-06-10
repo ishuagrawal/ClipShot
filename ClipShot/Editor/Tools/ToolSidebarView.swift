@@ -9,18 +9,14 @@ struct InspectorView: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 10) {
-                if state.selectedAnnotation != nil {
-                    selectionCard
-                } else if state.activeTool.isDrawTool || state.inProgressTextDraft != nil {
-                    toolDefaultsCard
-                }
-                layersCard
-                GlassCard("Frame") {
-                    PaddingToolView(state: state)
-                }
-                GlassCard("Background") {
-                    BackgroundToolView(state: state)
+            Group {
+                // One shared glass container: the cards' effects merge into a
+                // single backdrop sampling pass instead of one per card, which
+                // keeps panning the canvas underneath cheap.
+                if #available(macOS 26.0, *) {
+                    GlassEffectContainer(spacing: 10) { cardColumn }
+                } else {
+                    cardColumn
                 }
             }
             .padding(.vertical, 2)
@@ -41,20 +37,40 @@ struct InspectorView: View {
             Color.clear.frame(height: Theme.scrollFadeInset)
         }
         // The soft scroll-edge effect alone leaves cards fully opaque at the
-        // window border; this mask guarantees they dissolve to transparent
-        // across the same inset band, top and bottom alike.
+        // window border; this mask guarantees they finish dissolving while
+        // still clear of the dock zone, top and bottom alike.
         .mask {
             VStack(spacing: 0) {
+                Color.clear.frame(height: Theme.scrollFadeClear)
                 LinearGradient(colors: [.clear, .black],
                                startPoint: .top, endPoint: .bottom)
-                    .frame(height: Theme.scrollFadeInset)
+                    .frame(height: Theme.scrollFadeBand)
                 Rectangle().fill(.black)
                 LinearGradient(colors: [.black, .clear],
                                startPoint: .top, endPoint: .bottom)
-                    .frame(height: Theme.scrollFadeInset)
+                    .frame(height: Theme.scrollFadeBand)
+                Color.clear.frame(height: Theme.scrollFadeClear)
             }
         }
         .frame(width: Theme.inspectorWidth + 32)
+    }
+
+    @ViewBuilder
+    private var cardColumn: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if state.selectedAnnotation != nil {
+                selectionCard
+            } else if state.activeTool.isDrawTool || state.inProgressTextDraft != nil {
+                toolDefaultsCard
+            }
+            layersCard
+            GlassCard("Frame") {
+                PaddingToolView(state: state)
+            }
+            GlassCard("Background") {
+                BackgroundToolView(state: state)
+            }
+        }
     }
 
     private var selectionCard: some View {
