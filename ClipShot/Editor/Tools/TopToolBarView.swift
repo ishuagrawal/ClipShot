@@ -35,41 +35,40 @@ struct TitleChipView: View {
     }
 }
 
-/// Floating command cluster, top right: history on the left of the seam, export
-/// on the right. The only solid vermilion in the chrome is the Save action.
-struct CommandClusterView: View {
+/// Export panel: pinned at the foot of the inspector column — the live output
+/// size and the two ways out. The only solid vermilion button in the chrome.
+struct ExportPanelView: View {
     @ObservedObject var state: EditorState
 
     var body: some View {
-        HStack(spacing: 4) {
-            IconButton(systemName: "arrow.uturn.backward") { state.performUndo() }
-                .accessibilityLabel("Undo")
-                .disabled(!state.undoStack.canUndo)
-                .opacity(state.undoStack.canUndo ? 1 : 0.35)
-                .help("Undo")
-
-            IconButton(systemName: "arrow.uturn.forward") { state.performRedo() }
-                .accessibilityLabel("Redo")
-                .disabled(!state.undoStack.canRedo)
-                .opacity(state.undoStack.canRedo ? 1 : 0.35)
-                .help("Redo")
-
-            Rectangle()
-                .fill(Theme.hairlineStrong)
-                .frame(width: 1, height: 16)
-                .padding(.horizontal, 6)
-
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text("PNG")
+                    .font(Theme.section(9.5))
+                    .foregroundStyle(Theme.textTertiary)
+                Text(exportSizeText)
+                    .font(Theme.mono(11, .semibold))
+                    .foregroundStyle(Theme.textSecondary)
+                    .lineLimit(1)
+                    .fixedSize()
+            }
+            .accessibilityElement(children: .combine)
+            Spacer(minLength: 8)
             Button("Copy") { copyToClipboard() }
                 .buttonStyle(GhostButtonStyle())
                 .help("Copy PNG to clipboard")
-
             Button("Save…") { save() }
                 .buttonStyle(AccentButtonStyle())
                 .help("Export PNG")
         }
-        .padding(.horizontal, 8)
-        .frame(height: 44)
-        .glassPanel(cornerRadius: 22)
+        .padding(.horizontal, 14)
+        .frame(width: Theme.inspectorWidth, height: 52)
+        .glassPanel(cornerRadius: 26)
+    }
+
+    private var exportSizeText: String {
+        let size = state.document.paddedDocumentSize
+        return "\(Int(size.width.rounded())) × \(Int(size.height.rounded()))"
     }
 
     // MARK: - Export

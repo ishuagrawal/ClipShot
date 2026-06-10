@@ -8,26 +8,31 @@ struct InspectorView: View {
     var onCanvasFocusRequested: () -> Void = {}
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 10) {
-                if state.selectedAnnotation != nil {
-                    selectionCard
-                } else if state.activeTool.isDrawTool || state.inProgressTextDraft != nil {
-                    toolDefaultsCard
+        VStack(spacing: 10) {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 10) {
+                    if state.selectedAnnotation != nil {
+                        selectionCard
+                    } else if state.activeTool.isDrawTool || state.inProgressTextDraft != nil {
+                        toolDefaultsCard
+                    }
+                    layersCard
+                    GlassCard("Frame") {
+                        PaddingToolView(state: state)
+                    }
+                    GlassCard("Background") {
+                        BackgroundToolView(state: state)
+                    }
                 }
-                layersCard
-                GlassCard("Frame") {
-                    PaddingToolView(state: state)
-                }
-                GlassCard("Background") {
-                    BackgroundToolView(state: state)
-                }
+                .padding(.vertical, 2)
+                // Side gutters keep card shadows inside the clipped scroll bounds.
+                .padding(.horizontal, 16)
             }
-            .padding(.vertical, 2)
+            .defaultScrollAnchor(.top)
+
+            ExportPanelView(state: state)
         }
-        // Card shadows bleed past the scroll bounds instead of getting cropped.
-        .scrollClipDisabled()
-        .frame(width: Theme.inspectorWidth)
+        .frame(width: Theme.inspectorWidth + 32)
     }
 
     private var selectionCard: some View {

@@ -21,13 +21,15 @@ struct EditorView: View {
 }
 
 /// One full-bleed stage; every piece of chrome floats over it as Liquid Glass.
-/// No bars, no rails, no docked columns — the capture owns the whole window and
-/// the controls hover where the hand expects them: tools left, properties right,
-/// commands top, instruments bottom.
+/// Three anchors only: identity top-left, properties down the right, and one
+/// dock along the bottom holding history, tools, and zoom. The capture's own
+/// palette bleeds across the stage underneath, so the glass refracts its colors.
 private struct EditorShell: View {
     @StateObject private var state: EditorState
     @StateObject private var canvasFocusProxy = CanvasFocusProxy()
     @StateObject private var zoomController = CanvasZoomController()
+    /// Mesh palette is derived from the (immutable) screenshot once, not per render.
+    @State private var meshPalette: [Color] = []
 
     init(document: EditorDocument) {
         _state = StateObject(wrappedValue: EditorState(document: document, openingPanel: .canvas))
@@ -36,13 +38,14 @@ private struct EditorShell: View {
     var body: some View {
         ZStack {
             StageBackdrop()
+            AmbientGlowView(colors: ambientColors)
             CanvasView(state: state, focusProxy: canvasFocusProxy, zoomController: zoomController)
                 // Inset the working viewport so fit-to-view centers the artboard
                 // in the clear area between the floating panels.
                 .padding(.top, 58)
-                .padding(.bottom, 64)
-                .padding(.leading, 76)
-                .padding(.trailing, Theme.inspectorWidth + Theme.chromeMargin * 2)
+                .padding(.bottom, 86)
+                .padding(.leading, 24)
+                .padding(.trailing, Theme.inspectorWidth + 32 + Theme.chromeMargin)
         }
         .overlay(alignment: .topLeading) {
             TitleChipView(state: state)
@@ -50,49 +53,42 @@ private struct EditorShell: View {
                 .padding(.top, 10)
         }
         .overlay(alignment: .topTrailing) {
-            CommandClusterView(state: state)
-                .padding(.trailing, Theme.chromeMargin)
-                .padding(.top, 10)
-        }
-        .overlay(alignment: .leading) {
-            ToolPodView(state: state)
-                .padding(.leading, Theme.chromeMargin)
-        }
-        .overlay(alignment: .topTrailing) {
             InspectorView(
                 state: state,
                 onCanvasFocusRequested: canvasFocusProxy.requestKeyboardFocus
             )
             .padding(.trailing, Theme.chromeMargin)
-            .padding(.top, 56)
-            .padding(.bottom, Theme.chromeMargin)
+            .padding(.vertical, Theme.chromeMargin)
         }
         .overlay(alignment: .bottom) {
-            instrumentPill
+            DockView(state: state, zoom: zoomController)
                 .padding(.bottom, Theme.chromeMargin)
+                .padding(.trailing, Theme.inspectorWidth + Theme.chromeMargin)
         }
         .ignoresSafeArea()
         .frame(minWidth: 980, minHeight: 620)
-    }
-
-    /// Floating instrument pill: live export size + the zoom cluster. The only
-    /// place numbers live, and it hovers — there is no status bar.
-    private var instrumentPill: some View {
-        HStack(spacing: 12) {
-            HUDReadout(label: "PNG", value: exportSizeText)
-            Rectangle()
-                .fill(Theme.hairlineStrong)
-                .frame(width: 1, height: 14)
-            ZoomControlsView(zoom: zoomController)
+        .onAppear {
+            meshPalette = MeshGradientGenerator
+                .generate(screenshot: state.document.screenshot,
+                          selection: state.document.baseSelection)
+                .colors
+                .map { Color(cgColor: $0) }
         }
-        .padding(.horizontal, 16)
-        .frame(height: 40)
-        .glassPanel(cornerRadius: 20)
     }
 
-    private var exportSizeText: String {
-        let size = state.document.paddedDocumentSize
-        return "\(Int(size.width.rounded())) × \(Int(size.height.rounded())) px"
+    /// The capture decides the room's light. Dynamic/none backgrounds diffuse the
+    /// screenshot's harmonized mesh palette; explicit backgrounds diffuse themselves.
+    private var ambientColors: [Color] {
+        switch state.document.background {
+        case .solidColor(let color):
+            return [Color(cgColor: color)]
+        case .gradient(let start, let end, _):
+            return [Color(cgColor: start), Color(cgColor: end),
+                    Color(cgColor: start), Color(cgColor: end),
+                    Color(cgColor: start).opacity(0.8), Color(cgColor: end)]
+        case .dynamic, .none:
+            return meshPalette
+        }
     }
 }
 

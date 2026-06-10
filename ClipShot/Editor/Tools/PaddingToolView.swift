@@ -69,23 +69,37 @@ struct PaddingToolView: View {
         }
     }
 
+    /// Frame diagram: the artboard floats in the middle of a carved well, the four
+    /// per-side values orbit it as mono pills. Reads as a diagram, not a form.
     private var boxModel: some View {
-        VStack(spacing: 7) {
+        VStack(spacing: 6) {
             field(.top)
-            HStack(spacing: 7) {
+            HStack(spacing: 6) {
                 field(.left)
-                Color.clear
-                    .frame(height: 54)
-                    .insetField(cornerRadius: Theme.radiusControl)
-                    .overlay(
-                        Image(systemName: "photo")
-                            .font(.system(size: 15))
-                            .foregroundStyle(Theme.textTertiary)
-                    )
+                artboardGlyph
                 field(.right)
             }
             field(.bottom)
         }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var artboardGlyph: some View {
+        RoundedRectangle(cornerRadius: 9, style: .continuous)
+            .fill(Color.black.opacity(0.30))
+            .overlay(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .stroke(Theme.hairline, lineWidth: 1)
+            )
+            .overlay(
+                // The capture inside its padding, drawn as a glyph.
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .strokeBorder(Theme.accentText.opacity(0.85), lineWidth: 1.5)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 13)
+            )
+            .frame(height: 52)
+            .accessibilityHidden(true)
     }
 
     private func field(_ side: PaddingSide) -> some View {
@@ -106,8 +120,9 @@ struct PaddingToolView: View {
         .foregroundStyle(Theme.textPrimary)
         .multilineTextAlignment(.center)
         .frame(width: 54)
-        .padding(.vertical, 6)
-        .insetField(cornerRadius: Theme.radiusControl)
+        .padding(.vertical, 5)
+        .background(Capsule().fill(Color.black.opacity(0.30)))
+        .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 1))
         .accessibilityLabel(label(side))
     }
 
@@ -115,7 +130,7 @@ struct PaddingToolView: View {
         VStack(alignment: .leading, spacing: 9) {
             SectionLabel(text: "Uniform")
             HStack(spacing: 10) {
-                FlatSlider(
+                GlassSlider(
                 value: Binding(
                     get: { Double(padding.uniform ?? padding.top) },
                     set: { value in
@@ -151,7 +166,7 @@ struct PaddingToolView: View {
                 ) { applyConcentricCorner() }
             }
             HStack(spacing: 10) {
-                FlatSlider(
+                GlassSlider(
                     value: Binding(
                         get: { Double(state.document.cardCornerRadius ?? 0) },
                         set: { setLiveCorner(CGFloat($0.rounded())) }
@@ -214,7 +229,7 @@ struct PaddingToolView: View {
                 ) { toggleCornerLock() }
             }
             HStack(spacing: 10) {
-                FlatSlider(
+                GlassSlider(
                     value: Binding(
                         get: { Double(screenshotCornerValue) },
                         set: { setLiveShotCorner(CGFloat($0.rounded())) }
@@ -295,14 +310,12 @@ struct PaddingToolView: View {
             HStack {
                 SectionLabel(text: "Shadow")
                 Spacer()
-                Toggle("", isOn: Binding(
+                Toggle("Shadow", isOn: Binding(
                     get: { shadow.isEnabled },
                     set: { var next = shadow; next.isEnabled = $0; commitShadow(next) }
                 ))
                 .labelsHidden()
-                .toggleStyle(.switch)
-                .controlSize(.mini)
-                .tint(Theme.accent)
+                .toggleStyle(GlassToggleStyle())
             }
             if shadow.isEnabled {
                 shadowSlider("Blur", value: shadow.blur, range: 0...Double(ShadowConfig.maximumBlur)) {
@@ -332,8 +345,7 @@ struct PaddingToolView: View {
                 }
                 HStack {
                     InspectorRowLabel(text: "Color")
-                    ColorPicker("", selection: $shadowColor, supportsOpacity: false)
-                        .labelsHidden()
+                    GlassColorWell(selection: $shadowColor, label: "Shadow color")
                         .onChange(of: shadowColor) { _, newColor in
                             guard !syncingShadow else { return }
                             var next = shadow
@@ -355,7 +367,7 @@ struct PaddingToolView: View {
     ) -> some View {
         HStack(spacing: 10) {
             InspectorRowLabel(text: label)
-            FlatSlider(
+            GlassSlider(
                 value: Binding(get: { Double(value) }, set: { set(CGFloat($0.rounded())) }),
                 range: range,
                 accessibilityLabel: label,
