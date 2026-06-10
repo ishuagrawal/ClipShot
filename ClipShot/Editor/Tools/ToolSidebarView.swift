@@ -40,6 +40,20 @@ struct InspectorView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             Color.clear.frame(height: Theme.scrollFadeInset)
         }
+        // The soft scroll-edge effect alone leaves cards fully opaque at the
+        // window border; this mask guarantees they dissolve to transparent
+        // across the same inset band, top and bottom alike.
+        .mask {
+            VStack(spacing: 0) {
+                LinearGradient(colors: [.clear, .black],
+                               startPoint: .top, endPoint: .bottom)
+                    .frame(height: Theme.scrollFadeInset)
+                Rectangle().fill(.black)
+                LinearGradient(colors: [.black, .clear],
+                               startPoint: .top, endPoint: .bottom)
+                    .frame(height: Theme.scrollFadeInset)
+            }
+        }
         .frame(width: Theme.inspectorWidth + 32)
     }
 
@@ -91,36 +105,3 @@ struct InspectorView: View {
     }
 }
 
-/// Left tool rail: one floating squircle of glass holding the cursor tools
-/// (Select, Arrow, Rectangle, Text) stacked vertically — the drawing hand of
-/// the editor, opposite the inspector. Picking a draw tool sets the canvas
-/// cursor mode; finishing a draw auto-returns to Select.
-struct ToolRailView: View {
-    @ObservedObject var state: EditorState
-
-    private let tools: [(EditorTool, String?)] = [
-        (.select, "V"),
-        (.arrow, "A"),
-        (.rectangle, "R"),
-        (.text, "T")
-    ]
-
-    var body: some View {
-        VStack(spacing: 4) {
-            ForEach(tools, id: \.0) { tool, shortcut in
-                ToolRailButton(
-                    systemName: tool.symbolName,
-                    label: tool.displayName,
-                    shortcut: shortcut,
-                    isActive: state.activeTool == tool
-                ) {
-                    state.selectCursorTool(tool)
-                }
-            }
-        }
-        .padding(8)
-        .glassPanel(cornerRadius: 22)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Tools")
-    }
-}

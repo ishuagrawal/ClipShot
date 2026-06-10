@@ -26,7 +26,7 @@ struct ComponentListView: View {
     }
 
     private var emptyState: some View {
-        Text("Draw with the tools on the left to add arrows, boxes, or text.")
+        Text("Draw with the tools below to add arrows, boxes, or text.")
             .font(Theme.label(11.5))
             .foregroundStyle(Theme.textTertiary)
             .fixedSize(horizontal: false, vertical: true)

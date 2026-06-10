@@ -31,6 +31,12 @@ final class CanvasCoordinator {
         contentView = CanvasContentView(frame: .zero)
         overlayView = CanvasOverlayView(frame: .zero)
         interactionView = CanvasInteractionView(frame: .zero)
+        interactionView.wantsLayer = true
+        // None of these views draw in draw(_:) — everything is CALayer content.
+        // Tell AppKit so it never re-renders them during scrolling or zooming.
+        for view in [container, contentView, overlayView, interactionView] {
+            view.layerContentsRedrawPolicy = .onSetNeedsDisplay
+        }
         textEditor = CanvasTextEditor(container: container)
         textEditor.onEditingPreviewChanged = { [weak self] annotation in
             self?.overlayView.editingTextAnnotation = annotation

@@ -48,10 +48,6 @@ private struct EditorShell: View {
                 .padding(.leading, 78)
                 .padding(.top, 10)
         }
-        .overlay(alignment: .leading) {
-            ToolRailView(state: state)
-                .padding(.leading, Theme.chromeMargin)
-        }
         .overlay(alignment: .trailing) {
             InspectorView(
                 state: state,

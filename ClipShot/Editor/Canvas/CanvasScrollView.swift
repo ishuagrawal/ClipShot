@@ -28,9 +28,16 @@ final class CanvasScrollView: NSScrollView {
     }
 
     private func configure() {
+        // Layer-backed throughout: panning then moves composited textures on the
+        // GPU instead of redrawing views, which matters because the glass chrome
+        // above re-samples this scroll view's content every frame.
+        wantsLayer = true
+        layerContentsRedrawPolicy = .onSetNeedsDisplay
         // Centering clip view so content smaller than the viewport is centered
         // instead of pinned to a corner.
         contentView = CenteringClipView()
+        contentView.wantsLayer = true
+        contentView.layerContentsRedrawPolicy = .onSetNeedsDisplay
         allowsMagnification = true
         minMagnification = ZoomMath.minMagnification
         maxMagnification = ZoomMath.maxMagnification
