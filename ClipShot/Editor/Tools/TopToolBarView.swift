@@ -2,9 +2,10 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Full-width glass bar across the top of the window, running under the traffic
-/// lights: brand and the capture's editable title on the left, the two ways out
-/// (Copy / Save) on the right. The title doubles as the export filename.
+/// Floating control bar just below the system titlebar: brand tick and the
+/// capture's editable title on the left, the two ways out (Copy / Save) on the
+/// right. The title doubles as the export filename; the app name itself lives
+/// in the titlebar with the stoplights.
 struct TitleBarView: View {
     @ObservedObject var state: EditorState
     @FocusState private var titleFocused: Bool
@@ -13,12 +14,6 @@ struct TitleBarView: View {
         HStack(spacing: 9) {
             BrandTickGlyph()
                 .frame(width: 12, height: 12)
-            Text("ClipShot")
-                .font(Theme.title(12.5))
-                .foregroundStyle(Theme.textPrimary)
-            Rectangle()
-                .fill(Theme.hairlineStrong)
-                .frame(width: 1, height: 13)
             titleField
             Spacer(minLength: 16)
             Button {
@@ -38,19 +33,12 @@ struct TitleBarView: View {
             .buttonStyle(AccentButtonStyle())
             .help("Export PNG")
         }
-        // Clear of the traffic lights on the left; symmetric breathing room right.
-        .padding(.leading, 86)
-        .padding(.trailing, Theme.chromeMargin)
+        .padding(.horizontal, 14)
         .frame(height: Theme.topBarHeight)
         .frame(maxWidth: .infinity)
-        .glassPanel(cornerRadius: 0)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(Theme.hairline)
-                .frame(height: 1)
-        }
+        .glassPanel(cornerRadius: Theme.topBarHeight / 2)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Title bar")
+        .accessibilityLabel("Control bar")
     }
 
     private var titleField: some View {

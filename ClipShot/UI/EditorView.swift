@@ -48,12 +48,18 @@ private struct EditorShell: View {
                 state: state,
                 onCanvasFocusRequested: canvasFocusProxy.requestKeyboardFocus
             )
-            // Cards live in the zone between the top bar and the bottom dock.
-            .padding(.top, Theme.topBarHeight)
+            // Cards live in the zone between the control bar and the dock.
+            .padding(.top, Theme.topChromeHeight)
             .padding(.trailing, Theme.chromeMargin)
         }
         .overlay(alignment: .top) {
-            TitleBarView(state: state)
+            VStack(spacing: Theme.chromeMargin) {
+                titleStrip
+                // Floats with the same margin left, right, and above (below the
+                // titlebar strip), mirroring the dock's margin at the bottom.
+                TitleBarView(state: state)
+                    .padding(.horizontal, Theme.chromeMargin)
+            }
         }
         .ignoresSafeArea()
         .bottomDockBar {
@@ -76,6 +82,22 @@ private struct EditorShell: View {
                 canvasFocusProxy.requestKeyboardFocus()
             }
         }
+    }
+
+    /// Hand-drawn titlebar: the app name centered on the stoplight row. The system
+    /// title is hidden because this OS lays it beside the stoplights instead.
+    private var titleStrip: some View {
+        Text("ClipShot")
+            .font(Theme.title(13))
+            .foregroundStyle(Theme.textSecondary)
+            .frame(maxWidth: .infinity)
+            .frame(height: Theme.titleStripHeight)
+            .background(Color.black.opacity(0.22))
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(Theme.hairline)
+                    .frame(height: 1)
+            }
     }
 
     /// The capture decides the room's light. Dynamic/none backgrounds diffuse the

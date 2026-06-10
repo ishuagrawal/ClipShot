@@ -51,12 +51,15 @@ enum Theme {
     static let radiusPanel: CGFloat = 18
     static let inspectorWidth: CGFloat = 272
     static let chromeMargin: CGFloat = 14
-    /// Full-width glass bar across the top of the window (under the traffic lights).
+    /// Custom titlebar strip: the stoplight row with the app name centered on it.
+    static let titleStripHeight: CGFloat = 28
+    /// Floating control bar below the titlebar strip.
     static let topBarHeight: CGFloat = 48
     /// The floating dock's bar height (used by layout and canvas-fit occlusion).
     static let dockHeight: CGFloat = 52
-    /// Vertical chrome the canvas fit must stay clear of.
-    static var topChromeHeight: CGFloat { topBarHeight }
+    /// Vertical chrome the canvas fit must stay clear of: titlebar strip and
+    /// bar/dock plus the matching margin that floats each off its edge.
+    static var topChromeHeight: CGFloat { titleStripHeight + chromeMargin + topBarHeight }
     static var bottomChromeHeight: CGFloat { dockHeight + chromeMargin }
     /// Inspector edge treatment, identical top and bottom: cards stay fully
     /// transparent within `scrollFadeClear` of the window edge, then dissolve

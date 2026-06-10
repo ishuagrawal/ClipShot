@@ -31,6 +31,9 @@ final class EditorWindowController {
             defer: false
         )
 
+        // The system title is hidden (it lands beside the stoplights on this OS);
+        // EditorView draws its own titlebar strip with the app name centered on
+        // the stoplight row instead.
         window.title = "ClipShot"
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
