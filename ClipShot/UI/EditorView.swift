@@ -55,10 +55,11 @@ private struct EditorShell: View {
         .overlay(alignment: .top) {
             VStack(spacing: Theme.chromeMargin) {
                 titleStrip
-                // Floats with the same margin left, right, and above (below the
-                // titlebar strip), mirroring the dock's margin at the bottom.
+                // The row's edges line up with the inspector cards' visible
+                // edge (window margin + the column's 16pt gutter), so the Save
+                // pod sits flush over the card column.
                 TitleBarView(state: state)
-                    .padding(.horizontal, Theme.chromeMargin)
+                    .padding(.horizontal, Theme.chromeMargin + 16)
             }
         }
         .ignoresSafeArea()

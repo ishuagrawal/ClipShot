@@ -11,15 +11,22 @@ struct TitleBarView: View {
     @FocusState private var titleFocused: Bool
 
     var body: some View {
-        HStack {
-            HStack(spacing: 9) {
-                BrandTickGlyph()
-                    .frame(width: 12, height: 12)
-                titleField
+        HStack(alignment: .center) {
+            // The title is a heading, not another control pod: bare type over
+            // the stage, marked by the brand tick, with a hairline that ignites
+            // to the accent while editing.
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 9) {
+                    BrandTickGlyph()
+                        .frame(width: 11, height: 11)
+                    titleField
+                }
+                Rectangle()
+                    .fill(titleFocused ? Theme.accent : Theme.hairlineStrong)
+                    .frame(width: titleFocused ? 230 : 28, height: 1)
+                    .padding(.leading, 20)
+                    .animation(.easeOut(duration: 0.18), value: titleFocused)
             }
-            .padding(.horizontal, 14)
-            .frame(height: Theme.topBarHeight)
-            .glassPanel()
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Capture title")
 
@@ -43,7 +50,7 @@ struct TitleBarView: View {
                 .buttonStyle(AccentButtonStyle())
                 .help("Export PNG")
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 12)
             .frame(height: Theme.topBarHeight)
             .glassPanel()
             .accessibilityElement(children: .contain)
@@ -61,7 +68,7 @@ struct TitleBarView: View {
             )
         )
         .textFieldStyle(.plain)
-        .font(Theme.label(12))
+        .font(Theme.title(13.5))
         .foregroundStyle(titleFocused ? Theme.textPrimary : Theme.textSecondary)
         .focused($titleFocused)
         .onSubmit { titleFocused = false }
