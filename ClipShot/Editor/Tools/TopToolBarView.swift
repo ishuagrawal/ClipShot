@@ -35,9 +35,9 @@ struct TitleChipView: View {
     }
 }
 
-/// Export capsule, top right — the title chip's counterweight: the live output
-/// size and the two ways out. The only solid vermilion button in the chrome.
-struct ExportPanelView: View {
+/// Export controls: the live output size and the two ways out. Lives inside the
+/// dock as its right-hand group — the only solid vermilion button in the chrome.
+struct ExportControlsView: View {
     @ObservedObject var state: EditorState
 
     var body: some View {
@@ -55,10 +55,6 @@ struct ExportPanelView: View {
                 .buttonStyle(AccentButtonStyle())
                 .help("Export PNG")
         }
-        .padding(.leading, 14)
-        .padding(.trailing, 8)
-        .frame(height: 36)
-        .glassPanel(cornerRadius: 18)
     }
 
     private var exportSizeText: String {

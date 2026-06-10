@@ -253,25 +253,46 @@ struct GlassPanel: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        Group {
-            if #available(macOS 26.0, *) {
-                content.glassEffect(.regular.tint(Theme.glassTint), in: shape)
-            } else {
-                // Pre-Tahoe fallback: frosted material with a refraction hairline.
-                content
-                    .background(.ultraThinMaterial, in: shape)
-                    .background(shape.fill(Theme.glassTint))
-                    .overlay(shape.stroke(Theme.hairlineStrong, lineWidth: 1))
-            }
+        // No added shadow: the glass material carries its own depth, and panels
+        // should sit in the stage's light, not stamp halos on it.
+        if #available(macOS 26.0, *) {
+            content.glassEffect(.regular.tint(Theme.glassTint), in: shape)
+        } else {
+            // Pre-Tahoe fallback: frosted material with a refraction hairline.
+            content
+                .background(.ultraThinMaterial, in: shape)
+                .background(shape.fill(Theme.glassTint))
+                .overlay(shape.stroke(Theme.hairlineStrong, lineWidth: 1))
         }
-        // Wide, faint, low: ambient occlusion rather than a cast shadow.
-        .shadow(color: Color.black.opacity(0.16), radius: 30, y: 10)
     }
 }
 
 extension View {
     func glassPanel(cornerRadius: CGFloat = Theme.radiusPanel) -> some View {
         modifier(GlassPanel(cornerRadius: cornerRadius))
+    }
+
+    /// Bottom command bar via `safeAreaBar` (macOS 26) so scrollable content can
+    /// run underneath with the system's progressive edge treatment; plain overlay
+    /// on older systems.
+    @ViewBuilder
+    func bottomDockBar<C: View>(@ViewBuilder content: @escaping () -> C) -> some View {
+        if #available(macOS 26.0, *) {
+            safeAreaBar(edge: .bottom) { content() }
+        } else {
+            overlay(alignment: .bottom) { content() }
+        }
+    }
+
+    /// Soft scroll-edge effect: content blurs and fades out at the scroll bounds
+    /// instead of hard-clipping at a divider line.
+    @ViewBuilder
+    func softVerticalScrollEdges() -> some View {
+        if #available(macOS 26.0, *) {
+            scrollEdgeEffectStyle(.soft, for: .vertical)
+        } else {
+            self
+        }
     }
 }
 

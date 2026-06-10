@@ -45,8 +45,12 @@ struct DockView: View {
             divider
 
             ZoomControlsView(zoom: zoom)
+
+            divider
+
+            ExportControlsView(state: state)
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 12)
         .frame(height: 52)
         .glassPanel(cornerRadius: 26)
         .accessibilityElement(children: .contain)

@@ -52,26 +52,19 @@ private struct EditorShell: View {
                 .padding(.leading, 78)
                 .padding(.top, 10)
         }
-        .overlay(alignment: .topTrailing) {
-            ExportPanelView(state: state)
-                .padding(.trailing, Theme.chromeMargin)
-                .padding(.top, 10)
-        }
-        .overlay(alignment: .topTrailing) {
+        .overlay(alignment: .trailing) {
             InspectorView(
                 state: state,
                 onCanvasFocusRequested: canvasFocusProxy.requestKeyboardFocus
             )
             .padding(.trailing, Theme.chromeMargin)
-            .padding(.top, 56)
-            .padding(.bottom, Theme.chromeMargin)
         }
-        .overlay(alignment: .bottom) {
+        .ignoresSafeArea()
+        .bottomDockBar {
             DockView(state: state, zoom: zoomController)
                 .padding(.bottom, Theme.chromeMargin)
                 .padding(.trailing, Theme.inspectorWidth + Theme.chromeMargin)
         }
-        .ignoresSafeArea()
         .frame(minWidth: 980, minHeight: 620)
         .onAppear {
             meshPalette = MeshGradientGenerator

@@ -24,10 +24,20 @@ struct InspectorView: View {
                 }
             }
             .padding(.vertical, 2)
-            // Side gutters keep card shadows inside the clipped scroll bounds.
             .padding(.horizontal, 16)
         }
         .defaultScrollAnchor(.top)
+        // Cards blur and fade at the scroll bounds instead of hard-clipping. The
+        // clear safe-area bars mark where those soft edges live (clear of the
+        // window top and the bottom edge); the outer ignoresSafeArea strips
+        // safeAreaPadding, so explicit inset bars are used instead.
+        .softVerticalScrollEdges()
+        .safeAreaInset(edge: .top, spacing: 0) {
+            Color.clear.frame(height: 52)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            Color.clear.frame(height: Theme.chromeMargin)
+        }
         .frame(width: Theme.inspectorWidth + 32)
     }
 
