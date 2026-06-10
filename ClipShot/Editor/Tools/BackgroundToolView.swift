@@ -90,8 +90,7 @@ struct BackgroundToolView: View {
                                 lineWidth: selected ? 2 : 1
                             )
                         )
-                        .shadow(color: selected ? Theme.accent.opacity(0.45) : .black.opacity(0.3),
-                                radius: selected ? 6 : 2, y: 1)
+                        .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
                         .scaleEffect(selected ? 1.08 : 1)
                         .contentShape(Circle())
                 }

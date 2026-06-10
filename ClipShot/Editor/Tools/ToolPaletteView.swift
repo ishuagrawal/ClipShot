@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// The dock: one floating glass bar along the bottom holding everything the hand
-/// reaches for mid-edit — history on the left, cursor tools in the middle, zoom
-/// on the right. Picking a draw tool sets the canvas cursor mode; finishing a
-/// draw auto-returns to Select (see `EditorState.commitDraw`).
+/// The dock: a compact floating glass bar under the stage holding the in-canvas
+/// hands only — cursor tools and zoom. Document-level commands live in the top
+/// bar. Picking a draw tool sets the canvas cursor mode; finishing a draw
+/// auto-returns to Select (see `EditorState.commitDraw`).
 struct DockView: View {
     @ObservedObject var state: EditorState
     @ObservedObject var zoom: CanvasZoomController
@@ -17,20 +17,6 @@ struct DockView: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            IconButton(systemName: "arrow.uturn.backward") { state.performUndo() }
-                .accessibilityLabel("Undo")
-                .disabled(!state.undoStack.canUndo)
-                .opacity(state.undoStack.canUndo ? 1 : 0.35)
-                .help("Undo")
-
-            IconButton(systemName: "arrow.uturn.forward") { state.performRedo() }
-                .accessibilityLabel("Redo")
-                .disabled(!state.undoStack.canRedo)
-                .opacity(state.undoStack.canRedo ? 1 : 0.35)
-                .help("Redo")
-
-            divider
-
             ForEach(tools, id: \.0) { tool, shortcut in
                 ToolRailButton(
                     systemName: tool.symbolName,
@@ -45,12 +31,8 @@ struct DockView: View {
             divider
 
             ZoomControlsView(zoom: zoom)
-
-            divider
-
-            ExportControlsView(state: state)
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 10)
         .frame(height: 52)
         .glassPanel(cornerRadius: 26)
         .accessibilityElement(children: .contain)

@@ -47,10 +47,11 @@ private struct EditorShell: View {
                 .padding(.leading, 24)
                 .padding(.trailing, Theme.inspectorWidth + 32 + Theme.chromeMargin)
         }
-        .overlay(alignment: .topLeading) {
-            TitleChipView(state: state)
+        .overlay(alignment: .top) {
+            TopBarView(state: state)
                 .padding(.leading, 78)
-                .padding(.top, 10)
+                .padding(.trailing, Theme.inspectorWidth + 32 + Theme.chromeMargin)
+                .padding(.top, 8)
         }
         .overlay(alignment: .trailing) {
             InspectorView(
@@ -72,6 +73,11 @@ private struct EditorShell: View {
                           selection: state.document.baseSelection)
                 .colors
                 .map { Color(cgColor: $0) }
+            // SwiftUI hands initial key focus to the first text field (the title),
+            // which selects its text and steals canvas shortcuts. Canvas wins.
+            DispatchQueue.main.async {
+                canvasFocusProxy.requestKeyboardFocus()
+            }
         }
     }
 

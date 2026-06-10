@@ -2,52 +2,86 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Floating identity chip, sitting to the right of the traffic lights: the brand
-/// tick, the wordmark, and the capture's page title in one quiet glass capsule.
-struct TitleChipView: View {
+/// Floating top bar: brand mark, the capture's editable title, then history and
+/// the two ways out. Document identity and document-level commands live up here;
+/// the dock below the stage keeps only the in-canvas hands (tools, zoom).
+struct TopBarView: View {
     @ObservedObject var state: EditorState
-
-    var body: some View {
-        HStack(spacing: 9) {
-            BrandTickGlyph()
-                .frame(width: 12, height: 12)
-            Text("ClipShot")
-                .font(Theme.title(12.5))
-                .foregroundStyle(Theme.textPrimary)
-            if !state.document.pageTitle.isEmpty {
-                Rectangle()
-                    .fill(Theme.hairlineStrong)
-                    .frame(width: 1, height: 12)
-                Text(state.document.pageTitle)
-                    .font(Theme.label(11.5))
-                    .foregroundStyle(Theme.textTertiary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .frame(maxWidth: 260)
-                    .fixedSize(horizontal: true, vertical: false)
-            }
-        }
-        .padding(.horizontal, 14)
-        .frame(height: 36)
-        .glassPanel(cornerRadius: 18)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("ClipShot — \(state.document.pageTitle)")
-    }
-}
-
-/// Export controls: the live output size and the two ways out. Lives inside the
-/// dock as its right-hand group — the only solid vermilion button in the chrome.
-struct ExportControlsView: View {
-    @ObservedObject var state: EditorState
+    @FocusState private var titleFocused: Bool
 
     var body: some View {
         HStack(spacing: 10) {
-            Text(exportSizeText)
-                .font(Theme.mono(11, .semibold))
-                .foregroundStyle(Theme.textTertiary)
-                .lineLimit(1)
-                .fixedSize()
-                .accessibilityLabel("Export size \(exportSizeText) pixels")
+            HStack(spacing: 7) {
+                BrandTickGlyph()
+                    .frame(width: 12, height: 12)
+                Text("ClipShot")
+                    .font(Theme.title(12.5))
+                    .foregroundStyle(Theme.textPrimary)
+            }
+            .accessibilityHidden(true)
+
+            Rectangle()
+                .fill(Theme.hairlineStrong)
+                .frame(width: 1, height: 14)
+
+            titleField
+
+            Spacer(minLength: 12)
+
+            IconButton(systemName: "arrow.uturn.backward") { state.performUndo() }
+                .accessibilityLabel("Undo")
+                .disabled(!state.undoStack.canUndo)
+                .opacity(state.undoStack.canUndo ? 1 : 0.35)
+                .help("Undo")
+
+            IconButton(systemName: "arrow.uturn.forward") { state.performRedo() }
+                .accessibilityLabel("Redo")
+                .disabled(!state.undoStack.canRedo)
+                .opacity(state.undoStack.canRedo ? 1 : 0.35)
+                .help("Redo")
+
+            Rectangle()
+                .fill(Theme.hairlineStrong)
+                .frame(width: 1, height: 14)
+
+            exportButtons
+        }
+        .padding(.leading, 14)
+        .padding(.trailing, 8)
+        .frame(height: 44)
+        .glassPanel(cornerRadius: 22)
+    }
+
+    /// The capture's name, editable in place. Doubles as the export filename.
+    private var titleField: some View {
+        TextField(
+            "Untitled capture",
+            text: Binding(
+                get: { state.document.pageTitle },
+                set: { state.document.pageTitle = $0 }
+            )
+        )
+        .textFieldStyle(.plain)
+        .font(Theme.label(12))
+        .foregroundStyle(titleFocused ? Theme.textPrimary : Theme.textSecondary)
+        .focused($titleFocused)
+        .onSubmit { titleFocused = false }
+        .frame(maxWidth: 260)
+        .accessibilityLabel("Capture title")
+    }
+
+    /// Liquid Glass action buttons on macOS 26; flat capsules otherwise.
+    @ViewBuilder
+    private var exportButtons: some View {
+        if #available(macOS 26.0, *) {
+            Button("Copy") { copyToClipboard() }
+                .buttonStyle(.glass)
+                .help("Copy PNG to clipboard")
+            Button("Save…") { save() }
+                .buttonStyle(.glassProminent)
+                .tint(Theme.accent)
+                .help("Export PNG")
+        } else {
             Button("Copy") { copyToClipboard() }
                 .buttonStyle(GhostButtonStyle())
                 .help("Copy PNG to clipboard")
@@ -55,11 +89,6 @@ struct ExportControlsView: View {
                 .buttonStyle(AccentButtonStyle())
                 .help("Export PNG")
         }
-    }
-
-    private var exportSizeText: String {
-        let size = state.document.paddedDocumentSize
-        return "\(Int(size.width.rounded())) × \(Int(size.height.rounded()))"
     }
 
     // MARK: - Export

@@ -19,7 +19,8 @@ enum Theme {
     static let hairline       = Color.white.opacity(0.07)
     static let hairlineStrong = Color.white.opacity(0.14)
     static let floatShadow    = Color.black.opacity(0.5)
-    static let stageDot       = Color.white.opacity(0.045)
+    static let stageDot       = Color.white.opacity(0.085)
+    static let stageGridLine  = Color.white.opacity(0.05)
 
     // MARK: Ink (warm white, contrast-checked on `surface`)
     static let textPrimary   = Color(red: 0.961, green: 0.945, blue: 0.918)   // #F5F1EA ~15:1
@@ -75,6 +76,25 @@ struct StageBackdrop: View {
             Canvas { context, size in
                 let spacing: CGFloat = 22
                 let dot: CGFloat = 1.5
+                // Major drafting lines every 5 dot cells: sharp structure that the
+                // glass panels visibly refract (the blur needs detail to act on).
+                let major = spacing * 5
+                var gx = major
+                while gx < size.width {
+                    context.fill(
+                        Path(CGRect(x: gx - 0.25, y: 0, width: 0.5, height: size.height)),
+                        with: .color(Theme.stageGridLine)
+                    )
+                    gx += major
+                }
+                var gy = major
+                while gy < size.height {
+                    context.fill(
+                        Path(CGRect(x: 0, y: gy - 0.25, width: size.width, height: 0.5)),
+                        with: .color(Theme.stageGridLine)
+                    )
+                    gy += major
+                }
                 var x = spacing / 2
                 while x < size.width {
                     var y = spacing / 2
@@ -420,7 +440,6 @@ struct GlassSlider: View {
                         )
                     )
                     .frame(width: max(knobX, trackHeight), height: trackHeight)
-                    .shadow(color: Theme.accent.opacity(engaged ? 0.55 : 0), radius: 5)
                 // Lens knob: a tiny glass bead with a top highlight.
                 Circle()
                     .fill(
@@ -502,7 +521,6 @@ struct GlassToggleStyle: ToggleStyle {
                         .padding(2.5)
                 }
                 .frame(width: 34, height: 18)
-                .shadow(color: Theme.accent.opacity(configuration.isOn ? 0.45 : 0), radius: 5)
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -634,7 +652,6 @@ struct ChipToggle: View {
             .overlay(
                 Capsule().stroke(isOn ? Color.white.opacity(0.25) : Theme.hairlineStrong, lineWidth: 1)
             )
-            .shadow(color: Theme.accent.opacity(isOn ? 0.4 : 0), radius: 5)
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -664,7 +681,6 @@ struct AccentButtonStyle: ButtonStyle {
                 )
             )
             .overlay(Capsule().stroke(Color.white.opacity(0.3), lineWidth: 1))
-            .shadow(color: Theme.accent.opacity(configuration.isPressed ? 0.2 : 0.5), radius: 8, y: 2)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
