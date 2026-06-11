@@ -25,7 +25,7 @@ struct TitleBarView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
             .frame(minHeight: Theme.topBarHeight)
-            .floatingGlassPanel()
+            .floatingGlassPanel(glow: titleFocused)
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Capture title")
 

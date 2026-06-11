@@ -370,6 +370,7 @@ struct GlassPanel: ViewModifier {
 /// Reserved for the capture title.
 struct FloatingGlassPanel: ViewModifier {
     var cornerRadius: CGFloat = Theme.radiusPanel
+    var glow: Bool = false
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -384,6 +385,21 @@ struct FloatingGlassPanel: ViewModifier {
                         ),
                         lineWidth: 1
                     )
+                    // Focus glow: an accent rim with a soft halo. Its own mask
+                    // dies well before the plate's right corner — the rim never
+                    // wraps around the end, so it reads as two rays trailing off
+                    // to infinity rather than the edge of a box.
+                    shape.strokeBorder(Theme.accent.opacity(0.5), lineWidth: 1)
+                        .shadow(color: Theme.accent.opacity(0.55), radius: 9)
+                        .mask(
+                            LinearGradient(stops: [
+                                .init(color: .black, location: 0),
+                                .init(color: .black, location: 0.25),
+                                .init(color: .black.opacity(0), location: 0.62)
+                            ], startPoint: .leading, endPoint: .trailing)
+                            .padding(-40)
+                        )
+                        .opacity(glow ? 1 : 0)
                 }
                 .compositingGroup()
                 .shadow(color: Color.black.opacity(0.35), radius: 18, y: 8)
@@ -400,6 +416,7 @@ struct FloatingGlassPanel: ViewModifier {
                 )
                 .allowsHitTesting(false)
             )
+            .animation(.easeInOut(duration: 0.22), value: glow)
     }
 }
 
@@ -408,8 +425,8 @@ extension View {
         modifier(GlassPanel(cornerRadius: cornerRadius))
     }
 
-    func floatingGlassPanel(cornerRadius: CGFloat = Theme.radiusPanel) -> some View {
-        modifier(FloatingGlassPanel(cornerRadius: cornerRadius))
+    func floatingGlassPanel(cornerRadius: CGFloat = Theme.radiusPanel, glow: Bool = false) -> some View {
+        modifier(FloatingGlassPanel(cornerRadius: cornerRadius, glow: glow))
     }
 
     /// Bottom command bar via `safeAreaBar` (macOS 26) so scrollable content can
