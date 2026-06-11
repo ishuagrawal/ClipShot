@@ -110,6 +110,11 @@ final class CanvasCoordinator {
     /// Push the latest document into the view tree. Called on every SwiftUI update.
     func update(state: EditorState) {
         let document = state.document
+        // Toggling the background on/off changes what the fit frames (padded card
+        // vs bare screenshot), so reframe — a deliberate restyle, not a pan.
+        let backgroundVisibilityChanged = latestDocument.map {
+            ($0.background.kind == .none) != (document.background.kind == .none)
+        } ?? false
         latestDocument = document
         let imageBounds = document.imageBounds
         let placement = initialPlacement ?? CanvasInitialPlacement.default(imageBounds: imageBounds)
@@ -137,6 +142,8 @@ final class CanvasCoordinator {
                     force: true
                 )
             }
+        } else if backgroundVisibilityChanged {
+            resetToInitialFit()
         }
     }
 
@@ -163,7 +170,7 @@ final class CanvasCoordinator {
 
         let imageBounds = document.imageBounds
         let focusBounds = Self.initialFocusBounds(
-            effectiveCrop: document.effectiveCrop,
+            focus: document.fitFocusRect,
             imageBounds: imageBounds
         )
         guard viewportSize.width > 0, viewportSize.height > 0 else { return }
@@ -221,9 +228,9 @@ final class CanvasCoordinator {
         )
     }
 
-    nonisolated static func initialFocusBounds(effectiveCrop: CGRect, imageBounds: CGRect) -> CGRect {
-        let cardBounds = effectiveCrop.integral
-        return cardBounds.isNull || cardBounds.isEmpty ? imageBounds : cardBounds
+    nonisolated static func initialFocusBounds(focus: CGRect, imageBounds: CGRect) -> CGRect {
+        let bounds = focus.integral
+        return bounds.isNull || bounds.isEmpty ? imageBounds : bounds
     }
 
     nonisolated static func initialViewportMargin(for viewportSize: CGSize) -> CGFloat {

@@ -138,7 +138,7 @@ private struct EditorShell: View {
     /// edge sits further in than the clear-space edge.
     private func exportPodTrailingPadding(windowSize: CGSize, rightChrome: CGFloat) -> CGFloat {
         let crop = CanvasCoordinator.initialFocusBounds(
-            effectiveCrop: state.document.effectiveCrop,
+            focus: state.document.fitFocusRect,
             imageBounds: state.document.imageBounds
         )
         let clearWidth = windowSize.width - rightChrome

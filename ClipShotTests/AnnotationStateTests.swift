@@ -624,7 +624,7 @@ final class CanvasInteractionViewTests: XCTestCase {
             padding: .uniform(40)
         )
         let cardFrame = CanvasCoordinator.initialFocusBounds(
-            effectiveCrop: document.effectiveCrop,
+            focus: document.effectiveCrop,
             imageBounds: document.imageBounds
         )
         let fit = CanvasCoordinator.initialFitRect(for: cardFrame, in: viewport)

@@ -369,6 +369,13 @@ struct EditorDocument {
 
     var paddedDocumentSize: CGSize { effectiveCrop.size }
 
+    /// The rect canvas fits frame. With a background the padded card is the
+    /// visual artifact; with none the padding is invisible, so the screenshot
+    /// itself fills the screen instead.
+    var fitFocusRect: CGRect {
+        background.kind == .none ? baseSelection : effectiveCrop
+    }
+
     /// Legal annotation coordinates, anchored at the screenshot selection.
     /// Padding extends these bounds outward without moving existing annotations.
     var annotationBounds: CGRect {

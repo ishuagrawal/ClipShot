@@ -31,6 +31,17 @@ final class EditorDocumentTests: XCTestCase {
         XCTAssertEqual(doc.imageBounds, CGRect(x: 0, y: 0, width: 800, height: 600))
     }
 
+    func test_fitFocusRect_withoutBackground_framesScreenshotNotPaddedCard() {
+        let doc = makeDoc(padding: .uniform(40))
+        XCTAssertEqual(doc.fitFocusRect, doc.baseSelection)
+    }
+
+    func test_fitFocusRect_withBackground_framesPaddedCard() {
+        var doc = makeDoc(padding: .uniform(40))
+        doc.background = .defaultGradient
+        XCTAssertEqual(doc.fitFocusRect, doc.effectiveCrop)
+    }
+
     func test_initialCanvasFit_centersSelectionWithViewportMargin() {
         let viewport = CGSize(width: 800, height: 600)
         let margin = CanvasCoordinator.initialViewportMargin(for: viewport)
