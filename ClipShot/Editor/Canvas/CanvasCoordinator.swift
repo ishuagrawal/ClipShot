@@ -7,7 +7,9 @@ import AppKit
 final class CanvasCoordinator {
     /// Breathing gap between the document and the surrounding chrome on initial
     /// load. The fit otherwise fills the entire unobstructed viewport region.
-    private nonisolated static let preferredInitialViewportMargin: CGFloat = 16
+    /// Shared with the inspector's fade edges so cards dissolve exactly at the
+    /// image's vertical extent.
+    private nonisolated static let preferredInitialViewportMargin: CGFloat = Theme.canvasFitMargin
 
     let scrollView: CanvasScrollView
     let contentView: CanvasContentView
@@ -80,6 +82,15 @@ final class CanvasCoordinator {
         scrollView.magnificationDidChange = { [weak self] mag in
             self?.onMagnificationChange?(mag)
         }
+    }
+
+    /// The inspector column scales with the window, so the occluded slice on the
+    /// right is pushed in live. Refit keeps the image centered in the clear space
+    /// (only while still tracking the initial fit — user pans/zooms win).
+    func updateRightOcclusion(_ width: CGFloat) {
+        guard scrollView.occlusionInsets.right != width else { return }
+        scrollView.occlusionInsets.right = width
+        refitInitialSelectionIfNeeded(viewportSize: scrollView.viewportSizeForFitting)
     }
 
     // MARK: - Zoom control actions

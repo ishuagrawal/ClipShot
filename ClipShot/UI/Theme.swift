@@ -49,7 +49,14 @@ enum Theme {
     static let radiusControl: CGFloat = 7
     static let radiusPill: CGFloat = 11
     static let radiusPanel: CGFloat = 18
+    /// Base inspector card width — the floor; the live width scales with the window.
     static let inspectorWidth: CGFloat = 272
+    /// Inspector card width for a given window width: roughly proportional
+    /// (~28% of the window) so the panel doesn't read as a sliver on large
+    /// windows, floored at the base width and capped so cards never balloon.
+    static func inspectorWidth(forWindowWidth windowWidth: CGFloat) -> CGFloat {
+        min(max(inspectorWidth, windowWidth * 0.28), 460)
+    }
     static let chromeMargin: CGFloat = 14
     /// Custom titlebar strip: the stoplight row with the app name centered on it.
     static let titleStripHeight: CGFloat = 28
@@ -61,19 +68,37 @@ enum Theme {
     /// bar/dock plus the matching margin that floats each off its edge.
     static var topChromeHeight: CGFloat { titleStripHeight + chromeMargin + topBarHeight }
     static var bottomChromeHeight: CGFloat { dockHeight + chromeMargin }
-    /// Inspector edge treatment, identical top and bottom: cards stay fully
-    /// transparent within `scrollFadeClear` of the window edge, then dissolve
-    /// in across `scrollFadeBand`. `scrollFadeInset` is the total reserved depth.
-    static let scrollFadeClear: CGFloat = 24
+    /// Inspector edge treatment, referenced to the chrome rather than the
+    /// window: cards stay fully transparent within the clear depth of the
+    /// nearest chrome line (top bar below, dock line above), then dissolve in
+    /// across the fade band. The bottom inset adds `bottomChromeHeight` so its
+    /// gap reads against the dock line instead of the window edge.
+    /// Breathing gap the initial canvas fit leaves inside the chrome lines.
+    /// The inspector's fade edges anchor to the same offset, so cards stay
+    /// fully opaque down to the image's exact vertical extent.
+    static let canvasFitMargin: CGFloat = 16
+    /// Cards are fully opaque at the image edge and dissolve outward across
+    /// `scrollFadeBand`, past the chrome line. The rest position starts
+    /// content at the image top, so on load the first card is crisp with no
+    /// fade; the bottom band mirrors it exactly about the image's extent.
     static let scrollFadeBand: CGFloat = 48
-    static var scrollFadeInset: CGFloat { scrollFadeClear + scrollFadeBand }
+    /// The band is deeper than the fit margin, so the inspector frame must
+    /// extend this far above the top chrome line for the full band to fit
+    /// while still going fully opaque exactly at the image top.
+    static var scrollFadeOverhang: CGFloat { scrollFadeBand - canvasFitMargin }
+    static var scrollFadeTopInset: CGFloat { scrollFadeBand }
+    static var scrollFadeBottomInset: CGFloat { bottomChromeHeight + canvasFitMargin }
     /// Distance from the window's right edge to the visible left edge of the
     /// inspector cards (card width + the near 16pt scroll gutter + margin).
     /// The far gutter is excluded — measuring to the wrapper edge instead of
     /// the visible cards left the image reading off-center. The canvas fit and
     /// the dock both center in the space left of this, so the image's gap to
     /// the cards exactly matches its gap to the window edge.
-    static var rightChromeWidth: CGFloat { inspectorWidth + 16 + chromeMargin }
+    static var rightChromeWidth: CGFloat { rightChromeWidth(forInspector: inspectorWidth) }
+    /// Same measurement for a live (window-proportional) inspector width.
+    static func rightChromeWidth(forInspector inspectorWidth: CGFloat) -> CGFloat {
+        inspectorWidth + 16 + chromeMargin
+    }
 
     // MARK: Type — SF Pro for labels, SF Mono for every measured value
     static func title(_ size: CGFloat = 14, _ weight: Font.Weight = .semibold) -> Font {
@@ -286,6 +311,21 @@ struct Keycap: View {
     }
 }
 
+// MARK: - Layout environment
+
+/// Live inspector card width, set once at the editor root from the window size
+/// so every card (and the column that holds them) scales with the window.
+private struct InspectorWidthKey: EnvironmentKey {
+    static let defaultValue: CGFloat = Theme.inspectorWidth
+}
+
+extension EnvironmentValues {
+    var inspectorWidth: CGFloat {
+        get { self[InspectorWidthKey.self] }
+        set { self[InspectorWidthKey.self] = newValue }
+    }
+}
+
 // MARK: - Containers
 
 /// Liquid Glass panel: the one material for every piece of floating chrome.
@@ -396,6 +436,7 @@ extension View {
 /// the same place. No chevrons, no routing, no collapse state to manage.
 struct GlassCard<Accessory: View, Content: View>: View {
     let title: String
+    @Environment(\.inspectorWidth) private var inspectorWidth
     @ViewBuilder var accessory: () -> Accessory
     @ViewBuilder var content: () -> Content
 
@@ -426,7 +467,7 @@ struct GlassCard<Accessory: View, Content: View>: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 15)
         }
-        .frame(width: Theme.inspectorWidth)
+        .frame(width: inspectorWidth)
         .glassPanel()
         .accessibilityElement(children: .contain)
         .accessibilityLabel(title)
@@ -738,9 +779,12 @@ struct ChipToggle: View {
     }
 }
 
-/// Primary action (Save): a vermilion glass pill — gradient fill, specular top
-/// edge, soft glow. The only saturated button in the chrome.
+/// Primary action (Save): a vermilion soft rectangle — gradient fill, specular
+/// top edge, soft glow. The squarer geometry keeps it distinct from the dock's
+/// capsule; the only saturated button in the chrome.
 struct AccentButtonStyle: ButtonStyle {
+    private static let shape = RoundedRectangle(cornerRadius: 7, style: .continuous)
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(Theme.label(12, .semibold))
@@ -748,16 +792,48 @@ struct AccentButtonStyle: ButtonStyle {
             .padding(.horizontal, 16)
             .padding(.vertical, 7)
             .background(
-                Capsule().fill(
+                Self.shape.fill(
                     LinearGradient(
                         colors: [Theme.accentText, Theme.accent],
                         startPoint: .top, endPoint: .bottom
                     )
                 )
             )
-            .overlay(Capsule().stroke(Color.white.opacity(0.3), lineWidth: 1))
+            .overlay(Self.shape.stroke(Color.white.opacity(0.3), lineWidth: 1))
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+/// Secondary action that floats bare on the stage: a subtle hairline outline
+/// marks it as pressable at rest, with a faint fill fading in on hover.
+struct BareButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        BareBody(configuration: configuration)
+    }
+
+    private struct BareBody: View {
+        let configuration: ButtonStyleConfiguration
+        @State private var hovering = false
+        var body: some View {
+            configuration.label
+                .font(Theme.label(12, .medium))
+                .foregroundStyle(Theme.textPrimary)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 7)
+                .background(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(Color.white.opacity(hovering ? 0.09 : 0))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .stroke(Color.white.opacity(hovering ? 0.28 : 0.16), lineWidth: 1)
+                )
+                .scaleEffect(configuration.isPressed ? 0.98 : 1)
+                .onHover { hovering = $0 }
+                .animation(.easeOut(duration: 0.12), value: hovering)
+                .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+        }
     }
 }
 

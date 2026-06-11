@@ -66,12 +66,16 @@ struct CanvasView: NSViewRepresentable {
     @ObservedObject var state: EditorState
     @ObservedObject var focusProxy: CanvasFocusProxy
     @ObservedObject var zoomController: CanvasZoomController
+    /// Width of the viewport slice the inspector column covers on the right;
+    /// scales with the window, so it is pushed in on every update.
+    var rightOcclusion: CGFloat = Theme.rightChromeWidth
 
     func makeCoordinator() -> CanvasCoordinator { CanvasCoordinator() }
 
     func makeNSView(context: Context) -> CanvasScrollView {
         focusProxy.attach(context.coordinator.interactionView, state: state)
         zoomController.attach(context.coordinator)
+        context.coordinator.updateRightOcclusion(rightOcclusion)
         context.coordinator.update(state: state)
         return context.coordinator.scrollView
     }
@@ -81,6 +85,7 @@ struct CanvasView: NSViewRepresentable {
         // (e.g. document mutated). All on the main actor — safe to touch AppKit.
         focusProxy.attach(context.coordinator.interactionView, state: state)
         zoomController.attach(context.coordinator)
+        context.coordinator.updateRightOcclusion(rightOcclusion)
         context.coordinator.update(state: state)
     }
 }

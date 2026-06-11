@@ -2,16 +2,18 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Floating controls just below the titlebar strip: two separate glass pods —
-/// brand tick and the capture's editable title on the left, the two ways out
-/// (Copy / Save) on the right. The title doubles as the export filename; the
-/// app name itself lives in the titlebar strip with the stoplights.
+/// Floating controls just below the titlebar strip: the brand tick and the
+/// capture's editable title ride a glass plate on the left; the two ways out
+/// (Copy / Save) float chromeless on the right. The title doubles as the export
+/// filename; the app name itself lives in the titlebar strip with the stoplights.
 struct TitleBarView: View {
     @ObservedObject var state: EditorState
     @FocusState private var titleFocused: Bool
 
     var body: some View {
-        HStack(alignment: .center) {
+        // Top-aligned so a wrapped (two-line) title grows downward while the
+        // export buttons hold the bar line.
+        HStack(alignment: .top) {
             // The title rides on a dissolving plate: grounded at the brand
             // tick, fading to nothing toward the right, so the long field
             // never reads as a box.
@@ -21,21 +23,24 @@ struct TitleBarView: View {
                 titleField
             }
             .padding(.horizontal, 16)
-            .frame(height: Theme.topBarHeight)
+            .padding(.vertical, 8)
+            .frame(minHeight: Theme.topBarHeight)
             .floatingGlassPanel()
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Capture title")
 
             Spacer(minLength: 16)
 
-            HStack(spacing: 8) {
+            // The ways out float bare on the stage: the accent Save capsule is
+            // the only solid object up here, Copy reveals itself on hover.
+            HStack(spacing: 10) {
                 Button {
                     copyToClipboard()
                 } label: {
                     Label("Copy", systemImage: "square.on.square")
                         .labelStyle(.titleAndIcon)
                 }
-                .buttonStyle(GhostButtonStyle())
+                .buttonStyle(BareButtonStyle())
                 .help("Copy PNG to clipboard")
                 Button {
                     save()
@@ -46,9 +51,7 @@ struct TitleBarView: View {
                 .buttonStyle(AccentButtonStyle())
                 .help("Export PNG")
             }
-            .padding(.horizontal, 12)
             .frame(height: Theme.topBarHeight)
-            .glassPanel()
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Export")
         }
@@ -56,19 +59,25 @@ struct TitleBarView: View {
     }
 
     private var titleField: some View {
+        // Vertical axis lets a long title wrap to a second line instead of
+        // running under the export buttons; the flexible width (instead of a
+        // fixed 380) lets the plate shrink when the buttons' image-aligned
+        // position squeezes the bar.
         TextField(
             "Untitled capture",
             text: Binding(
                 get: { state.document.pageTitle },
                 set: { state.document.pageTitle = $0 }
-            )
+            ),
+            axis: .vertical
         )
+        .lineLimit(2)
         .textFieldStyle(.plain)
         .font(Theme.title(13.5))
         .foregroundStyle(titleFocused ? Theme.textPrimary : Theme.textSecondary)
         .focused($titleFocused)
         .onSubmit { titleFocused = false }
-        .frame(width: 380)
+        .frame(minWidth: 120, maxWidth: 380, alignment: .leading)
         .help("Capture title — used as the export filename")
         .accessibilityLabel("Capture title")
     }

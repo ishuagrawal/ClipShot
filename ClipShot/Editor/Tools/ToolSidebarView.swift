@@ -5,6 +5,7 @@ import SwiftUI
 /// Layers, Frame, and Background are always present, always in the same order.
 struct InspectorView: View {
     @ObservedObject var state: EditorState
+    @Environment(\.inspectorWidth) private var inspectorWidth
     var onCanvasFocusRequested: () -> Void = {}
 
     var body: some View {
@@ -15,24 +16,26 @@ struct InspectorView: View {
         }
         .defaultScrollAnchor(.top)
         // Cards blur and fade at the scroll bounds instead of hard-clipping. The
-        // clear safe-area bars mark where those soft edges live — the same
-        // elevation top and bottom, sized so cards finish fading before they
-        // would slide under the dock (52pt bar + its margin). The outer
+        // clear safe-area bars mark where those soft edges live — the same gap
+        // against the top control bar and the dock line, so the column reads
+        // vertically centered in the working area. The bottom bar is deeper by
+        // bottomChromeHeight because its reference line (the dock) floats above
+        // the window edge, while the top reference (the control bar) is already
+        // absorbed by the overlay's topChromeHeight padding. The outer
         // ignoresSafeArea strips safeAreaPadding, so explicit inset bars are
         // used instead.
         .softVerticalScrollEdges()
         .safeAreaInset(edge: .top, spacing: 0) {
-            Color.clear.frame(height: Theme.scrollFadeInset)
+            Color.clear.frame(height: Theme.scrollFadeTopInset)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            Color.clear.frame(height: Theme.scrollFadeInset)
+            Color.clear.frame(height: Theme.scrollFadeBottomInset)
         }
         // The soft scroll-edge effect alone leaves cards fully opaque at the
-        // window border; this mask guarantees they finish dissolving while
-        // still clear of the dock zone, top and bottom alike.
+        // window border; this mask guarantees they finish dissolving the same
+        // distance from the top bar as from the dock line.
         .mask {
             VStack(spacing: 0) {
-                Color.clear.frame(height: Theme.scrollFadeClear)
                 LinearGradient(colors: [.clear, .black],
                                startPoint: .top, endPoint: .bottom)
                     .frame(height: Theme.scrollFadeBand)
@@ -40,10 +43,10 @@ struct InspectorView: View {
                 LinearGradient(colors: [.black, .clear],
                                startPoint: .top, endPoint: .bottom)
                     .frame(height: Theme.scrollFadeBand)
-                Color.clear.frame(height: Theme.scrollFadeClear)
+                Color.clear.frame(height: Theme.scrollFadeBottomInset - Theme.scrollFadeBand)
             }
         }
-        .frame(width: Theme.inspectorWidth + 32)
+        .frame(width: inspectorWidth + 32)
     }
 
     @ViewBuilder
