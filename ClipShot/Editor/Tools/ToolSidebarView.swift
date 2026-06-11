@@ -54,8 +54,12 @@ struct InspectorView: View {
         VStack(alignment: .leading, spacing: 10) {
             if state.selectedAnnotation != nil {
                 selectionCard
+                    .id(contextCardKey)
+                    .transition(.liquidPanel)
             } else if state.activeTool.isDrawTool || state.inProgressTextDraft != nil {
                 toolDefaultsCard
+                    .id(contextCardKey)
+                    .transition(.liquidPanel)
             }
             layersCard
             GlassCard("Frame") {
@@ -65,6 +69,20 @@ struct InspectorView: View {
                 BackgroundToolView(state: state)
             }
         }
+        // The contextual card condenses in and dissolves out; the permanent
+        // cards below flow down/up on the same spring instead of snapping.
+        .animation(Theme.panelSpring, value: contextCardKey)
+    }
+
+    /// Identity of the contextual card currently surfaced at the top of the
+    /// column. Changing kind (or tool) swaps cards through the liquid
+    /// transition; reselecting another annotation of the same kind keeps the
+    /// card in place and just updates its controls.
+    private var contextCardKey: String {
+        if state.selectedAnnotation != nil { return "selection:\(selectionTitle)" }
+        if state.inProgressTextDraft != nil { return "defaults:text" }
+        if state.activeTool.isDrawTool { return "defaults:\(state.activeTool.displayName)" }
+        return "none"
     }
 
     private var selectionCard: some View {

@@ -100,6 +100,11 @@ enum Theme {
         inspectorWidth + 16 + chromeMargin
     }
 
+    // MARK: Motion
+    /// Shared spring for chrome panels entering and leaving the stage; a touch
+    /// underdamped so panels settle with a soft, liquid overshoot.
+    static let panelSpring: Animation = .spring(response: 0.45, dampingFraction: 0.78)
+
     // MARK: Type — SF Pro for labels, SF Mono for every measured value
     static func title(_ size: CGFloat = 14, _ weight: Font.Weight = .semibold) -> Font {
         .system(size: size, weight: weight, design: .default)
@@ -428,6 +433,33 @@ extension View {
         } else {
             self
         }
+    }
+}
+
+/// Drives `AnyTransition.liquidPanel`: at progress 0 the panel is a blurred,
+/// transparent droplet shrunk toward its own top edge; at 1 it is the crisp
+/// resting card. Animating between the two reads as the glass condensing out
+/// of the stage and dissolving back into it.
+private struct LiquidPanelModifier: ViewModifier {
+    let progress: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(progress)
+            .blur(radius: (1 - progress) * 10)
+            .scaleEffect(0.86 + 0.14 * progress, anchor: .top)
+    }
+}
+
+extension AnyTransition {
+    /// Liquid condense/dissolve for floating glass panels entering or leaving
+    /// the chrome. Pair with `Theme.panelSpring` on the surrounding layout so
+    /// neighbouring panels flow out of the way rather than jumping.
+    static var liquidPanel: AnyTransition {
+        .modifier(
+            active: LiquidPanelModifier(progress: 0),
+            identity: LiquidPanelModifier(progress: 1)
+        )
     }
 }
 
