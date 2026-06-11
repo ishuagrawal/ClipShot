@@ -12,21 +12,17 @@ struct TitleBarView: View {
 
     var body: some View {
         HStack(alignment: .center) {
-            // The title is a heading, not another control pod: bare type over
-            // the stage, marked by the brand tick, with a hairline that ignites
-            // to the accent while editing.
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(spacing: 9) {
-                    BrandTickGlyph()
-                        .frame(width: 11, height: 11)
-                    titleField
-                }
-                Rectangle()
-                    .fill(titleFocused ? Theme.accent : Theme.hairlineStrong)
-                    .frame(width: titleFocused ? 230 : 28, height: 1)
-                    .padding(.leading, 20)
-                    .animation(.easeOut(duration: 0.18), value: titleFocused)
+            // The title rides on a dissolving plate: grounded at the brand
+            // tick, fading to nothing toward the right, so the long field
+            // never reads as a box.
+            HStack(spacing: 9) {
+                BrandTickGlyph()
+                    .frame(width: 11, height: 11)
+                titleField
             }
+            .padding(.horizontal, 16)
+            .frame(height: Theme.topBarHeight)
+            .floatingGlassPanel()
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Capture title")
 
@@ -72,7 +68,7 @@ struct TitleBarView: View {
         .foregroundStyle(titleFocused ? Theme.textPrimary : Theme.textSecondary)
         .focused($titleFocused)
         .onSubmit { titleFocused = false }
-        .frame(width: 230)
+        .frame(width: 380)
         .help("Capture title — used as the export filename")
         .accessibilityLabel("Capture title")
     }

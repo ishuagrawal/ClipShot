@@ -28,6 +28,20 @@ xcodebuild \
 
 if /usr/bin/pgrep -x ClipShot >/dev/null; then
   /usr/bin/killall ClipShot
+  # Wait for the old instance to fully exit; launching while Launch Services
+  # is still tearing it down fails with -600.
+  for _ in {1..50}; do
+    /usr/bin/pgrep -x ClipShot >/dev/null || break
+    sleep 0.1
+  done
 fi
 
-/usr/bin/open "$INSTALLED_APP"
+# Retry: Launch Services can briefly refuse (-600) right after a kill.
+for attempt in {1..5}; do
+  if /usr/bin/open "$INSTALLED_APP"; then
+    exit 0
+  fi
+  sleep 0.5
+done
+echo "Failed to launch $INSTALLED_APP" >&2
+exit 1
