@@ -10,7 +10,9 @@ struct InspectorView: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            cardColumn
+            // Group the cards' glass effects into one backdrop-sampling pass;
+            // separate effects each re-blur the canvas every scroll frame.
+            glassGroupedColumn
                 .padding(.vertical, 2)
                 .padding(.horizontal, 16)
         }
@@ -47,6 +49,17 @@ struct InspectorView: View {
             }
         }
         .frame(width: inspectorWidth + 32)
+    }
+
+    @ViewBuilder
+    private var glassGroupedColumn: some View {
+        if #available(macOS 26.0, *) {
+            GlassEffectContainer {
+                cardColumn
+            }
+        } else {
+            cardColumn
+        }
     }
 
     @ViewBuilder

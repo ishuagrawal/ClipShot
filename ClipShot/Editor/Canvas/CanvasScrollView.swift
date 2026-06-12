@@ -76,23 +76,10 @@ final class CanvasScrollView: NSScrollView {
             name: NSScrollView.didEndLiveMagnifyNotification,
             object: self
         )
-        // Trackpad pans clamp back once the gesture lifts (momentum is handled
-        // by the debounce in scrollWheel).
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(liveScrollDidEnd),
-            name: NSScrollView.didEndLiveScrollNotification,
-            object: self
-        )
     }
 
     @objc private func liveMagnifyDidEnd() {
         magnificationDidChange?(magnification)
-        enforceImageVisible()
-    }
-
-    @objc private func liveScrollDidEnd() {
-        enforceImageVisible()
     }
 
     /// Set zoom from the control bar, centered on the current viewport center.
@@ -170,12 +157,14 @@ final class CanvasScrollView: NSScrollView {
     override func scrollWheel(with event: NSEvent) {
         userInteractionDidStart?()
         guard event.modifierFlags.contains(.command) else {
-            super.scrollWheel(with: event)
-            // The scrolling engine animates toward its own target and overrides
-            // mid-gesture corrections, so the keep-image-visible clamp runs once
-            // events stop arriving (covers momentum and legacy wheel scrolls;
-            // trackpad gesture-end is covered by didEndLiveScroll).
-            scheduleKeepVisibleEnforcement()
+            // Pan manually instead of calling super. Even the legacy
+            // (non-responsive) scroll path lets the content travel past
+            // constrainBoundsRect mid-gesture and then snaps it back,
+            // which reads as shake and an awkward pushback at the edges.
+            // Setting the clip origin directly makes the keep-visible
+            // clamp an absolute hard stop: at the bound, nothing moves.
+            // Momentum still works — momentum-phase events arrive here too.
+            pan(with: event)
             return
         }
         // Trackpad precise deltas are small/continuous; a physical mouse wheel sends
@@ -204,61 +193,29 @@ final class CanvasScrollView: NSScrollView {
         magnificationDidChange?(magnification)
     }
 
-    private var keepVisibleEnforceTimer: Timer?
-
-    /// Debounce: fires shortly after the last scroll event, when the scrolling
-    /// engine has settled enough for a programmatic correction to stick.
-    private func scheduleKeepVisibleEnforcement() {
-        keepVisibleEnforceTimer?.invalidate()
-        keepVisibleEnforceTimer = Timer.scheduledTimer(
-            timeInterval: 0.15,
-            target: self,
-            selector: #selector(enforceImageVisibleNow),
-            userInfo: nil,
-            repeats: false
-        )
-    }
-
-    @objc private func enforceImageVisibleNow() {
-        enforceImageVisible()
-    }
-
-    /// Snap the viewport back so the image overlaps the UNOCCLUDED region (the
-    /// part of the canvas not covered by the top bar, dock, or inspector) by at
-    /// least ~96 view points on each axis. A sliver at the raw viewport edge
-    /// would hide under the floating chrome and read as "image gone".
-    private func enforceImageVisible() {
-        guard let clip = contentView as? CenteringClipView else { return }
-        let keep = clip.keepVisibleRect
-        guard !keep.isNull, !keep.isEmpty, magnification > 0,
-              clip.bounds.width > 0, clip.bounds.height > 0 else { return }
-
-        let scale = 1 / magnification   // view points → document points
-        var visible = clip.bounds
-        visible.origin.x += occlusionInsets.left * scale
-        visible.origin.y += occlusionInsets.top * scale
-        visible.size.width -= occludedWidth * scale
-        visible.size.height -= occludedHeight * scale
-        guard visible.width > 0, visible.height > 0 else { return }
-
-        let peekX = min(96 * scale, keep.width / 2)
-        let peekY = min(96 * scale, keep.height / 2)
-        let dx = visible.origin.x
-            .clamped(to: (keep.minX + peekX - visible.width)...(keep.maxX - peekX))
-            - visible.origin.x
-        let dy = visible.origin.y
-            .clamped(to: (keep.minY + peekY - visible.height)...(keep.maxY - peekY))
-            - visible.origin.y
-        guard dx != 0 || dy != 0 else { return }
-
-        let target = CGPoint(x: clip.bounds.origin.x + dx, y: clip.bounds.origin.y + dy)
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.22
-            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            context.allowsImplicitAnimation = true
-            clip.animator().setBoundsOrigin(target)
-            reflectScrolledClipView(clip)
+    /// Manual pan: translate the clip bounds origin by the event delta and let
+    /// constrainBoundsRect (centering + keep-visible clamp) bound it. Used for
+    /// both gesture and momentum phases.
+    private func pan(with event: NSEvent) {
+        guard let documentView else { return }
+        // Legacy mouse wheels report line-based deltas; scale by the scroll
+        // view's standard line increment to match native scroll speed.
+        let multiplier: CGFloat = event.hasPreciseScrollingDeltas ? 1 : max(verticalLineScroll, 1)
+        // Deltas are in view points; clip bounds are in document points.
+        let scale = magnification > 0 ? 1 / magnification : 1
+        var origin = contentView.bounds.origin
+        origin.x -= event.scrollingDeltaX * multiplier * scale
+        if documentView.isFlipped {
+            origin.y -= event.scrollingDeltaY * multiplier * scale
+        } else {
+            origin.y += event.scrollingDeltaY * multiplier * scale
         }
+        let constrained = contentView.constrainBoundsRect(
+            NSRect(origin: origin, size: contentView.bounds.size)
+        )
+        guard !constrained.origin.isAlmostEqual(to: contentView.bounds.origin) else { return }
+        contentView.setBoundsOrigin(constrained.origin)
+        reflectScrolledClipView(contentView)
     }
 
     private func centerDocumentPoint(_ point: CGPoint) {
@@ -308,6 +265,31 @@ private final class CenteringClipView: NSClipView {
         if rect.height > docFrame.height {
             rect.origin.y = (docFrame.height - rect.height) / 2.0
         }
+        return clampedToKeepImageVisible(rect)
+    }
+
+    /// Hard pan limit: the image can never go more than 75% off screen on
+    /// either axis — at least a quarter of it must overlap the viewport.
+    /// Running this inside constrainBoundsRect stops the scroll at the bound
+    /// instead of letting it overshoot and snap back.
+    private func clampedToKeepImageVisible(_ rect: NSRect) -> NSRect {
+        let keep = keepVisibleRect
+        guard !keep.isNull, !keep.isEmpty, rect.width > 0, rect.height > 0 else { return rect }
+        var rect = rect
+
+        let minOverlapX = min(keep.width * 0.25, rect.width)
+        let lowerX = keep.minX + minOverlapX - rect.width
+        let upperX = keep.maxX - minOverlapX
+        if lowerX <= upperX {
+            rect.origin.x = min(max(rect.origin.x, lowerX), upperX)
+        }
+
+        let minOverlapY = min(keep.height * 0.25, rect.height)
+        let lowerY = keep.minY + minOverlapY - rect.height
+        let upperY = keep.maxY - minOverlapY
+        if lowerY <= upperY {
+            rect.origin.y = min(max(rect.origin.y, lowerY), upperY)
+        }
         return rect
     }
 
@@ -322,5 +304,11 @@ private extension Comparable {
 private extension CGSize {
     func isAlmostEqual(to other: CGSize, accuracy: CGFloat = 0.5) -> Bool {
         abs(width - other.width) <= accuracy && abs(height - other.height) <= accuracy
+    }
+}
+
+private extension CGPoint {
+    func isAlmostEqual(to other: CGPoint, accuracy: CGFloat = 0.001) -> Bool {
+        abs(x - other.x) <= accuracy && abs(y - other.y) <= accuracy
     }
 }
