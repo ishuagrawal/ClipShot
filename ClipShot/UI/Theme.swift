@@ -445,53 +445,40 @@ extension View {
     }
 }
 
-/// Drives `AnyTransition.liquidPanel`: at progress 0 the panel is a blurred,
-/// transparent droplet shrunk toward its own top edge; at 1 it is the crisp
-/// resting card. Animating between the two reads as the glass condensing out
-/// of the stage and dissolving back into it.
-private struct LiquidPanelModifier: ViewModifier {
-    let progress: CGFloat
-
-    func body(content: Content) -> some View {
-        content
-            .opacity(progress)
-            .blur(radius: (1 - progress) * 10)
-            .scaleEffect(0.86 + 0.14 * progress, anchor: .top)
-    }
-}
-
-extension AnyTransition {
-    /// Liquid condense/dissolve for floating glass panels entering or leaving
-    /// the chrome. Pair with `Theme.panelSpring` on the surrounding layout so
-    /// neighbouring panels flow out of the way rather than jumping.
-    static var liquidPanel: AnyTransition {
-        .modifier(
-            active: LiquidPanelModifier(progress: 0),
-            identity: LiquidPanelModifier(progress: 1)
-        )
-    }
-}
-
 /// One floating inspector card: a glass panel with a title row and its controls.
 /// The inspector is a loose column of these — every card always open, always in
 /// the same place. No chevrons, no routing, no collapse state to manage.
 struct GlassCard<Accessory: View, Content: View>: View {
     let title: String
+    /// When false, renders only the card interior (title row + controls) with
+    /// no glass chrome — for slots that draw one persistent glass surface
+    /// around swappable interiors so the surface can resize smoothly.
+    let glass: Bool
     @Environment(\.inspectorWidth) private var inspectorWidth
     @ViewBuilder var accessory: () -> Accessory
     @ViewBuilder var content: () -> Content
 
     init(
         _ title: String,
+        glass: Bool = true,
         @ViewBuilder accessory: @escaping () -> Accessory = { EmptyView() },
         @ViewBuilder content: @escaping () -> Content
     ) {
         self.title = title
+        self.glass = glass
         self.accessory = accessory
         self.content = content
     }
 
     var body: some View {
+        if glass {
+            interior.glassPanel()
+        } else {
+            interior
+        }
+    }
+
+    private var interior: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
                 Text(title)
@@ -509,7 +496,6 @@ struct GlassCard<Accessory: View, Content: View>: View {
                 .padding(.bottom, 15)
         }
         .frame(width: inspectorWidth)
-        .glassPanel()
         .accessibilityElement(children: .contain)
         .accessibilityLabel(title)
     }
@@ -533,14 +519,23 @@ struct ToolRailButton: View {
                 .foregroundStyle(isActive ? Theme.accentInk : (hovering ? Theme.textPrimary : Theme.textSecondary))
                 .frame(width: 36, height: 36)
                 .background(
-                    RoundedRectangle(cornerRadius: Theme.radiusPill, style: .continuous)
-                        .fill(isActive ? Theme.accent : (hovering ? Theme.surfaceHover : .clear))
+                    ZStack {
+                        RoundedRectangle(cornerRadius: Theme.radiusPill, style: .continuous)
+                            .fill(Theme.surfaceHover)
+                            .opacity(hovering && !isActive ? 1 : 0)
+                        RoundedRectangle(cornerRadius: Theme.radiusPill, style: .continuous)
+                            .fill(Theme.accent)
+                            .scaleEffect(isActive ? 1 : 0.6)
+                            .opacity(isActive ? 1 : 0)
+                    }
+                    .padding(3)
                 )
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
+        .animation(.spring(response: 0.28, dampingFraction: 0.72), value: isActive)
         .help(shortcut.map { "\(label)  \($0)" } ?? label)
         .accessibilityLabel(label)
         .accessibilityAddTraits(isActive ? [.isSelected] : [])
