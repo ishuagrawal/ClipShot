@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 // MARK: - Design tokens — "Drafting Room"
@@ -241,23 +242,14 @@ struct StageCornerTicks: View {
     }
 }
 
-/// The brand glyph: two opposing crop/registration corners drawn in accent,
-/// mirroring the stage's corner ticks. Used by the top bar wordmark and menu popover.
-struct BrandTickGlyph: View {
+/// The brand mark: the compiled app icon itself, scaled to chrome size.
+/// Used by the top bar wordmark and menu popover.
+struct BrandMarkGlyph: View {
     var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width, h = geo.size.height
-            Path { p in
-                p.move(to: CGPoint(x: 0, y: h * 0.62))
-                p.addLine(to: CGPoint(x: 0, y: 0))
-                p.addLine(to: CGPoint(x: w * 0.62, y: 0))
-                p.move(to: CGPoint(x: w, y: h * 0.38))
-                p.addLine(to: CGPoint(x: w, y: h))
-                p.addLine(to: CGPoint(x: w * 0.38, y: h))
-            }
-            .stroke(Theme.accent, style: StrokeStyle(lineWidth: 2, lineCap: .round))
-        }
-        .accessibilityHidden(true)
+        Image(nsImage: NSApp.applicationIconImage)
+            .resizable()
+            .scaledToFit()
+            .accessibilityHidden(true)
     }
 }
 

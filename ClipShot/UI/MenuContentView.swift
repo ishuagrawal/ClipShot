@@ -57,8 +57,8 @@ struct MenuContentView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            BrandTickGlyph()
-                .frame(width: 14, height: 14)
+            BrandMarkGlyph()
+                .frame(width: 28, height: 28)
             Text("ClipShot")
                 .font(Theme.title(14))
                 .foregroundStyle(Theme.textPrimary)

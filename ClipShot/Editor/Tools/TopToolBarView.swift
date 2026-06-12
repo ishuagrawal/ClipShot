@@ -18,11 +18,15 @@ struct TitleBarView: View {
             // tick, fading to nothing toward the right, so the long field
             // never reads as a box.
             HStack(spacing: 9) {
-                BrandTickGlyph()
-                    .frame(width: 11, height: 11)
+                BrandMarkGlyph()
+                    .frame(width: 34, height: 34)
                 titleField
             }
-            .padding(.horizontal, 16)
+            // The icon sets the plate's visual register: equal 8pt breathing
+            // room on its top, left, and bottom; the trailing side stays wider
+            // for the dissolving field.
+            .padding(.leading, 8)
+            .padding(.trailing, 16)
             .padding(.vertical, 8)
             .frame(minHeight: Theme.topBarHeight)
             .floatingGlassPanel(glow: titleFocused)

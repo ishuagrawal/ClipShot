@@ -6,11 +6,20 @@ struct ClipShotApp: App {
     @StateObject private var appState = AppState.shared
 
     var body: some Scene {
-        MenuBarExtra("ClipShot", systemImage: "viewfinder") {
+        MenuBarExtra {
             MenuContentView()
                 .environmentObject(appState)
+        } label: {
+            Image(nsImage: Self.menuBarIcon)
         }
         .menuBarExtraStyle(.window)
     }
+
+    private static let menuBarIcon: NSImage = {
+        let image = NSImage(named: "MenuBarIcon") ?? NSImage(systemSymbolName: "viewfinder", accessibilityDescription: "ClipShot")!
+        image.isTemplate = true
+        image.size = NSSize(width: 18, height: 18)
+        return image
+    }()
 }
 
