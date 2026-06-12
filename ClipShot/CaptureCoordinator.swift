@@ -3,29 +3,16 @@ import AppKit
 @MainActor
 final class CaptureCoordinator: @unchecked Sendable {
     private let appState: AppState
-    private let sessionStore = DOMCaptureSessionStore()
+    private let sessionStore = CaptureSessionStore()
     private var editorWindowController: EditorWindowController?
 
     init(appState: AppState) {
         self.appState = appState
     }
 
-    func copyDOMPNGToClipboard(pngData: Data) -> Bool {
-        guard !pngData.isEmpty else {
-            reportCopyResult(false)
-            return false
-        }
-
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        let didCopy = pasteboard.setData(pngData, forType: .png)
-        reportCopyResult(didCopy)
-        return didCopy
-    }
-
-    func openDOMSession(request: DOMCaptureSessionRequest) -> Bool {
+    func openSession(request: CaptureSessionRequest) -> Bool {
         do {
-            let session = try DOMCaptureSession(request: request)
+            let session = try CaptureSession(request: request)
             sessionStore.session = session
 
             let controller = editorWindowController ?? EditorWindowController(store: sessionStore)
@@ -44,7 +31,7 @@ final class CaptureCoordinator: @unchecked Sendable {
     func openNativeScreenshot(image: CGImage,
                               pixelScale: CGFloat,
                               sourceAppName: String,
-                              cornerRadii: DOMCornerRadii? = nil) -> Bool {
+                              cornerRadii: CaptureCornerRadii? = nil) -> Bool {
         guard let pngData = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else {
             appState.setCaptureStatus("Could not encode screenshot")
             NSSound.beep()
@@ -56,10 +43,10 @@ final class CaptureCoordinator: @unchecked Sendable {
         let pixelHeight = Double(image.height)
         let pointWidth = pixelWidth / Double(safeScale)
         let pointHeight = pixelHeight / Double(safeScale)
-        let request = DOMCaptureSessionRequest(
+        let request = CaptureSessionRequest(
             screenshotBase64: pngData.base64EncodedString(),
-            selectedRect: DOMCaptureRect(left: 0, top: 0, width: pointWidth, height: pointHeight),
-            viewport: DOMCaptureViewport(
+            selectedRect: CaptureRect(left: 0, top: 0, width: pointWidth, height: pointHeight),
+            viewport: CaptureViewport(
                 width: pointWidth,
                 height: pointHeight,
                 devicePixelRatio: Double(safeScale),
@@ -68,20 +55,13 @@ final class CaptureCoordinator: @unchecked Sendable {
             ),
             candidates: [],
             selectedIndex: -1,
-            pageTitle: sourceAppName,
-            pageURL: "",
+            sourceTitle: sourceAppName,
+            sourceURL: "",
             imageWidth: pixelWidth,
             imageHeight: pixelHeight,
             selectedBorderRadii: nil,
             premaskedCornerRadii: cornerRadii
         )
-        return openDOMSession(request: request)
-    }
-
-    private func reportCopyResult(_ didCopy: Bool) {
-        if !didCopy {
-            appState.setCaptureStatus("Clipboard write failed")
-            NSSound.beep()
-        }
+        return openSession(request: request)
     }
 }

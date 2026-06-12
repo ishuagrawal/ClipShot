@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Menu bar popover: capture entry points, bridge status, quit. Styled as a small
+/// Menu bar popover: capture entry points, status, quit. Styled as a small
 /// slab of the editor's drafting-room chrome so the brand starts at the menu bar.
 struct MenuContentView: View {
     @EnvironmentObject private var appState: AppState
@@ -20,11 +20,6 @@ struct MenuContentView: View {
                     detail: "Drag an exact region or click a window.",
                     keys: ["⌃", "⇧", "5"]
                 )
-                captureRow(
-                    title: "Web component capture",
-                    detail: "Same shortcut inside Arc or Chrome picks a DOM component and opens it here.",
-                    keys: ["⌃", "⇧", "5"]
-                )
             }
             .padding(16)
 
@@ -34,7 +29,7 @@ struct MenuContentView: View {
                 Circle()
                     .fill(appState.lastCaptureStatus != nil ? Theme.accent : Theme.textTertiary)
                     .frame(width: 6, height: 6)
-                Text(appState.lastCaptureStatus ?? "Starting DOM bridge")
+                Text(appState.lastCaptureStatus ?? "Ready to capture")
                     .font(Theme.label(11))
                     .foregroundStyle(Theme.textSecondary)
                     .lineLimit(1)

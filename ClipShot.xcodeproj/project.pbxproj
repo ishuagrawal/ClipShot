@@ -15,8 +15,7 @@
 		01A000000000000000000003 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000003 /* AppState.swift */; };
 		01A000000000000000000006 /* CaptureCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000006 /* CaptureCoordinator.swift */; };
 		01A00000000000000000000C /* MenuContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000000C /* MenuContentView.swift */; };
-		01A00000000000000000000F /* DOMCaptureBridgeServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000010 /* DOMCaptureBridgeServer.swift */; };
-		01A000000000000000000011 /* DOMCaptureModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000011 /* DOMCaptureModels.swift */; };
+		01A000000000000000000011 /* CaptureModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000011 /* CaptureModels.swift */; };
 		01A000000000000000000012 /* EditorWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000012 /* EditorWindowController.swift */; };
 		01A000000000000000000013 /* EditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000013 /* EditorView.swift */; };
 		01A000000000000000000101 /* PixelBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000101 /* PixelBuffer.swift */; };
@@ -102,8 +101,7 @@
 		01B000000000000000000501 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		01B000000000000000000502 /* MenuBarIcon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = MenuBarIcon.png; sourceTree = "<group>"; };
 		01B000000000000000000503 /* MenuBarIcon@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "MenuBarIcon@2x.png"; sourceTree = "<group>"; };
-		01B000000000000000000010 /* DOMCaptureBridgeServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DOMCaptureBridgeServer.swift; sourceTree = "<group>"; };
-		01B000000000000000000011 /* DOMCaptureModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DOMCaptureModels.swift; sourceTree = "<group>"; };
+		01B000000000000000000011 /* CaptureModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureModels.swift; sourceTree = "<group>"; };
 		01B000000000000000000012 /* EditorWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorWindowController.swift; sourceTree = "<group>"; };
 		01B000000000000000000013 /* EditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorView.swift; sourceTree = "<group>"; };
 		01B000000000000000000100 /* ClipShotTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClipShotTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -216,7 +214,7 @@
 				01B000000000000000000003 /* AppState.swift */,
 				01B000000000000000000006 /* CaptureCoordinator.swift */,
 				01D000000000000000000200 /* Editor */,
-				01D000000000000000000009 /* DOM */,
+				01D000000000000000000009 /* Capture */,
 				01D000000000000000000400 /* Native */,
 				01D000000000000000000007 /* UI */,
 			);
@@ -234,13 +232,12 @@
 			path = UI;
 			sourceTree = "<group>";
 		};
-		01D000000000000000000009 /* DOM */ = {
+		01D000000000000000000009 /* Capture */ = {
 			isa = PBXGroup;
 			children = (
-				01B000000000000000000010 /* DOMCaptureBridgeServer.swift */,
-				01B000000000000000000011 /* DOMCaptureModels.swift */,
+				01B000000000000000000011 /* CaptureModels.swift */,
 			);
-			path = DOM;
+			path = Capture;
 			sourceTree = "<group>";
 		};
 		01D000000000000000000100 /* ClipShotTests */ = {
@@ -462,8 +459,7 @@
 				01A000000000000000000003 /* AppState.swift in Sources */,
 				01A000000000000000000006 /* CaptureCoordinator.swift in Sources */,
 				01A00000000000000000000C /* MenuContentView.swift in Sources */,
-				01A00000000000000000000F /* DOMCaptureBridgeServer.swift in Sources */,
-				01A000000000000000000011 /* DOMCaptureModels.swift in Sources */,
+				01A000000000000000000011 /* CaptureModels.swift in Sources */,
 				01A000000000000000000400 /* NativeCaptureRegionOverlay.swift in Sources */,
 				01A000000000000000000401 /* NativeScreenCapturer.swift in Sources */,
 				01A000000000000000000402 /* NativeCaptureShortcut.swift in Sources */,

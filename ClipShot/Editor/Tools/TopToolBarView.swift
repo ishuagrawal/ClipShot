@@ -70,8 +70,8 @@ struct TitleBarView: View {
         TextField(
             "Untitled capture",
             text: Binding(
-                get: { state.document.pageTitle },
-                set: { state.document.pageTitle = $0 }
+                get: { state.document.sourceTitle },
+                set: { state.document.sourceTitle = $0 }
             ),
             axis: .vertical
         )
@@ -125,7 +125,7 @@ struct TitleBarView: View {
     }
 
     private func defaultFilename() -> String {
-        let slug = state.document.pageTitle
+        let slug = state.document.sourceTitle
             .lowercased()
             .replacingOccurrences(of: #"[^a-z0-9]+"#, with: "-", options: .regularExpression)
             .trimmingCharacters(in: CharacterSet(charactersIn: "-"))

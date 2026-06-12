@@ -243,7 +243,7 @@ final class CanvasCoordinator {
 }
 
 final class CanvasDocumentView: NSView {
-    /// Match the DOM/screenshot coordinate system used by CanvasContentView:
+    /// Match the screenshot coordinate system used by CanvasContentView:
     /// origin at the top-left, y increasing downward.
     override var isFlipped: Bool { true }
 }

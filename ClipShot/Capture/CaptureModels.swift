@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 
-struct DOMCaptureRect: Codable, Sendable, Equatable {
+struct CaptureRect: Codable, Sendable, Equatable {
     let left: Double
     let top: Double
     let width: Double
@@ -12,7 +12,7 @@ struct DOMCaptureRect: Codable, Sendable, Equatable {
     }
 }
 
-struct DOMCaptureViewport: Codable, Sendable, Equatable {
+struct CaptureViewport: Codable, Sendable, Equatable {
     let width: Double
     let height: Double
     let devicePixelRatio: Double
@@ -20,21 +20,21 @@ struct DOMCaptureViewport: Codable, Sendable, Equatable {
     let scrollY: Double
 }
 
-struct DOMCornerRadius: Codable, Sendable, Equatable {
+struct CaptureCornerRadius: Codable, Sendable, Equatable {
     let width: Double
     let height: Double
 }
 
-struct DOMCornerRadii: Codable, Sendable, Equatable {
-    let topLeft: DOMCornerRadius
-    let topRight: DOMCornerRadius
-    let bottomRight: DOMCornerRadius
-    let bottomLeft: DOMCornerRadius
+struct CaptureCornerRadii: Codable, Sendable, Equatable {
+    let topLeft: CaptureCornerRadius
+    let topRight: CaptureCornerRadius
+    let bottomRight: CaptureCornerRadius
+    let bottomLeft: CaptureCornerRadius
 }
 
-struct DOMCandidateSnapshot: Codable, Identifiable, Sendable, Equatable {
+struct CaptureCandidate: Codable, Identifiable, Sendable, Equatable {
     let id: Int
-    let rect: DOMCaptureRect
+    let rect: CaptureRect
     let depth: Int
     let label: String
     let tagName: String
@@ -43,36 +43,36 @@ struct DOMCandidateSnapshot: Codable, Identifiable, Sendable, Equatable {
     let selected: Bool
 }
 
-struct DOMCaptureSessionRequest: Decodable, Sendable {
+struct CaptureSessionRequest: Decodable, Sendable {
     let screenshotBase64: String
-    let selectedRect: DOMCaptureRect
-    let viewport: DOMCaptureViewport
-    let candidates: [DOMCandidateSnapshot]
+    let selectedRect: CaptureRect
+    let viewport: CaptureViewport
+    let candidates: [CaptureCandidate]
     let selectedIndex: Int
-    let pageTitle: String?
-    let pageURL: String?
+    let sourceTitle: String?
+    let sourceURL: String?
     let imageWidth: Double?
     let imageHeight: Double?
-    let selectedBorderRadii: DOMCornerRadii?
-    let premaskedCornerRadii: DOMCornerRadii?
+    let selectedBorderRadii: CaptureCornerRadii?
+    let premaskedCornerRadii: CaptureCornerRadii?
 }
 
-struct DOMCaptureSession: Identifiable {
+struct CaptureSession: Identifiable {
     let id = UUID()
     let screenshotData: Data
     let screenshotImage: NSImage
-    let selectedRect: DOMCaptureRect
-    let viewport: DOMCaptureViewport
-    let candidates: [DOMCandidateSnapshot]
+    let selectedRect: CaptureRect
+    let viewport: CaptureViewport
+    let candidates: [CaptureCandidate]
     let selectedIndex: Int
-    let pageTitle: String
-    let pageURL: String
+    let sourceTitle: String
+    let sourceURL: String
     let imagePixelSize: CGSize
-    let selectedBorderRadii: DOMCornerRadii?
-    let premaskedCornerRadii: DOMCornerRadii?
+    let selectedBorderRadii: CaptureCornerRadii?
+    let premaskedCornerRadii: CaptureCornerRadii?
     let capturedAt: Date
 
-    init(request: DOMCaptureSessionRequest) throws {
+    init(request: CaptureSessionRequest) throws {
         let base64 = request.screenshotBase64
             .replacingOccurrences(of: "data:image/png;base64,", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -80,7 +80,7 @@ struct DOMCaptureSession: Identifiable {
         guard let data = Data(base64Encoded: base64, options: .ignoreUnknownCharacters),
               !data.isEmpty,
               let image = NSImage(data: data) else {
-            throw DOMCaptureSessionError.invalidScreenshot
+            throw CaptureSessionError.invalidScreenshot
         }
 
         screenshotData = data
@@ -89,8 +89,8 @@ struct DOMCaptureSession: Identifiable {
         viewport = request.viewport
         candidates = request.candidates
         selectedIndex = request.selectedIndex
-        pageTitle = request.pageTitle?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? "Untitled Page"
-        pageURL = request.pageURL?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? ""
+        sourceTitle = request.sourceTitle?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? "Untitled Capture"
+        sourceURL = request.sourceURL?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? ""
         selectedBorderRadii = request.selectedBorderRadii
         premaskedCornerRadii = request.premaskedCornerRadii
 
@@ -126,7 +126,7 @@ struct DOMCaptureSession: Identifiable {
         return NSBitmapImageRep(cgImage: croppedImage).representation(using: .png, properties: [:])
     }
 
-    func pixelRect(for rect: DOMCaptureRect, pixelSize: CGSize? = nil) -> CGRect {
+    func pixelRect(for rect: CaptureRect, pixelSize: CGSize? = nil) -> CGRect {
         let targetSize = pixelSize ?? imagePixelSize
         let scaleX = targetSize.width / max(1, CGFloat(viewport.width))
         let scaleY = targetSize.height / max(1, CGFloat(viewport.height))
@@ -139,13 +139,13 @@ struct DOMCaptureSession: Identifiable {
         return CGRect(x: x, y: y, width: width, height: height)
     }
 
-    func pixelCornerRadii(for radii: DOMCornerRadii?) -> SelectionCornerRadii {
+    func pixelCornerRadii(for radii: CaptureCornerRadii?) -> SelectionCornerRadii {
         guard let radii else { return .zero }
 
         let scaleX = imagePixelSize.width / max(1, CGFloat(viewport.width))
         let scaleY = imagePixelSize.height / max(1, CGFloat(viewport.height))
 
-        func scaled(_ radius: DOMCornerRadius) -> CGSize {
+        func scaled(_ radius: CaptureCornerRadius) -> CGSize {
             CGSize(
                 width: max(0, CGFloat(radius.width) * scaleX),
                 height: max(0, CGFloat(radius.height) * scaleY)
@@ -162,11 +162,11 @@ struct DOMCaptureSession: Identifiable {
 }
 
 @MainActor
-final class DOMCaptureSessionStore: ObservableObject {
-    @Published var session: DOMCaptureSession?
+final class CaptureSessionStore: ObservableObject {
+    @Published var session: CaptureSession?
 }
 
-enum DOMCaptureSessionError: Error {
+enum CaptureSessionError: Error {
     case invalidScreenshot
 }
 

@@ -5,10 +5,10 @@ import SwiftUI
 final class EditorWindowController {
     private static let frameAutosaveName = NSWindow.FrameAutosaveName("ClipShotEditorWindow")
 
-    private let store: DOMCaptureSessionStore
+    private let store: CaptureSessionStore
     private var window: NSWindow?
 
-    init(store: DOMCaptureSessionStore) {
+    init(store: CaptureSessionStore) {
         self.store = store
     }
 

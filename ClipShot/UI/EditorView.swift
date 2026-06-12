@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 struct EditorView: View {
-    @ObservedObject var store: DOMCaptureSessionStore
+    @ObservedObject var store: CaptureSessionStore
 
     var body: some View {
         Group {
@@ -208,7 +208,7 @@ private struct EmptyEditorView: View {
                     Keycap(text: "⌃")
                     Keycap(text: "⇧")
                     Keycap(text: "5")
-                    Text("in the browser, then pick a component")
+                    Text("to capture a component")
                         .font(Theme.label(12))
                         .foregroundStyle(Theme.textTertiary)
                         .padding(.leading, 6)
@@ -224,8 +224,8 @@ private struct EmptyEditorView: View {
 }
 
 fileprivate extension EditorDocument {
-    /// Bridge from the existing DOMCaptureSession into the new value-type document.
-    init(session: DOMCaptureSession) {
+    /// Bridge from a CaptureSession into the value-type document.
+    init(session: CaptureSession) {
         let pixelSelection = session.pixelRect(for: session.selectedRect)
         let selectionRadii = session.pixelCornerRadii(for: session.selectedBorderRadii)
         let premaskedRadii = session.pixelCornerRadii(for: session.premaskedCornerRadii)
@@ -236,8 +236,8 @@ fileprivate extension EditorDocument {
                 width: CGFloat(session.viewport.width),
                 height: CGFloat(session.viewport.height)
             ),
-            pageTitle: session.pageTitle,
-            pageURL: session.pageURL,
+            sourceTitle: session.sourceTitle,
+            sourceURL: session.sourceURL,
             baseSelection: pixelSelection,
             selectionCornerRadii: selectionRadii,
             contentCornerRadii: selectionRadii.isZero ? premaskedRadii : selectionRadii,
