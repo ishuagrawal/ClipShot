@@ -213,7 +213,9 @@ struct BackgroundEffects: Equatable {
 struct EditorDocument {
     let screenshot: CGImage
     let viewport: CGSize            // CSS px, informational only — rendering uses baseSelection (imagePx)
-    var pageTitle: String           // user-editable in the top bar; drives the export filename
+    // User-editable in the top bar; drives the export filename only. Never drawn
+    // on the canvas or in exports, so edits intentionally do not bump version.
+    var pageTitle: String
     let pageURL: String
 
     let baseSelection: CGRect       // imagePx coords, clamped to ≥ 8×8 on init

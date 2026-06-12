@@ -213,7 +213,9 @@ final class CanvasScrollView: NSScrollView {
         let constrained = contentView.constrainBoundsRect(
             NSRect(origin: origin, size: contentView.bounds.size)
         )
-        guard !constrained.origin.isAlmostEqual(to: contentView.bounds.origin) else { return }
+        // Accuracy is in document points; scale it down with zoom so small pans
+        // at high magnification (sub-0.001 document points) aren't swallowed.
+        guard !constrained.origin.isAlmostEqual(to: contentView.bounds.origin, accuracy: 0.001 * scale) else { return }
         contentView.setBoundsOrigin(constrained.origin)
         reflectScrolledClipView(contentView)
     }
