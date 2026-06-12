@@ -31,9 +31,16 @@ final class EditorWindowController {
             defer: false
         )
 
+        // The system title is hidden (it lands beside the stoplights on this OS);
+        // EditorView draws its own titlebar strip with the app name centered on
+        // the stoplight row instead.
         window.title = "ClipShot"
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
+        // Match the chrome surface so the transparent titlebar and any resize
+        // overdraw blend into the drafting-room theme instead of flashing gray.
+        window.backgroundColor = NSColor(red: 0.075, green: 0.067, blue: 0.059, alpha: 1)
+        window.appearance = NSAppearance(named: .darkAqua)
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 860, height: 560)
         window.contentViewController = hostingController

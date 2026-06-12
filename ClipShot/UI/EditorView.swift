@@ -20,79 +20,206 @@ struct EditorView: View {
     }
 }
 
+/// One full-bleed stage; every piece of chrome floats over it as Liquid Glass.
+/// Three anchors only: identity top-left, properties down the right, and one
+/// dock along the bottom holding history, tools, and zoom. The capture's own
+/// palette bleeds across the stage underneath, so the glass refracts its colors.
 private struct EditorShell: View {
     @StateObject private var state: EditorState
     @StateObject private var canvasFocusProxy = CanvasFocusProxy()
     @StateObject private var zoomController = CanvasZoomController()
+    /// Mesh palette is derived from the (immutable) screenshot once, not per render.
+    @State private var meshPalette: [Color] = []
 
     init(document: EditorDocument) {
         _state = StateObject(wrappedValue: EditorState(document: document, openingPanel: .canvas))
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            TopToolBarView(state: state)
-            Rectangle().fill(Theme.hairline).frame(height: 1)
-            HStack(spacing: 0) {
-                if state.isInspectorVisible {
-                    ToolSidebarView(
-                        state: state,
-                        onCanvasFocusRequested: canvasFocusProxy.requestKeyboardFocus
+        // The inspector scales with the window (roughly proportional), and the
+        // canvas fit, dock centering, and export-pod alignment all measure
+        // against it — so derive one live width here and thread it through.
+        GeometryReader { geo in
+            let inspectorWidth = Theme.inspectorWidth(forWindowWidth: geo.size.width)
+            let rightChrome = Theme.rightChromeWidth(forInspector: inspectorWidth)
+            ZStack {
+                StageBackdrop()
+                AmbientGlowView(colors: ambientColors)
+                // Full bleed: the document and its background run underneath every
+                // glass panel, so the chrome refracts the work itself.
+                CanvasView(
+                    state: state,
+                    focusProxy: canvasFocusProxy,
+                    zoomController: zoomController,
+                    rightOcclusion: rightChrome
+                )
+            }
+            // Mirror of the inspector's scroll fade for the canvas itself: when
+            // the image is panned up under the top chrome it blurs and dissolves
+            // across the same band instead of sliding hard-edged behind the bar.
+            // Solid through the chrome, fading out exactly at the image's rest
+            // position (top chrome + fit margin), so it is invisible until the
+            // image actually moves under it.
+            .overlay(alignment: .top) {
+                let bandHeight = Theme.topChromeHeight + Theme.canvasFitMargin
+                let fadeStart = (bandHeight - Theme.scrollFadeBand) / bandHeight
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                    .background(Theme.canvas.opacity(0.55))
+                    .frame(height: bandHeight)
+                    .mask(
+                        LinearGradient(stops: [
+                            .init(color: .black, location: 0),
+                            .init(color: .black, location: fadeStart),
+                            .init(color: .black.opacity(0), location: 1)
+                        ], startPoint: .top, endPoint: .bottom)
                     )
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+            .overlay(alignment: .trailing) {
+                InspectorView(
+                    state: state,
+                    onCanvasFocusRequested: canvasFocusProxy.requestKeyboardFocus
+                )
+                // Cards live in the zone between the control bar and the dock. The
+                // frame reaches a fade-overhang above the chrome line so the full
+                // fade band fits while ending opaque exactly at the image top.
+                .padding(.top, Theme.topChromeHeight - Theme.scrollFadeOverhang)
+                .padding(.trailing, Theme.chromeMargin)
+            }
+            .overlay(alignment: .top) {
+                VStack(spacing: Theme.chromeMargin) {
+                    titleStrip
+                    // The export pod's right edge lines up with the image's right
+                    // edge (the inspector column plus the canvas fit margin); the
+                    // title plate keeps the window-margin alignment on the left.
+                    TitleBarView(state: state)
+                        .padding(.leading, Theme.chromeMargin + 16)
+                        .padding(.trailing, exportPodTrailingPadding(
+                            windowSize: geo.size,
+                            rightChrome: rightChrome
+                        ))
                 }
-                canvasArea
             }
-            Rectangle().fill(Theme.hairline).frame(height: 1)
-            statusBar
-        }
-        .frame(minWidth: 900, minHeight: 600)
-        .background(Theme.canvas)
-    }
-
-    private var statusBar: some View {
-        HStack(spacing: 0) {
-            Spacer(minLength: 12)
-            ZoomControlsView(zoom: zoomController)
-        }
-        .padding(.horizontal, 12)
-        .frame(height: 36)
-        .frame(maxWidth: .infinity)
-        .background(Theme.surface)
-    }
-
-    private var canvasArea: some View {
-        ZStack {
-            CanvasView(state: state, focusProxy: canvasFocusProxy, zoomController: zoomController)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Theme.canvas)
-            VStack {
-                ToolPaletteView(state: state)
-                    .padding(.top, 14)
-                Spacer()
+            // Stage and overlays bleed under the titlebar and the dock bar; the
+            // dock's safeAreaBar would otherwise carve a dead strip out of the
+            // backdrop along the bottom.
+            .ignoresSafeArea()
+            .bottomDockBar {
+                DockView(state: state, zoom: zoomController)
+                    // Center the dock in the clear space the image occupies, not
+                    // the full window: shift left by the right chrome's width.
+                    .padding(.trailing, rightChrome)
+                    .padding(.bottom, Theme.chromeMargin)
             }
-            VStack {
-                Spacer()
-                BottomBarView(state: state)
-                    .padding(.bottom, 20)
+            .environment(\.inspectorWidth, inspectorWidth)
+        }
+        .ignoresSafeArea()
+        .frame(minWidth: 980, minHeight: 620)
+        .onAppear {
+            meshPalette = MeshGradientGenerator
+                .generate(screenshot: state.document.screenshot,
+                          selection: state.document.baseSelection)
+                .colors
+                .map { Color(cgColor: $0) }
+            // SwiftUI hands initial key focus to the first text field (the title),
+            // which selects its text and steals canvas shortcuts. Canvas wins.
+            DispatchQueue.main.async {
+                canvasFocusProxy.requestKeyboardFocus()
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    /// Trailing padding that puts the export pod's right edge on the image's
+    /// right edge at the initial fit. Mirrors the canvas fit: the image scales
+    /// to fill the clear space (window minus chrome occlusions) inside the fit
+    /// margin, centered — so when the image is height-constrained its right
+    /// edge sits further in than the clear-space edge.
+    private func exportPodTrailingPadding(windowSize: CGSize, rightChrome: CGFloat) -> CGFloat {
+        let crop = CanvasCoordinator.initialFocusBounds(
+            focus: state.document.fitFocusRect,
+            imageBounds: state.document.imageBounds
+        )
+        let clearWidth = windowSize.width - rightChrome
+        let clearHeight = windowSize.height - Theme.topChromeHeight - Theme.bottomChromeHeight
+        let margin = Theme.canvasFitMargin
+        guard crop.width > 0, crop.height > 0,
+              clearWidth > margin * 2, clearHeight > margin * 2 else {
+            return rightChrome + margin
+        }
+        let scale = min((clearWidth - margin * 2) / crop.width,
+                        (clearHeight - margin * 2) / crop.height)
+        let displayedWidth = crop.width * scale
+        return rightChrome + (clearWidth - displayedWidth) / 2
+    }
+
+    /// Hand-drawn titlebar: the app name centered on the stoplight row. The system
+    /// title is hidden because this OS lays it beside the stoplights instead.
+    private var titleStrip: some View {
+        Text("ClipShot")
+            .font(Theme.title(13))
+            .foregroundStyle(Theme.textSecondary)
+            .frame(maxWidth: .infinity)
+            .frame(height: Theme.titleStripHeight)
+            .background(Color.black.opacity(0.22))
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(Theme.hairline)
+                    .frame(height: 1)
+            }
+    }
+
+    /// The capture decides the room's light. Dynamic/none backgrounds diffuse the
+    /// screenshot's harmonized mesh palette; explicit backgrounds diffuse themselves.
+    private var ambientColors: [Color] {
+        switch state.document.background {
+        case .solidColor(let color):
+            return [Color(cgColor: color)]
+        case .gradient(let start, let end, _):
+            return [Color(cgColor: start), Color(cgColor: end),
+                    Color(cgColor: start), Color(cgColor: end),
+                    Color(cgColor: start).opacity(0.8), Color(cgColor: end)]
+        case .dynamic, .none:
+            return meshPalette
+        }
+    }
 }
 
 private struct EmptyEditorView: View {
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "crop")
-                .font(.system(size: 34, weight: .medium))
-                .foregroundStyle(Theme.textTertiary)
-            Text("No capture session")
-                .font(Theme.title(16))
-                .foregroundStyle(Theme.textSecondary)
+        ZStack {
+            StageBackdrop()
+            StageCornerTicks()
+            VStack(spacing: 0) {
+                Image(systemName: "viewfinder")
+                    .font(.system(size: 30, weight: .regular))
+                    .foregroundStyle(Theme.textTertiary)
+                    .padding(.bottom, 18)
+                Text("Nothing captured yet")
+                    .font(Theme.title(15))
+                    .foregroundStyle(Theme.textPrimary)
+                    .padding(.bottom, 6)
+                Text("Capture a component and it lands here, ready to frame.")
+                    .font(Theme.label(12))
+                    .foregroundStyle(Theme.textSecondary)
+                    .padding(.bottom, 22)
+                HStack(spacing: 5) {
+                    Keycap(text: "⌃")
+                    Keycap(text: "⇧")
+                    Keycap(text: "5")
+                    Text("in the browser, then pick a component")
+                        .font(Theme.label(12))
+                        .foregroundStyle(Theme.textTertiary)
+                        .padding(.leading, 6)
+                }
+            }
+            .padding(.horizontal, 44)
+            .padding(.vertical, 40)
+            .glassPanel(cornerRadius: 24)
         }
+        .ignoresSafeArea()
         .frame(minWidth: 860, minHeight: 560)
-        .background(Theme.canvas)
     }
 }
 

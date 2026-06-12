@@ -22,22 +22,15 @@ struct ComponentListView: View {
                     }
                 }
             }
-            .padding(8)
         }
     }
 
     private var emptyState: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("No annotations yet")
-                .font(Theme.label(12, .semibold))
-                .foregroundStyle(Theme.textSecondary)
-            Text("Use the Arrow, Rectangle, or Text tools to add one.")
-                .font(Theme.label(12))
-                .foregroundStyle(Theme.textTertiary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
+        Text("Draw with the tools below to add arrows, boxes, or text.")
+            .font(Theme.label(11.5))
+            .foregroundStyle(Theme.textTertiary)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

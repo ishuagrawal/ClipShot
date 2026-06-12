@@ -12,13 +12,12 @@ struct ArrowToolView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
                 InspectorRowLabel(text: "Color")
-                ColorPicker("", selection: $color, supportsOpacity: false)
-                    .labelsHidden()
+                GlassColorWell(selection: $color, label: "Arrow color")
                     .onChange(of: color) { _, _ in apply() }
             }
             HStack(spacing: 10) {
                 InspectorRowLabel(text: "Weight")
-                FlatSlider(
+                GlassSlider(
                     value: Binding(
                         get: { weight },
                         set: { newValue in
@@ -33,7 +32,6 @@ struct ArrowToolView: View {
                 InspectorValueLabel(text: "\(Int(weight.rounded()))")
             }
         }
-        .padding(16)
         .onAppear { syncFromState() }
         .onChange(of: state.selectedAnnotationID) { _, _ in syncFromState() }
         .onChange(of: state.document.version) { _, _ in syncFromState() }

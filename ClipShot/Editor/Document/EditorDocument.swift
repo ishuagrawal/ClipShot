@@ -155,10 +155,67 @@ private extension CGSize {
     }
 }
 
+/// Tunable drop shadow cast by the screenshot card onto the background. Only
+/// rendered when there is padding (otherwise the card fills the crop, no room).
+/// Offsets are in image px, screen-oriented: +x right, +y down. Each renderer
+/// converts the y sign for its own coordinate space.
+struct ShadowConfig: Equatable {
+    static let maximumBlur: CGFloat = 44
+    static let maximumOffset: CGFloat = 32
+    static let maximumOpacity: CGFloat = 0.80
+
+    var isEnabled: Bool
+    var blur: CGFloat        // radius, px
+    var offsetX: CGFloat     // px, + = right
+    var offsetY: CGFloat     // px, + = down (screen)
+    var opacity: CGFloat     // 0…1
+    var color: CGColor       // hue only; `opacity` applied separately
+
+    static let `default` = ShadowConfig(
+        isEnabled: true,
+        blur: 30,
+        offsetX: 0,
+        offsetY: 8,
+        opacity: 0.30,
+        color: CGColor(srgbRed: 0, green: 0, blue: 0, alpha: 1)
+    )
+
+    var clamped: ShadowConfig {
+        var copy = self
+        copy.blur = min(max(0, blur), Self.maximumBlur)
+        copy.offsetX = min(max(-Self.maximumOffset, offsetX), Self.maximumOffset)
+        copy.offsetY = min(max(-Self.maximumOffset, offsetY), Self.maximumOffset)
+        copy.opacity = min(max(0, opacity), Self.maximumOpacity)
+        return copy
+    }
+}
+
+/// Post-effects layered on top of any non-empty background style.
+struct BackgroundEffects: Equatable {
+    static let maximumBlurRadius: CGFloat = 24
+    static let maximumNoiseOpacity: CGFloat = 0.20
+
+    var blurRadius: CGFloat    // gaussian sigma, px; 0 = off
+    var noiseOpacity: CGFloat  // 0…1 grain opacity; 0 = off
+
+    static let none = BackgroundEffects(blurRadius: 0, noiseOpacity: 0)
+
+    var isActive: Bool { blurRadius > 0 || noiseOpacity > 0 }
+
+    var clamped: BackgroundEffects {
+        BackgroundEffects(
+            blurRadius: min(max(0, blurRadius), Self.maximumBlurRadius),
+            noiseOpacity: min(max(0, noiseOpacity), Self.maximumNoiseOpacity)
+        )
+    }
+}
+
 struct EditorDocument {
     let screenshot: CGImage
     let viewport: CGSize            // CSS px, informational only — rendering uses baseSelection (imagePx)
-    let pageTitle: String
+    // User-editable in the top bar; drives the export filename only. Never drawn
+    // on the canvas or in exports, so edits intentionally do not bump version.
+    var pageTitle: String
     let pageURL: String
 
     let baseSelection: CGRect       // imagePx coords, clamped to ≥ 8×8 on init
@@ -177,6 +234,14 @@ struct EditorDocument {
     // User-set uniform card corner radius. nil = auto (concentric, derived from
     // the screenshot's own radius + padding). 0 = explicitly square.
     var cardCornerOverride: CGFloat? { didSet { bumpVersion() } }
+    var shadow: ShadowConfig { didSet { bumpVersion() } }
+    var backgroundEffects: BackgroundEffects { didSet { bumpVersion() } }
+    // The screenshot's OWN uniform corner radius, user-set. nil = use the captured
+    // selectionCornerRadii. Also feeds concentric card derivation (effectiveContentCornerRadii).
+    var screenshotCornerOverride: CGFloat? { didSet { bumpVersion() } }
+    // When true, the screenshot's drawn corners mirror the card radius (inner == outer),
+    // overriding screenshotCornerOverride for display.
+    var lockCornersToCard: Bool { didSet { bumpVersion() } }
     private(set) var version: Int
 
     init(
@@ -190,7 +255,11 @@ struct EditorDocument {
         padding: PaddingConfig = .zero,
         background: BackgroundStyle = .none,
         annotations: [Annotation] = [],
-        cardCornerOverride: CGFloat? = nil
+        cardCornerOverride: CGFloat? = nil,
+        shadow: ShadowConfig = .default,
+        backgroundEffects: BackgroundEffects = .none,
+        screenshotCornerOverride: CGFloat? = nil,
+        lockCornersToCard: Bool = false
     ) {
         self.screenshot = screenshot
         self.viewport = viewport
@@ -209,6 +278,10 @@ struct EditorDocument {
         self.background = background
         self.annotations = annotations
         self.cardCornerOverride = cardCornerOverride
+        self.shadow = shadow
+        self.backgroundEffects = backgroundEffects
+        self.screenshotCornerOverride = screenshotCornerOverride
+        self.lockCornersToCard = lockCornersToCard
         self.version = 0
     }
 
@@ -223,23 +296,47 @@ struct EditorDocument {
         )
     }
 
-    /// Concentric outer corner radii for the padded card. Zero (rectangular) when
-    /// the screenshot has no corner mask or there is no padding. Derived, so it
-    /// tracks the padding slider live.
-    var outerCornerRadii: SelectionCornerRadii {
-        // A user override is a uniform radius rendered via `cardCornerRadius`; the
-        // per-corner bezier path must not fight it (e.g. override 0 = square card).
-        guard cardCornerOverride == nil else { return .zero }
-        guard !contentCornerRadii.isZero, !padding.isZero else { return .zero }
+    /// Content radii used to derive the concentric card. Reflects the user's
+    /// screenshot-radius override when present, else the captured content radii.
+    var effectiveContentCornerRadii: SelectionCornerRadii {
+        if let override = screenshotCornerOverride {
+            return SelectionCornerRadii.uniform(max(0, override)).clamped(to: baseSelection.size)
+        }
         return contentCornerRadii
+    }
+
+    /// The screenshot's drawn corner radii. Locked → mirror the card radius
+    /// (inner == outer); else the user override; else the captured mask.
+    var effectiveSelectionCornerRadii: SelectionCornerRadii {
+        if lockCornersToCard, let card = cardCornerRadius {
+            return SelectionCornerRadii.uniform(card).clamped(to: baseSelection.size)
+        }
+        if let override = screenshotCornerOverride {
+            return SelectionCornerRadii.uniform(max(0, override)).clamped(to: baseSelection.size)
+        }
+        return selectionCornerRadii
+    }
+
+    /// The true outward offset of the screenshot corners. This remains available
+    /// while a manual card override is active so "Concentric" can restore it.
+    var concentricOuterCornerRadii: SelectionCornerRadii {
+        let content = effectiveContentCornerRadii
+        guard !content.isZero, !padding.isZero else { return .zero }
+        return content
             .concentricOuter(padding: padding)
             .clamped(to: effectiveCrop.size)
     }
 
-    /// The card's uniform corner radius for a continuous-squircle card: the
-    /// screenshot's OWN corner radius, reused at the padded-card size (not offset
-    /// by padding). nil when there is no padding or no uniform corner radius —
-    /// those fall back to the bezier `outerCornerRadii` path / no rounding.
+    /// Concentric outer corner radii for the padded card. Zero when a manual card
+    /// override is active because that override is rendered as a uniform radius.
+    var outerCornerRadii: SelectionCornerRadii {
+        guard cardCornerOverride == nil else { return .zero }
+        return concentricOuterCornerRadii
+    }
+
+    /// Uniform card radius when either a manual override is set or the true
+    /// concentric outer radii are uniform. Non-uniform concentric corners fall
+    /// back to the per-corner `outerCornerRadii` path.
     var cardCornerRadius: CGFloat? {
         if let override = cardCornerOverride {
             return min(max(0, override), maxCardCornerRadius)
@@ -252,11 +349,20 @@ struct EditorDocument {
         min(effectiveCrop.width, effectiveCrop.height) / 2
     }
 
-    /// The derived concentric radius the card would use in auto mode, ignoring
-    /// any user override. nil when there is no padding or no uniform radius.
+    /// The radius the card uses in auto mode, matching the screenshot's effective
+    /// uniform radius exactly. nil when there is no padding or uniform radius.
     var autoCardCornerRadius: CGFloat? {
-        guard !padding.isZero, let r = contentCornerRadii.uniformRadius else { return nil }
+        guard !padding.isZero, let r = effectiveContentCornerRadii.uniformRadius else { return nil }
         return min(r, maxCardCornerRadius)
+    }
+
+    /// Whether the currently rendered inner and outer components use the same
+    /// uniform radius. A small tolerance absorbs slider and pixel rounding.
+    var isCardCornerConcentric: Bool {
+        guard !padding.isZero, let outer = cardCornerRadius else { return false }
+        let innerRadii = lockCornersToCard ? effectiveSelectionCornerRadii : effectiveContentCornerRadii
+        guard let inner = innerRadii.uniformRadius else { return false }
+        return abs(inner - outer) <= 0.5
     }
 
     var imageBounds: CGRect {
@@ -264,6 +370,13 @@ struct EditorDocument {
     }
 
     var paddedDocumentSize: CGSize { effectiveCrop.size }
+
+    /// The rect canvas fits frame. With a background the padded card is the
+    /// visual artifact; with none the padding is invisible, so the screenshot
+    /// itself fills the screen instead.
+    var fitFocusRect: CGRect {
+        background.kind == .none ? baseSelection : effectiveCrop
+    }
 
     /// Legal annotation coordinates, anchored at the screenshot selection.
     /// Padding extends these bounds outward without moving existing annotations.
@@ -294,6 +407,10 @@ extension EditorDocument: Equatable {
         && lhs.background == rhs.background
         && lhs.annotations == rhs.annotations
         && lhs.cardCornerOverride == rhs.cardCornerOverride
+        && lhs.shadow == rhs.shadow
+        && lhs.backgroundEffects == rhs.backgroundEffects
+        && lhs.screenshotCornerOverride == rhs.screenshotCornerOverride
+        && lhs.lockCornersToCard == rhs.lockCornersToCard
         && lhs.version == rhs.version
     }
 }

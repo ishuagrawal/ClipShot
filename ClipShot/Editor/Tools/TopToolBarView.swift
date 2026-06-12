@@ -1,79 +1,137 @@
+import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
-/// Slim top bar: Select plus the document-settings toggles on the left, page title on
-/// the right. Drawing tools live in the floating `ToolPaletteView`, not here.
-struct TopToolBarView: View {
+/// Floating controls just below the titlebar strip: the brand tick and the
+/// capture's editable title ride a glass plate on the left; the two ways out
+/// (Copy / Save) float chromeless on the right. The title doubles as the export
+/// filename; the app name itself lives in the titlebar strip with the stoplights.
+struct TitleBarView: View {
     @ObservedObject var state: EditorState
-    @Namespace private var indicator
+    @FocusState private var titleFocused: Bool
 
     var body: some View {
-        HStack(spacing: 4) {
-            DocToggle(label: "Select", symbol: "cursorarrow",
-                      isActive: state.documentPanel == .components, indicator: indicator) {
-                state.toggleDocumentPanel(.components)
+        // Top-aligned so a wrapped (two-line) title grows downward while the
+        // export buttons hold the bar line.
+        HStack(alignment: .top) {
+            // The title rides on a dissolving plate: grounded at the brand
+            // tick, fading to nothing toward the right, so the long field
+            // never reads as a box.
+            HStack(spacing: 9) {
+                BrandMarkGlyph()
+                    .frame(width: 34, height: 34)
+                titleField
             }
-            DocToggle(label: "Canvas", symbol: "photo.artframe",
-                      isActive: state.documentPanel == .canvas, indicator: indicator) {
-                state.toggleDocumentPanel(.canvas)
+            // The icon sets the plate's visual register: equal 8pt breathing
+            // room on its top, left, and bottom; the trailing side stays wider
+            // for the dissolving field.
+            .padding(.leading, 8)
+            .padding(.trailing, 16)
+            .padding(.vertical, 8)
+            .frame(minHeight: Theme.topBarHeight)
+            .floatingGlassPanel(glow: titleFocused)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Capture title")
+
+            Spacer(minLength: 16)
+
+            // The ways out float bare on the stage: the accent Save capsule is
+            // the only solid object up here, Copy reveals itself on hover.
+            HStack(spacing: 10) {
+                Button {
+                    copyToClipboard()
+                } label: {
+                    Label("Copy", systemImage: "square.on.square")
+                        .labelStyle(.titleAndIcon)
+                }
+                .buttonStyle(BareButtonStyle())
+                .help("Copy PNG to clipboard")
+                Button {
+                    save()
+                } label: {
+                    Label("Save", systemImage: "square.and.arrow.down")
+                        .labelStyle(.titleAndIcon)
+                }
+                .buttonStyle(AccentButtonStyle())
+                .help("Export PNG")
             }
-            Spacer(minLength: 12)
-            Text(state.document.pageTitle)
-                .font(Theme.label(12))
-                .foregroundStyle(Theme.textTertiary)
-                .lineLimit(1)
-                .truncationMode(.middle)
+            .frame(height: Theme.topBarHeight)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Export")
         }
-        .padding(.horizontal, 16)
-        .frame(height: 48)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.surface)
-        .animation(.spring(response: 0.30, dampingFraction: 0.82), value: state.documentPanel)
+        .frame(maxWidth: .infinity)
     }
-}
 
-private struct DocToggle: View {
-    let label: String
-    let symbol: String
-    let isActive: Bool
-    let indicator: Namespace.ID
-    let onTap: () -> Void
-    @State private var hovering = false
+    private var titleField: some View {
+        // Vertical axis lets a long title wrap to a second line instead of
+        // running under the export buttons; the flexible width (instead of a
+        // fixed 380) lets the plate shrink when the buttons' image-aligned
+        // position squeezes the bar.
+        TextField(
+            "Untitled capture",
+            text: Binding(
+                get: { state.document.pageTitle },
+                set: { state.document.pageTitle = $0 }
+            ),
+            axis: .vertical
+        )
+        .lineLimit(2)
+        .textFieldStyle(.plain)
+        .font(Theme.title(13.5))
+        .foregroundStyle(titleFocused ? Theme.textPrimary : Theme.textSecondary)
+        .focused($titleFocused)
+        .onSubmit { titleFocused = false }
+        .frame(minWidth: 120, maxWidth: 380, alignment: .leading)
+        .help("Capture title — used as the export filename")
+        .accessibilityLabel("Capture title")
+    }
 
-    var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 7) {
-                Image(systemName: symbol).font(.system(size: 12.5, weight: .medium))
-                Text(label).font(Theme.label(12.5, isActive ? .semibold : .medium))
-            }
-            .foregroundStyle(isActive ? Theme.accentText : (hovering ? Theme.textPrimary : Theme.textSecondary))
-            .padding(.horizontal, 12)
-            .frame(height: 32)
-            .background {
-                if isActive {
-                    RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
-                        .fill(Theme.accentDim)
-                } else if hovering {
-                    RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
-                        .fill(Theme.surfaceHover)
-                }
-            }
-            .overlay(alignment: .bottom) {
-                if isActive {
-                    Capsule()
-                        .fill(Theme.accent)
-                        .frame(height: 2)
-                        .padding(.horizontal, 8)
-                        .offset(y: 7)
-                        .matchedGeometryEffect(id: "doc-underline", in: indicator)
-                }
-            }
-            .contentShape(Rectangle())
+    // MARK: - Export
+
+    private func copyToClipboard() {
+        guard let pngData = renderPNG() else {
+            NSSound.beep()
+            return
         }
-        .buttonStyle(.plain)
-        .onHover { hovering = $0 }
-        .animation(.easeOut(duration: 0.12), value: hovering)
-        .help(label)
-        .accessibilityLabel(label)
-        .accessibilityAddTraits(isActive ? [.isSelected] : [])
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        if !pasteboard.setData(pngData, forType: .png) {
+            NSSound.beep()
+        }
+    }
+
+    private func save() {
+        guard let pngData = renderPNG() else {
+            NSSound.beep()
+            return
+        }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.png]
+        panel.canCreateDirectories = true
+        panel.nameFieldStringValue = defaultFilename()
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            do {
+                try pngData.write(to: url, options: .atomic)
+            } catch {
+                NSSound.beep()
+            }
+        }
+    }
+
+    private func renderPNG() -> Data? {
+        guard let cgImage = DocumentRenderer.render(state.document) else { return nil }
+        return NSBitmapImageRep(cgImage: cgImage).representation(using: .png, properties: [:])
+    }
+
+    private func defaultFilename() -> String {
+        let slug = state.document.pageTitle
+            .lowercased()
+            .replacingOccurrences(of: #"[^a-z0-9]+"#, with: "-", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+        let base = slug.isEmpty ? "clipshot" : slug
+        let stamp = ISO8601DateFormatter().string(from: Date())
+            .replacingOccurrences(of: ":", with: "-")
+        return "\(base)-\(stamp).png"
     }
 }

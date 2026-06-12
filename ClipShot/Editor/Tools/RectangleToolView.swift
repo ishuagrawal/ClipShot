@@ -15,24 +15,23 @@ struct RectangleToolView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
                 InspectorRowLabel(text: "Stroke")
-                ColorPicker("", selection: $stroke, supportsOpacity: false)
-                    .labelsHidden()
+                GlassColorWell(selection: $stroke, label: "Stroke color")
                     .onChange(of: stroke) { _, _ in apply() }
             }
             HStack(spacing: 10) {
                 InspectorRowLabel(text: "Fill")
-                Toggle("", isOn: $fillEnabled)
+                Toggle("Fill", isOn: $fillEnabled)
                     .labelsHidden()
+                    .toggleStyle(GlassToggleStyle())
                     .onChange(of: fillEnabled) { _, _ in apply() }
-                ColorPicker("", selection: $fill, supportsOpacity: true)
-                    .labelsHidden()
+                GlassColorWell(selection: $fill, supportsOpacity: true, label: "Fill color")
                     .opacity(fillEnabled ? 1 : 0.35)
                     .disabled(!fillEnabled)
                     .onChange(of: fill) { _, _ in apply() }
             }
             HStack(spacing: 10) {
                 InspectorRowLabel(text: "Weight")
-                FlatSlider(
+                GlassSlider(
                     value: Binding(
                         get: { weight },
                         set: { newValue in
@@ -48,7 +47,7 @@ struct RectangleToolView: View {
             }
             HStack(spacing: 10) {
                 InspectorRowLabel(text: "Corner")
-                FlatSlider(
+                GlassSlider(
                     value: Binding(
                         get: { corner },
                         set: { newValue in
@@ -63,7 +62,6 @@ struct RectangleToolView: View {
                 InspectorValueLabel(text: "\(Int(corner.rounded()))")
             }
         }
-        .padding(16)
         .onAppear { syncFromState() }
         .onChange(of: state.selectedAnnotationID) { _, _ in syncFromState() }
         .onChange(of: state.document.version) { _, _ in syncFromState() }

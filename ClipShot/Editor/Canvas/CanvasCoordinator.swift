@@ -5,8 +5,11 @@ import AppKit
 /// so no Combine subscription is needed.
 @MainActor
 final class CanvasCoordinator {
-    private nonisolated static let preferredInitialViewportMargin: CGFloat = 96
-    private nonisolated static let minimumInitialViewportMargin: CGFloat = 32
+    /// Breathing gap between the document and the surrounding chrome on initial
+    /// load. The fit otherwise fills the entire unobstructed viewport region.
+    /// Shared with the inspector's fade edges so cards dissolve exactly at the
+    /// image's vertical extent.
+    private nonisolated static let preferredInitialViewportMargin: CGFloat = Theme.canvasFitMargin
 
     let scrollView: CanvasScrollView
     let contentView: CanvasContentView
@@ -31,6 +34,12 @@ final class CanvasCoordinator {
         contentView = CanvasContentView(frame: .zero)
         overlayView = CanvasOverlayView(frame: .zero)
         interactionView = CanvasInteractionView(frame: .zero)
+        interactionView.wantsLayer = true
+        // None of these views draw in draw(_:) — everything is CALayer content.
+        // Tell AppKit so it never re-renders them during scrolling or zooming.
+        for view in [container, contentView, overlayView, interactionView] {
+            view.layerContentsRedrawPolicy = .onSetNeedsDisplay
+        }
         textEditor = CanvasTextEditor(container: container)
         textEditor.onEditingPreviewChanged = { [weak self] annotation in
             self?.overlayView.editingTextAnnotation = annotation
@@ -56,6 +65,14 @@ final class CanvasCoordinator {
             self?.overlayView.hoveredAnnotationID = id
         }
         scrollView.documentView = container
+        // The top bar, dock, and inspector column cover these slices of the
+        // viewport; fits fill and center the document in the clear space inside.
+        scrollView.occlusionInsets = NSEdgeInsets(
+            top: Theme.topChromeHeight,
+            left: 0,
+            bottom: Theme.bottomChromeHeight,
+            right: Theme.rightChromeWidth
+        )
         scrollView.viewportSizeDidChange = { [weak self] viewportSize in
             self?.refitInitialSelectionIfNeeded(viewportSize: viewportSize)
         }
@@ -67,25 +84,21 @@ final class CanvasCoordinator {
         }
     }
 
+    /// The inspector column scales with the window, so the occluded slice on the
+    /// right is pushed in live. Refit keeps the image centered in the clear space
+    /// (only while still tracking the initial fit — user pans/zooms win).
+    func updateRightOcclusion(_ width: CGFloat) {
+        guard scrollView.occlusionInsets.right != width else { return }
+        scrollView.occlusionInsets.right = width
+        refitInitialSelectionIfNeeded(viewportSize: scrollView.viewportSizeForFitting)
+    }
+
     // MARK: - Zoom control actions
 
     /// Set an explicit zoom level (from the +/- buttons or percentage dropdown).
     func controlZoom(to value: CGFloat) {
         isTrackingInitialSelectionFit = false
         scrollView.setMagnificationFromControl(value)
-    }
-
-    /// Fill the viewport with the selected screenshot region (edge-to-edge, no margin).
-    func fitSelectionToCanvas() {
-        guard let document = latestDocument else { return }
-        isTrackingInitialSelectionFit = false
-        let imageBounds = document.imageBounds
-        let selection = document.baseSelection.integral.intersection(imageBounds)
-        let target = (selection.isNull || selection.isEmpty) ? imageBounds : selection
-        let placement = initialPlacement ?? CanvasInitialPlacement.default(imageBounds: imageBounds)
-        // `selection` is image-space (origin = image top-left); offset into container space.
-        let rectInContainer = target.offsetBy(dx: placement.imageFrame.minX, dy: placement.imageFrame.minY)
-        scrollView.magnify(toFitCenteredOn: rectInContainer)
     }
 
     /// Restore the initial load framing (padded card centered with a comfortable margin).
@@ -97,6 +110,11 @@ final class CanvasCoordinator {
     /// Push the latest document into the view tree. Called on every SwiftUI update.
     func update(state: EditorState) {
         let document = state.document
+        // Toggling the background on/off changes what the fit frames (padded card
+        // vs bare screenshot), so reframe — a deliberate restyle, not a pan.
+        let backgroundVisibilityChanged = latestDocument.map {
+            ($0.background.kind == .none) != (document.background.kind == .none)
+        } ?? false
         latestDocument = document
         let imageBounds = document.imageBounds
         let placement = initialPlacement ?? CanvasInitialPlacement.default(imageBounds: imageBounds)
@@ -124,11 +142,14 @@ final class CanvasCoordinator {
                     force: true
                 )
             }
+        } else if backgroundVisibilityChanged {
+            resetToInitialFit()
         }
     }
 
     private func apply(document: EditorDocument, placement: CanvasInitialPlacement) {
         container.frame = placement.canvasFrame
+        scrollView.imageKeepVisibleRect = placement.imageFrame
         contentView.document = document          // didSet sizes contentView's frame
         contentView.frame = placement.imageFrame
         overlayView.resizeToDocument(document)   // sizes overlay frame
@@ -149,14 +170,19 @@ final class CanvasCoordinator {
 
         let imageBounds = document.imageBounds
         let focusBounds = Self.initialFocusBounds(
-            effectiveCrop: document.effectiveCrop,
+            focus: document.fitFocusRect,
             imageBounds: imageBounds
         )
         guard viewportSize.width > 0, viewportSize.height > 0 else { return }
 
+        // Build the fit against the unobstructed region so its aspect matches
+        // what magnify(toFitCenteredOn:) will fit into.
+        var effectiveViewport = viewportSize
+        effectiveViewport.width = max(1, effectiveViewport.width - scrollView.occludedWidth)
+        effectiveViewport.height = max(1, effectiveViewport.height - scrollView.occludedHeight)
         let fitRect = Self.initialFitRect(
             for: focusBounds,
-            in: viewportSize
+            in: effectiveViewport
         )
         let targetRect = fitRect.isNull || fitRect.isEmpty ? imageBounds : fitRect
         let placement = CanvasInitialPlacement(
@@ -202,21 +228,17 @@ final class CanvasCoordinator {
         )
     }
 
-    nonisolated static func initialFocusBounds(effectiveCrop: CGRect, imageBounds: CGRect) -> CGRect {
-        let cardBounds = effectiveCrop.integral
-        return cardBounds.isNull || cardBounds.isEmpty ? imageBounds : cardBounds
+    nonisolated static func initialFocusBounds(focus: CGRect, imageBounds: CGRect) -> CGRect {
+        let bounds = focus.integral
+        return bounds.isNull || bounds.isEmpty ? imageBounds : bounds
     }
 
     nonisolated static func initialViewportMargin(for viewportSize: CGSize) -> CGFloat {
         let shortestSide = min(viewportSize.width, viewportSize.height)
         guard shortestSide > 0 else { return 0 }
 
-        let adaptiveMargin = min(
-            preferredInitialViewportMargin,
-            max(minimumInitialViewportMargin, shortestSide * 0.16)
-        )
         let maximumUsableMargin = max(0, (shortestSide - 1) / 2)
-        return min(adaptiveMargin, maximumUsableMargin)
+        return min(preferredInitialViewportMargin, maximumUsableMargin)
     }
 }
 
@@ -246,7 +268,12 @@ struct CanvasInitialPlacement: Equatable {
     }
 
     init(imageBounds: CGRect, targetRect: CGRect) {
-        let canvasBounds = imageBounds.union(targetRect)
+        // Free-roam margin: the canvas extends well past the document on every
+        // side, so the image can be panned anywhere in the viewport instead of
+        // stopping at its own edges.
+        let union = imageBounds.union(targetRect)
+        let margin = max(union.width, union.height)
+        let canvasBounds = union.insetBy(dx: -margin, dy: -margin)
         let offset = CGPoint(x: -canvasBounds.minX, y: -canvasBounds.minY)
         canvasFrame = CGRect(origin: .zero, size: canvasBounds.size)
         imageFrame = imageBounds.offsetBy(dx: offset.x, dy: offset.y)

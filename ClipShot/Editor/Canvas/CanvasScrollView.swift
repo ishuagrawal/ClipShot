@@ -11,6 +11,23 @@ final class CanvasScrollView: NSScrollView {
     /// control bar), so the SwiftUI percentage readout can track it.
     var magnificationDidChange: ((CGFloat) -> Void)?
 
+    /// Chrome occluding the viewport edges (top bar, bottom dock, inspector
+    /// column). Fit-and-center operations aim for the unobstructed region inside
+    /// these insets, so the document reads as filling and centered in the empty
+    /// space the user actually sees.
+    var occlusionInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
+
+    /// Total chrome occlusion per axis.
+    var occludedWidth: CGFloat { occlusionInsets.left + occlusionInsets.right }
+    var occludedHeight: CGFloat { occlusionInsets.top + occlusionInsets.bottom }
+
+    /// The image's frame in document (container) coordinates. Panning is clamped
+    /// so this rect can never leave the viewport entirely.
+    var imageKeepVisibleRect: CGRect {
+        get { (contentView as? CenteringClipView)?.keepVisibleRect ?? .null }
+        set { (contentView as? CenteringClipView)?.keepVisibleRect = newValue }
+    }
+
     /// Closure that fits the document into view. Held until the scroll view has a
     /// real laid-out size, then run exactly once (see `layout()`). Avoids fitting
     /// against a zero/placeholder size during the first render pass.
@@ -28,9 +45,16 @@ final class CanvasScrollView: NSScrollView {
     }
 
     private func configure() {
+        // Layer-backed throughout: panning then moves composited textures on the
+        // GPU instead of redrawing views, which matters because the glass chrome
+        // above re-samples this scroll view's content every frame.
+        wantsLayer = true
+        layerContentsRedrawPolicy = .onSetNeedsDisplay
         // Centering clip view so content smaller than the viewport is centered
         // instead of pinned to a corner.
         contentView = CenteringClipView()
+        contentView.wantsLayer = true
+        contentView.layerContentsRedrawPolicy = .onSetNeedsDisplay
         allowsMagnification = true
         minMagnification = ZoomMath.minMagnification
         maxMagnification = ZoomMath.maxMagnification
@@ -38,8 +62,10 @@ final class CanvasScrollView: NSScrollView {
         hasHorizontalScroller = false
         hasVerticalScroller = false
         autohidesScrollers = true
-        drawsBackground = true
-        backgroundColor = NSColor(white: 0.04, alpha: 1)
+        // Transparent: the SwiftUI StageBackdrop (dot grid + vignette) sits behind
+        // this scroll view and provides the stage surface.
+        drawsBackground = false
+        contentView.drawsBackground = false
         horizontalScrollElasticity = .none
         verticalScrollElasticity = .none
         // Pinch / smart-magnify run through AppKit's live magnify; observe its end to
@@ -73,8 +99,10 @@ final class CanvasScrollView: NSScrollView {
 
     func magnify(toFitCenteredOn rect: CGRect) {
         guard !rect.isNull, !rect.isEmpty else { return }
-        let viewportSize = viewportSizeForFitting
+        var viewportSize = viewportSizeForFitting
         guard viewportSize.width > 0, viewportSize.height > 0 else { return }
+        viewportSize.width = max(1, viewportSize.width - occludedWidth)
+        viewportSize.height = max(1, viewportSize.height - occludedHeight)
 
         let targetMagnification = Self.fitMagnification(
             for: rect,
@@ -85,7 +113,15 @@ final class CanvasScrollView: NSScrollView {
 
         setMagnification(targetMagnification, centeredAt: center)
         layoutSubtreeIfNeeded()
-        centerDocumentPoint(center)
+        // Putting the fit center in the middle of the unobstructed region means
+        // centering the viewport on a document point offset by half the occlusion
+        // imbalance per axis (converted to document points; the document view is
+        // flipped, so +y is downward and a bottom-heavy occlusion pushes up).
+        let shifted = CGPoint(
+            x: center.x + (occlusionInsets.right - occlusionInsets.left) / 2 / targetMagnification,
+            y: center.y + (occlusionInsets.bottom - occlusionInsets.top) / 2 / targetMagnification
+        )
+        centerDocumentPoint(shifted)
         magnificationDidChange?(targetMagnification)
     }
 
@@ -121,7 +157,14 @@ final class CanvasScrollView: NSScrollView {
     override func scrollWheel(with event: NSEvent) {
         userInteractionDidStart?()
         guard event.modifierFlags.contains(.command) else {
-            super.scrollWheel(with: event)
+            // Pan manually instead of calling super. Even the legacy
+            // (non-responsive) scroll path lets the content travel past
+            // constrainBoundsRect mid-gesture and then snaps it back,
+            // which reads as shake and an awkward pushback at the edges.
+            // Setting the clip origin directly makes the keep-visible
+            // clamp an absolute hard stop: at the bound, nothing moves.
+            // Momentum still works — momentum-phase events arrive here too.
+            pan(with: event)
             return
         }
         // Trackpad precise deltas are small/continuous; a physical mouse wheel sends
@@ -148,6 +191,33 @@ final class CanvasScrollView: NSScrollView {
         userInteractionDidStart?()
         super.smartMagnify(with: event)
         magnificationDidChange?(magnification)
+    }
+
+    /// Manual pan: translate the clip bounds origin by the event delta and let
+    /// constrainBoundsRect (centering + keep-visible clamp) bound it. Used for
+    /// both gesture and momentum phases.
+    private func pan(with event: NSEvent) {
+        guard let documentView else { return }
+        // Legacy mouse wheels report line-based deltas; scale by the scroll
+        // view's standard line increment to match native scroll speed.
+        let multiplier: CGFloat = event.hasPreciseScrollingDeltas ? 1 : max(verticalLineScroll, 1)
+        // Deltas are in view points; clip bounds are in document points.
+        let scale = magnification > 0 ? 1 / magnification : 1
+        var origin = contentView.bounds.origin
+        origin.x -= event.scrollingDeltaX * multiplier * scale
+        if documentView.isFlipped {
+            origin.y -= event.scrollingDeltaY * multiplier * scale
+        } else {
+            origin.y += event.scrollingDeltaY * multiplier * scale
+        }
+        let constrained = contentView.constrainBoundsRect(
+            NSRect(origin: origin, size: contentView.bounds.size)
+        )
+        // Accuracy is in document points; scale it down with zoom so small pans
+        // at high magnification (sub-0.001 document points) aren't swallowed.
+        guard !constrained.origin.isAlmostEqual(to: contentView.bounds.origin, accuracy: 0.001 * scale) else { return }
+        contentView.setBoundsOrigin(constrained.origin)
+        reflectScrolledClipView(contentView)
     }
 
     private func centerDocumentPoint(_ point: CGPoint) {
@@ -184,6 +254,9 @@ final class CanvasScrollView: NSScrollView {
 /// Clip view that centers the document view when it is smaller than the visible
 /// area in either axis, instead of NSClipView's default corner pinning.
 private final class CenteringClipView: NSClipView {
+    /// See `CanvasScrollView.imageKeepVisibleRect`.
+    var keepVisibleRect: CGRect = .null
+
     override func constrainBoundsRect(_ proposedBounds: NSRect) -> NSRect {
         var rect = super.constrainBoundsRect(proposedBounds)
         guard let documentView else { return rect }
@@ -194,8 +267,34 @@ private final class CenteringClipView: NSClipView {
         if rect.height > docFrame.height {
             rect.origin.y = (docFrame.height - rect.height) / 2.0
         }
+        return clampedToKeepImageVisible(rect)
+    }
+
+    /// Hard pan limit: the image can never go more than 75% off screen on
+    /// either axis — at least a quarter of it must overlap the viewport.
+    /// Running this inside constrainBoundsRect stops the scroll at the bound
+    /// instead of letting it overshoot and snap back.
+    private func clampedToKeepImageVisible(_ rect: NSRect) -> NSRect {
+        let keep = keepVisibleRect
+        guard !keep.isNull, !keep.isEmpty, rect.width > 0, rect.height > 0 else { return rect }
+        var rect = rect
+
+        let minOverlapX = min(keep.width * 0.25, rect.width)
+        let lowerX = keep.minX + minOverlapX - rect.width
+        let upperX = keep.maxX - minOverlapX
+        if lowerX <= upperX {
+            rect.origin.x = min(max(rect.origin.x, lowerX), upperX)
+        }
+
+        let minOverlapY = min(keep.height * 0.25, rect.height)
+        let lowerY = keep.minY + minOverlapY - rect.height
+        let upperY = keep.maxY - minOverlapY
+        if lowerY <= upperY {
+            rect.origin.y = min(max(rect.origin.y, lowerY), upperY)
+        }
         return rect
     }
+
 }
 
 private extension Comparable {
@@ -207,5 +306,11 @@ private extension Comparable {
 private extension CGSize {
     func isAlmostEqual(to other: CGSize, accuracy: CGFloat = 0.5) -> Bool {
         abs(width - other.width) <= accuracy && abs(height - other.height) <= accuracy
+    }
+}
+
+private extension CGPoint {
+    func isAlmostEqual(to other: CGPoint, accuracy: CGFloat = 0.001) -> Bool {
+        abs(x - other.x) <= accuracy && abs(y - other.y) <= accuracy
     }
 }

@@ -1,53 +1,261 @@
+import AppKit
 import SwiftUI
 
-// MARK: - Design tokens
+// MARK: - Design tokens — "Drafting Room"
+//
+// Warm graphite chrome around a workbench stage; a single vermilion accent spent
+// only on selection, focus, and the primary action. Every numeric readout is
+// monospaced. The captured image owns the contrast budget; the UI recedes.
 
 enum Theme {
 
-    // MARK: Dark Canvas surfaces (cool neutral)
-    static let canvas        = Color(red: 0.067, green: 0.075, blue: 0.086)   // #111316 stage
-    static let surface       = Color(red: 0.102, green: 0.114, blue: 0.129)   // #1A1D21 floating panels/bars
-    static let surfaceHover  = Color(red: 0.133, green: 0.149, blue: 0.169)   // #22262B hover tint
-    static let inputFill     = Color(red: 0.125, green: 0.137, blue: 0.153)   // #202327 inset fields
+    // MARK: Surfaces (warm graphite)
+    static let canvas        = Color(red: 0.075, green: 0.067, blue: 0.059)   // #131110 stage
+    static let surface       = Color(red: 0.114, green: 0.102, blue: 0.090)   // #1D1A17 panels/bars
+    static let surfaceHover  = Color(red: 0.157, green: 0.141, blue: 0.125)   // #282420 hover tint
+    static let inputFill     = Color(red: 0.137, green: 0.122, blue: 0.106)   // #231F1B inset fields
+    static let stageWell     = Color(red: 0.059, green: 0.051, blue: 0.043)   // #0F0D0B behind dot grid
 
     // MARK: Lines & shadow
-    static let hairline       = Color.white.opacity(0.08)
+    static let hairline       = Color.white.opacity(0.07)
     static let hairlineStrong = Color.white.opacity(0.14)
-    static let floatShadow    = Color.black.opacity(0.45)
+    static let floatShadow    = Color.black.opacity(0.5)
+    static let stageDot       = Color.white.opacity(0.085)
+    static let stageGridLine  = Color.white.opacity(0.05)
 
-    // MARK: Ink (contrast-checked on `surface`)
-    static let textPrimary   = Color(red: 0.949, green: 0.957, blue: 0.965)   // #F2F4F6 ~16:1
-    static let textSecondary = Color(red: 0.635, green: 0.663, blue: 0.698)   // #A2A9B2 ~7:1
-    static let textTertiary  = Color(red: 0.522, green: 0.545, blue: 0.576)   // #858B93 ~4.9:1
+    // MARK: Ink (warm white, contrast-checked on `surface`)
+    static let textPrimary   = Color(red: 0.961, green: 0.945, blue: 0.918)   // #F5F1EA ~15:1
+    static let textSecondary = Color(red: 0.690, green: 0.655, blue: 0.604)   // #B0A79A ~7:1
+    static let textTertiary  = Color(red: 0.553, green: 0.518, blue: 0.471)   // #8D8478 ~4.6:1
 
-    // MARK: Accent — teal (restrained)
-    static let accent        = Color(red: 0.157, green: 0.792, blue: 0.722)   // #28CAB8
-    static let accentText    = Color(red: 0.247, green: 0.878, blue: 0.804)   // #3FE0CD on dark
-    static let accentDim     = Color(red: 0.157, green: 0.792, blue: 0.722).opacity(0.16)
-    static let accentFocus   = Color(red: 0.157, green: 0.792, blue: 0.722).opacity(0.55)
+    // MARK: Accent — vermilion, the registration-mark color
+    static let accent        = Color(red: 1.0, green: 0.361, blue: 0.220)     // #FF5C38
+    static let accentText    = Color(red: 1.0, green: 0.557, blue: 0.420)     // #FF8E6B on dark ~7:1
+    static let accentDim     = Color(red: 1.0, green: 0.361, blue: 0.220).opacity(0.14)
+    static let accentFocus   = Color(red: 1.0, green: 0.361, blue: 0.220).opacity(0.55)
+    static let accentInk     = Color(red: 0.173, green: 0.055, blue: 0.020)   // ink on solid accent
+
+    /// AppKit/CoreAnimation consumers (selection halo, drag handles).
+    static let accentCG = CGColor(red: 1.0, green: 0.361, blue: 0.220, alpha: 1)
+    static let stageCG  = CGColor(red: 0.075, green: 0.067, blue: 0.059, alpha: 1)
+
+    // MARK: Glass
+    /// Warm tint mixed into every Liquid Glass panel so the floating chrome stays
+    /// in the graphite family instead of going system-gray.
+    // Strong enough that text stays readable when the white artboard slides
+    // underneath the glass; weak enough that color still refracts through.
+    static let glassTint = Color(red: 0.114, green: 0.102, blue: 0.090).opacity(0.4)
 
     // MARK: Geometry
-    static let radiusControl: CGFloat = 8
-    static let radiusPill: CGFloat = 12
+    static let radiusControl: CGFloat = 7
+    static let radiusPill: CGFloat = 11
+    static let radiusPanel: CGFloat = 18
+    /// Base inspector card width — the floor; the live width scales with the window.
+    static let inspectorWidth: CGFloat = 272
+    /// Inspector card width for a given window width: roughly proportional
+    /// (~28% of the window) so the panel doesn't read as a sliver on large
+    /// windows, floored at the base width and capped so cards never balloon.
+    static func inspectorWidth(forWindowWidth windowWidth: CGFloat) -> CGFloat {
+        min(max(inspectorWidth, windowWidth * 0.28), 460)
+    }
+    static let chromeMargin: CGFloat = 14
+    /// Custom titlebar strip: the stoplight row with the app name centered on it.
+    static let titleStripHeight: CGFloat = 28
+    /// Floating control bar below the titlebar strip.
+    static let topBarHeight: CGFloat = 48
+    /// The floating dock's bar height (used by layout and canvas-fit occlusion).
+    static let dockHeight: CGFloat = 52
+    /// Vertical chrome the canvas fit must stay clear of: titlebar strip and
+    /// bar/dock plus the matching margin that floats each off its edge.
+    static var topChromeHeight: CGFloat { titleStripHeight + chromeMargin + topBarHeight }
+    static var bottomChromeHeight: CGFloat { dockHeight + chromeMargin }
+    /// Inspector edge treatment, referenced to the chrome rather than the
+    /// window: cards stay fully transparent within the clear depth of the
+    /// nearest chrome line (top bar below, dock line above), then dissolve in
+    /// across the fade band. The bottom inset adds `bottomChromeHeight` so its
+    /// gap reads against the dock line instead of the window edge.
+    /// Breathing gap the initial canvas fit leaves inside the chrome lines.
+    /// The inspector's fade edges anchor to the same offset, so cards stay
+    /// fully opaque down to the image's exact vertical extent.
+    static let canvasFitMargin: CGFloat = 16
+    /// Cards are fully opaque at the image edge and dissolve outward across
+    /// `scrollFadeBand`, past the chrome line. The rest position starts
+    /// content at the image top, so on load the first card is crisp with no
+    /// fade; the bottom band mirrors it exactly about the image's extent.
+    static let scrollFadeBand: CGFloat = 48
+    /// The band is deeper than the fit margin, so the inspector frame must
+    /// extend this far above the top chrome line for the full band to fit
+    /// while still going fully opaque exactly at the image top.
+    static var scrollFadeOverhang: CGFloat { scrollFadeBand - canvasFitMargin }
+    static var scrollFadeTopInset: CGFloat { scrollFadeBand }
+    static var scrollFadeBottomInset: CGFloat { bottomChromeHeight + canvasFitMargin }
+    /// Distance from the window's right edge to the visible left edge of the
+    /// inspector cards (card width + the near 16pt scroll gutter + margin).
+    /// The far gutter is excluded — measuring to the wrapper edge instead of
+    /// the visible cards left the image reading off-center. The canvas fit and
+    /// the dock both center in the space left of this, so the image's gap to
+    /// the cards exactly matches its gap to the window edge.
+    static var rightChromeWidth: CGFloat { rightChromeWidth(forInspector: inspectorWidth) }
+    /// Same measurement for a live (window-proportional) inspector width.
+    static func rightChromeWidth(forInspector inspectorWidth: CGFloat) -> CGFloat {
+        inspectorWidth + 16 + chromeMargin
+    }
 
-    // MARK: Type — SF Pro hierarchy, fixed scale ~1.2 ratio
-    static func title(_ size: CGFloat = 15, _ weight: Font.Weight = .semibold) -> Font {
+    // MARK: Motion
+    /// Shared spring for chrome panels entering and leaving the stage; a touch
+    /// underdamped so panels settle with a soft, liquid overshoot.
+    static let panelSpring: Animation = .spring(response: 0.45, dampingFraction: 0.78)
+
+    // MARK: Type — SF Pro for labels, SF Mono for every measured value
+    static func title(_ size: CGFloat = 14, _ weight: Font.Weight = .semibold) -> Font {
         .system(size: size, weight: weight, design: .default)
     }
-    static func section(_ size: CGFloat = 12, _ weight: Font.Weight = .medium) -> Font {
+    static func section(_ size: CGFloat = 11.5, _ weight: Font.Weight = .semibold) -> Font {
         .system(size: size, weight: weight, design: .default)
     }
     static func label(_ size: CGFloat = 12, _ weight: Font.Weight = .medium) -> Font {
         .system(size: size, weight: weight, design: .default)
     }
-    static func mono(_ size: CGFloat = 12, _ weight: Font.Weight = .medium) -> Font {
+    static func mono(_ size: CGFloat = 11.5, _ weight: Font.Weight = .medium) -> Font {
         .system(size: size, weight: weight, design: .monospaced)
     }
 }
 
-// MARK: - Dark Canvas components
+// MARK: - Stage material
 
-/// Sentence-case section label (replaces the tracked-caps PanelTitle).
+/// The workbench: a deep well with a fixed dot grid and a soft vignette. Sits behind
+/// the canvas scroll view (which is transparent) so the stage reads as one surface.
+struct StageBackdrop: View {
+    var body: some View {
+        ZStack {
+            Theme.canvas
+            Canvas { context, size in
+                let spacing: CGFloat = 22
+                let dot: CGFloat = 1.5
+                // Major drafting lines every 5 dot cells: sharp structure that the
+                // glass panels visibly refract (the blur needs detail to act on).
+                let major = spacing * 5
+                var gx = major
+                while gx < size.width {
+                    context.fill(
+                        Path(CGRect(x: gx - 0.25, y: 0, width: 0.5, height: size.height)),
+                        with: .color(Theme.stageGridLine)
+                    )
+                    gx += major
+                }
+                var gy = major
+                while gy < size.height {
+                    context.fill(
+                        Path(CGRect(x: 0, y: gy - 0.25, width: size.width, height: 0.5)),
+                        with: .color(Theme.stageGridLine)
+                    )
+                    gy += major
+                }
+                var x = spacing / 2
+                while x < size.width {
+                    var y = spacing / 2
+                    while y < size.height {
+                        let rect = CGRect(x: x - dot / 2, y: y - dot / 2, width: dot, height: dot)
+                        context.fill(Path(ellipseIn: rect), with: .color(Theme.stageDot))
+                        y += spacing
+                    }
+                    x += spacing
+                }
+            }
+            // Vignette keeps attention pooled at the artboard in the middle.
+            RadialGradient(
+                colors: [.clear, Theme.stageWell.opacity(0.7)],
+                center: .center, startRadius: 200, endRadius: 900
+            )
+        }
+        .drawingGroup()
+        .accessibilityHidden(true)
+    }
+}
+
+/// Ambient bleed: the capture's own palette diffused across the whole stage as
+/// huge soft glows. Sits between the dot grid and everything else, so the color
+/// reaches the window edges and refracts up through every glass panel.
+struct AmbientGlowView: View {
+    /// Mesh-order palette (3×3, top-left → bottom-right). Fewer colors degrade
+    /// gracefully — each blob indexes with wraparound.
+    let colors: [Color]
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width, h = geo.size.height
+            let d = max(w, h)
+            ZStack {
+                blob(0, x: 0.06 * w, y: 0.04 * h, r: d * 0.34)
+                blob(2, x: 0.95 * w, y: 0.08 * h, r: d * 0.30)
+                blob(6, x: 0.04 * w, y: 0.96 * h, r: d * 0.32)
+                blob(8, x: 0.96 * w, y: 0.94 * h, r: d * 0.36)
+                blob(4, x: 0.50 * w, y: 0.55 * h, r: d * 0.42)
+                blob(5, x: 0.99 * w, y: 0.50 * h, r: d * 0.26)
+            }
+            .blur(radius: 70)
+            .saturation(1.5)
+            .opacity(0.42)
+        }
+        .drawingGroup()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private func blob(_ index: Int, x: CGFloat, y: CGFloat, r: CGFloat) -> some View {
+        if !colors.isEmpty {
+            let color = colors[index % colors.count]
+            Circle()
+                .fill(
+                    RadialGradient(colors: [color, color.opacity(0)],
+                                   center: .center, startRadius: 0, endRadius: r)
+                )
+                .frame(width: r * 2, height: r * 2)
+                .position(x: x, y: y)
+        }
+    }
+}
+
+/// Registration ticks marking the four corners of the stage — the drafting-table frame.
+struct StageCornerTicks: View {
+    private let arm: CGFloat = 14
+    private let inset: CGFloat = 10
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width, h = geo.size.height
+            Path { p in
+                for (cx, cy, sx, sy) in [
+                    (inset, inset, 1.0, 1.0), (w - inset, inset, -1.0, 1.0),
+                    (inset, h - inset, 1.0, -1.0), (w - inset, h - inset, -1.0, -1.0)
+                ] {
+                    p.move(to: CGPoint(x: cx + CGFloat(sx) * arm, y: cy))
+                    p.addLine(to: CGPoint(x: cx, y: cy))
+                    p.addLine(to: CGPoint(x: cx, y: cy + CGFloat(sy) * arm))
+                }
+            }
+            .stroke(Theme.hairlineStrong, lineWidth: 1)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+/// The brand mark: the compiled app icon itself, scaled to chrome size.
+/// Used by the top bar wordmark and menu popover.
+struct BrandMarkGlyph: View {
+    var body: some View {
+        Image(nsImage: NSApp.applicationIconImage)
+            .resizable()
+            .scaledToFit()
+            .accessibilityHidden(true)
+    }
+}
+
+// MARK: - Shared text roles
+
+/// Sentence-case section label used to head each inspector group.
 struct SectionLabel: View {
     let text: String
     var body: some View {
@@ -68,61 +276,283 @@ struct InspectorRowLabel: View {
     }
 }
 
-/// Inspector numeric readout (right column) — shared by every tool panel.
+/// Inspector numeric readout (right column) — always monospaced, always aligned.
 struct InspectorValueLabel: View {
     let text: String
     var body: some View {
         Text(text)
-            .font(Theme.mono(12, .semibold))
+            .font(Theme.mono(11.5, .semibold))
             .foregroundStyle(Theme.textPrimary)
-            .frame(width: 36, alignment: .trailing)
+            .frame(width: 40, alignment: .trailing)
     }
 }
 
-/// Flat inset field surface: filled, hairline border, no carved well.
-struct InsetField: ViewModifier {
-    var cornerRadius: CGFloat = Theme.radiusControl
-    func body(content: Content) -> some View {
-        content
+/// Keycap glyph for shortcut hints ("⌃", "⇧", "5").
+struct Keycap: View {
+    let text: String
+    var body: some View {
+        Text(text)
+            .font(Theme.mono(11, .semibold))
+            .foregroundStyle(Theme.textSecondary)
+            .frame(minWidth: 22)
+            .frame(height: 22)
+            .padding(.horizontal, 3)
             .background(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
                     .fill(Theme.inputFill)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(Theme.hairline, lineWidth: 1)
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .stroke(Theme.hairlineStrong, lineWidth: 1)
             )
     }
 }
 
-/// Floating container: surface fill + hairline + one soft drop shadow (it floats).
-struct FloatingBar: ViewModifier {
-    var cornerRadius: CGFloat = Theme.radiusPill
+// MARK: - Layout environment
+
+/// Live inspector card width, set once at the editor root from the window size
+/// so every card (and the column that holds them) scales with the window.
+private struct InspectorWidthKey: EnvironmentKey {
+    static let defaultValue: CGFloat = Theme.inspectorWidth
+}
+
+extension EnvironmentValues {
+    var inspectorWidth: CGFloat {
+        get { self[InspectorWidthKey.self] }
+        set { self[InspectorWidthKey.self] = newValue }
+    }
+}
+
+// MARK: - Containers
+
+/// Liquid Glass panel: the one material for every piece of floating chrome.
+/// Real `glassEffect` with a warm graphite tint on macOS 26 so panels lens the
+/// canvas running underneath; frosted material fallback on older systems.
+struct GlassPanel: ViewModifier {
+    var cornerRadius: CGFloat = Theme.radiusPanel
+
+    @ViewBuilder
     func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        if #available(macOS 26.0, *) {
+            content
+                .glassEffect(.regular.tint(Theme.glassTint), in: shape)
+        } else {
+            content
+                .background(.ultraThinMaterial, in: shape)
+                .background(shape.fill(Theme.glassTint))
+                .overlay(
+                    shape.strokeBorder(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.22), Color.white.opacity(0.04)],
+                            startPoint: .top, endPoint: .bottom
+                        ),
+                        lineWidth: 1
+                    )
+                )
+        }
+    }
+}
+
+/// Floating plate: almost not there, and dissolving. A ghost of a fill and
+/// outline ground the left end — where the brand tick and the start of the
+/// title live — and the whole plate (shadow included) fades out toward the
+/// right until it is simply gone. The shape never terminates in a visible
+/// right edge, so the title can run long without ever reading as a box.
+/// Reserved for the capture title.
+struct FloatingGlassPanel: ViewModifier {
+    var cornerRadius: CGFloat = Theme.radiusPanel
+    var glow: Bool = false
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         content
             .background(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Theme.surface)
+                ZStack {
+                    shape.fill(Color.white.opacity(0.02))
+                    shape.strokeBorder(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.07), Color.white.opacity(0.02)],
+                            startPoint: .top, endPoint: .bottom
+                        ),
+                        lineWidth: 1
+                    )
+                    // Focus glow: an accent rim with a soft halo. Its own mask
+                    // dies well before the plate's right corner — the rim never
+                    // wraps around the end, so it reads as two rays trailing off
+                    // to infinity rather than the edge of a box.
+                    shape.strokeBorder(Theme.accent.opacity(0.5), lineWidth: 1)
+                        .shadow(color: Theme.accent.opacity(0.55), radius: 9)
+                        .mask(
+                            LinearGradient(stops: [
+                                .init(color: .black, location: 0),
+                                .init(color: .black, location: 0.25),
+                                .init(color: .black.opacity(0), location: 0.62)
+                            ], startPoint: .leading, endPoint: .trailing)
+                            .padding(-40)
+                        )
+                        .opacity(glow ? 1 : 0)
+                }
+                .compositingGroup()
+                .shadow(color: Color.black.opacity(0.35), radius: 18, y: 8)
+                // Dissolve: solid through the left third, gone before the right
+                // edge. Negative padding widens the mask so the soft shadow
+                // isn't clipped at the plate bounds.
+                .mask(
+                    LinearGradient(stops: [
+                        .init(color: .black, location: 0),
+                        .init(color: .black, location: 0.38),
+                        .init(color: .black.opacity(0), location: 0.94)
+                    ], startPoint: .leading, endPoint: .trailing)
+                    .padding(-40)
+                )
+                .allowsHitTesting(false)
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(Theme.hairline, lineWidth: 1)
-            )
-            .shadow(color: Theme.floatShadow, radius: 18, y: 8)
+            .animation(.easeInOut(duration: 0.22), value: glow)
     }
 }
 
 extension View {
-    func insetField(cornerRadius: CGFloat = Theme.radiusControl) -> some View {
-        modifier(InsetField(cornerRadius: cornerRadius))
+    func glassPanel(cornerRadius: CGFloat = Theme.radiusPanel) -> some View {
+        modifier(GlassPanel(cornerRadius: cornerRadius))
     }
-    func floatingBar(cornerRadius: CGFloat = Theme.radiusPill) -> some View {
-        modifier(FloatingBar(cornerRadius: cornerRadius))
+
+    func floatingGlassPanel(cornerRadius: CGFloat = Theme.radiusPanel, glow: Bool = false) -> some View {
+        modifier(FloatingGlassPanel(cornerRadius: cornerRadius, glow: glow))
+    }
+
+    /// Bottom command bar via `safeAreaBar` (macOS 26) so scrollable content can
+    /// run underneath with the system's progressive edge treatment; plain overlay
+    /// on older systems.
+    @ViewBuilder
+    func bottomDockBar<C: View>(@ViewBuilder content: @escaping () -> C) -> some View {
+        if #available(macOS 26.0, *) {
+            safeAreaBar(edge: .bottom) { content() }
+        } else {
+            overlay(alignment: .bottom) { content() }
+        }
+    }
+
+    /// Soft scroll-edge effect: content blurs and fades out at the scroll bounds
+    /// instead of hard-clipping at a divider line.
+    @ViewBuilder
+    func softVerticalScrollEdges() -> some View {
+        if #available(macOS 26.0, *) {
+            scrollEdgeEffectStyle(.soft, for: .vertical)
+        } else {
+            self
+        }
     }
 }
 
-/// Flat slider: filled track, teal progress, plain teal knob. No recessed/raised pomp.
-struct FlatSlider: View {
+/// Drives `AnyTransition.liquidPanel`: at progress 0 the panel is a blurred,
+/// transparent droplet shrunk toward its own top edge; at 1 it is the crisp
+/// resting card. Animating between the two reads as the glass condensing out
+/// of the stage and dissolving back into it.
+private struct LiquidPanelModifier: ViewModifier {
+    let progress: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(progress)
+            .blur(radius: (1 - progress) * 10)
+            .scaleEffect(0.86 + 0.14 * progress, anchor: .top)
+    }
+}
+
+extension AnyTransition {
+    /// Liquid condense/dissolve for floating glass panels entering or leaving
+    /// the chrome. Pair with `Theme.panelSpring` on the surrounding layout so
+    /// neighbouring panels flow out of the way rather than jumping.
+    static var liquidPanel: AnyTransition {
+        .modifier(
+            active: LiquidPanelModifier(progress: 0),
+            identity: LiquidPanelModifier(progress: 1)
+        )
+    }
+}
+
+/// One floating inspector card: a glass panel with a title row and its controls.
+/// The inspector is a loose column of these — every card always open, always in
+/// the same place. No chevrons, no routing, no collapse state to manage.
+struct GlassCard<Accessory: View, Content: View>: View {
+    let title: String
+    @Environment(\.inspectorWidth) private var inspectorWidth
+    @ViewBuilder var accessory: () -> Accessory
+    @ViewBuilder var content: () -> Content
+
+    init(
+        _ title: String,
+        @ViewBuilder accessory: @escaping () -> Accessory = { EmptyView() },
+        @ViewBuilder content: @escaping () -> Content
+    ) {
+        self.title = title
+        self.accessory = accessory
+        self.content = content
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Text(title)
+                    .font(Theme.section(11.5))
+                    .foregroundStyle(Theme.textSecondary)
+                Spacer(minLength: 8)
+                accessory()
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 13)
+            .padding(.bottom, 10)
+
+            content()
+                .padding(.horizontal, 16)
+                .padding(.bottom, 15)
+        }
+        .frame(width: inspectorWidth)
+        .glassPanel()
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(title)
+    }
+}
+
+/// Tool-pod button: icon that fills with the accent when its tool is engaged.
+/// Lives inside the floating glass pod, so state is carried by the fill, not an
+/// edge tick that would escape the glass shape.
+struct ToolRailButton: View {
+    let systemName: String
+    let label: String
+    let shortcut: String?
+    let isActive: Bool
+    var action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 14.5, weight: .medium))
+                .foregroundStyle(isActive ? Theme.accentInk : (hovering ? Theme.textPrimary : Theme.textSecondary))
+                .frame(width: 36, height: 36)
+                .background(
+                    RoundedRectangle(cornerRadius: Theme.radiusPill, style: .continuous)
+                        .fill(isActive ? Theme.accent : (hovering ? Theme.surfaceHover : .clear))
+                )
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
+        .help(shortcut.map { "\(label)  \($0)" } ?? label)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(isActive ? [.isSelected] : [])
+    }
+}
+
+// MARK: - Controls
+
+/// Glass slider: a carved groove with a luminous vermilion fill and a lens knob.
+/// The fill stays lit (dimmer at rest, glowing under the hand) so the groove reads
+/// as an instrument, not a progress bar.
+struct GlassSlider: View {
     @Binding var value: Double
     var range: ClosedRange<Double>
     var accessibilityLabel: String
@@ -132,8 +562,10 @@ struct FlatSlider: View {
     @State private var isEditing = false
     @State private var hovering = false
 
-    private let trackHeight: CGFloat = 4
-    private let knob: CGFloat = 14
+    private let trackHeight: CGFloat = 5
+    private let knob: CGFloat = 15
+
+    private var engaged: Bool { isEditing || hovering }
 
     var body: some View {
         // GeometryReader is intentional: knob offset arithmetic needs the numeric track width.
@@ -145,39 +577,148 @@ struct FlatSlider: View {
             let knobX = CGFloat(clamped) * (width - knob) + knob / 2
 
             ZStack(alignment: .leading) {
+                // Groove: carved into the glass, darker than the panel.
                 Capsule()
-                    .fill(Theme.inputFill)
+                    .fill(Color.black.opacity(0.36))
                     .frame(height: trackHeight)
-                    .overlay(Capsule().stroke(Theme.hairline, lineWidth: 1))
+                    .overlay(
+                        Capsule()
+                            .stroke(Color.white.opacity(0.10), lineWidth: 0.5)
+                            .blendMode(.plusLighter)
+                            .mask(Capsule().padding(.top, trackHeight - 2))
+                    )
+                // Luminous fill: vermilion gradient, glows while engaged.
                 Capsule()
-                    .fill(Theme.accent)
+                    .fill(
+                        LinearGradient(
+                            colors: [Theme.accent.opacity(engaged ? 1 : 0.62),
+                                     Theme.accentText.opacity(engaged ? 1 : 0.62)],
+                            startPoint: .leading, endPoint: .trailing
+                        )
+                    )
                     .frame(width: max(knobX, trackHeight), height: trackHeight)
+                // Lens knob: a tiny glass bead with a top highlight.
                 Circle()
-                    .fill(Theme.accent)
+                    .fill(
+                        RadialGradient(
+                            colors: [Color.white, Theme.textPrimary.opacity(0.85)],
+                            center: .init(x: 0.35, y: 0.25), startRadius: 0, endRadius: 10
+                        )
+                    )
                     .frame(width: knob, height: knob)
-                    .overlay(Circle().stroke(Theme.hairlineStrong, lineWidth: 1))
+                    .overlay(Circle().stroke(Color.black.opacity(0.25), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
                     .overlay(Circle().stroke(Theme.accentFocus, lineWidth: isEditing ? 3 : 0))
                     .offset(x: knobX - knob / 2)
-                    .scaleEffect(isEditing ? 1.12 : (hovering ? 1.06 : 1))
+                    .scaleEffect(isEditing ? 1.1 : (hovering ? 1.05 : 1))
             }
             .frame(height: knob)
-            .allowsHitTesting(false)
-            .overlay {
-                Slider(value: $value, in: range, onEditingChanged: handleEditingChanged)
-                    .opacity(0.001)
-                    .accessibilityLabel(Text(accessibilityLabel))
-                    .accessibilityValue(Text(accessibilityValue(value)))
-            }
+            .contentShape(Rectangle())
+            // Direct drag instead of a hidden Slider: a hidden NSSlider also eats
+            // scroll-wheel events, so scrolling the inspector would silently edit values.
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { gesture in
+                        if !isEditing {
+                            isEditing = true
+                            onEditingChanged(true)
+                        }
+                        value = valueAt(x: gesture.location.x, width: width)
+                    }
+                    .onEnded { _ in
+                        isEditing = false
+                        onEditingChanged(false)
+                    }
+            )
             .onHover { hovering = $0 }
             .animation(.easeOut(duration: 0.12), value: isEditing)
             .animation(.easeOut(duration: 0.12), value: hovering)
         }
         .frame(height: knob)
+        .accessibilityElement()
+        .accessibilityLabel(Text(accessibilityLabel))
+        .accessibilityValue(Text(accessibilityValue(value)))
+        .accessibilityAdjustableAction { direction in
+            let step = (range.upperBound - range.lowerBound) / 20
+            switch direction {
+            case .increment: value = min(range.upperBound, value + step)
+            case .decrement: value = max(range.lowerBound, value - step)
+            @unknown default: break
+            }
+        }
     }
 
-    private func handleEditingChanged(_ editing: Bool) {
-        isEditing = editing
-        onEditingChanged(editing)
+    private func valueAt(x: CGFloat, width: CGFloat) -> Double {
+        let usable = max(width - knob, 1)
+        let fraction = min(max((x - knob / 2) / usable, 0), 1)
+        return range.lowerBound + Double(fraction) * (range.upperBound - range.lowerBound)
+    }
+}
+
+/// Glass toggle: a small carved capsule whose bead slides and ignites vermilion.
+/// Replaces the system switch everywhere in the inspector.
+struct GlassToggleStyle: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        Button {
+            configuration.isOn.toggle()
+        } label: {
+            Capsule()
+                .fill(configuration.isOn ? Theme.accent : Color.black.opacity(0.36))
+                .overlay(Capsule().stroke(Color.white.opacity(configuration.isOn ? 0.22 : 0.10), lineWidth: 0.5))
+                .overlay(alignment: configuration.isOn ? .trailing : .leading) {
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [Color.white, Theme.textPrimary.opacity(0.9)],
+                                center: .init(x: 0.35, y: 0.25), startRadius: 0, endRadius: 9
+                            )
+                        )
+                        .frame(width: 13, height: 13)
+                        .shadow(color: .black.opacity(0.4), radius: 1.5, y: 1)
+                        .padding(2.5)
+                }
+                .frame(width: 34, height: 18)
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .animation(.spring(duration: 0.22), value: configuration.isOn)
+        .accessibilityAddTraits(configuration.isOn ? [.isSelected] : [])
+    }
+}
+
+/// Round glass color well: a lens-shaped swatch with a specular highlight; the
+/// system color panel opens through an invisible picker layered on top.
+struct GlassColorWell: View {
+    @Binding var selection: Color
+    var supportsOpacity: Bool = false
+    var label: String = "Color"
+    @State private var hovering = false
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(selection)
+                .overlay(
+                    // Specular arc: the swatch reads as a glass bead, not a chip.
+                    Circle().fill(
+                        RadialGradient(
+                            colors: [.white.opacity(0.55), .clear],
+                            center: .init(x: 0.32, y: 0.22), startRadius: 0, endRadius: 11
+                        )
+                    )
+                )
+                .overlay(Circle().stroke(Color.white.opacity(hovering ? 0.5 : 0.28), lineWidth: 1))
+                .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
+            ColorPicker("", selection: $selection, supportsOpacity: supportsOpacity)
+                .labelsHidden()
+                .opacity(0.02)
+        }
+        .frame(width: 23, height: 23)
+        .clipShape(Circle())
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
+        .help(label)
+        .accessibilityLabel(label)
     }
 }
 
@@ -192,7 +733,7 @@ struct ToolPaletteButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 15, weight: .medium))
+                .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(isActive ? Theme.accentText : (hovering ? Theme.textPrimary : Theme.textSecondary))
                 .frame(width: 34, height: 34)
                 .background(
@@ -210,7 +751,7 @@ struct ToolPaletteButton: View {
     }
 }
 
-/// Compact icon button for the bottom action bar (undo/redo). Flat, hover tint only.
+/// Compact icon button (undo/redo, panel close). Flat, hover tint only.
 struct IconButton: View {
     let systemName: String
     var action: () -> Void = {}
@@ -221,11 +762,8 @@ struct IconButton: View {
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(hovering ? Theme.textPrimary : Theme.textSecondary)
                 .frame(width: 28, height: 28)
-                .background(
-                    RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
-                        .fill(hovering ? Theme.surfaceHover : .clear)
-                )
-                .contentShape(Rectangle())
+                .background(Circle().fill(Color.white.opacity(hovering ? 0.12 : 0)))
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
@@ -233,24 +771,114 @@ struct IconButton: View {
     }
 }
 
-/// Primary action (Save): flat solid teal, no gradient/specular/glow.
+/// Small accent chip toggle ("Auto", "Concentric", link/lock). One vocabulary for
+/// every inline panel action; replaces the per-panel hand-rolled variants.
+struct ChipToggle: View {
+    var label: String? = nil
+    var systemName: String? = nil
+    let isOn: Bool
+    /// Momentary chips are accent-styled actions (e.g. "Auto"), not states — they keep
+    /// the accent look from `isOn` but never report a selected trait.
+    var isMomentary: Bool = false
+    var help: String = ""
+    var action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                if let systemName {
+                    Image(systemName: systemName).font(.system(size: 10, weight: .semibold))
+                }
+                if let label {
+                    Text(label).font(.system(size: 10.5, weight: .semibold))
+                }
+            }
+            .foregroundStyle(isOn ? Theme.accentInk : (hovering ? Theme.textPrimary : Theme.textTertiary))
+            .padding(.horizontal, 9)
+            .frame(height: 22)
+            .background(
+                Capsule().fill(
+                    isOn
+                        ? AnyShapeStyle(LinearGradient(
+                            colors: [Theme.accent, Theme.accentText],
+                            startPoint: .top, endPoint: .bottom))
+                        : AnyShapeStyle(Color.white.opacity(hovering ? 0.10 : 0.04))
+                )
+            )
+            .overlay(
+                Capsule().stroke(isOn ? Color.white.opacity(0.25) : Theme.hairlineStrong, lineWidth: 1)
+            )
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
+        .help(help)
+        .accessibilityLabel(help.isEmpty ? (label ?? "") : help)
+        .accessibilityAddTraits(isOn && !isMomentary ? [.isSelected] : [])
+    }
+}
+
+/// Primary action (Save): a vermilion soft rectangle — gradient fill, specular
+/// top edge, soft glow. The squarer geometry keeps it distinct from the dock's
+/// capsule; the only saturated button in the chrome.
 struct AccentButtonStyle: ButtonStyle {
+    private static let shape = RoundedRectangle(cornerRadius: 7, style: .continuous)
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(Theme.label(12, .semibold))
-            .foregroundStyle(Color(red: 0.031, green: 0.137, blue: 0.122))   // deep teal ink
-            .padding(.horizontal, 14)
+            .foregroundStyle(Theme.accentInk)
+            .padding(.horizontal, 16)
             .padding(.vertical, 7)
             .background(
-                RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
-                    .fill(configuration.isPressed ? Theme.accent.opacity(0.85) : Theme.accent)
+                Self.shape.fill(
+                    LinearGradient(
+                        colors: [Theme.accentText, Theme.accent],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                )
             )
+            .overlay(Self.shape.stroke(Color.white.opacity(0.3), lineWidth: 1))
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 
-/// Secondary action (Copy): flat surface + hairline ghost.
+/// Secondary action that floats bare on the stage: a subtle hairline outline
+/// marks it as pressable at rest, with a faint fill fading in on hover.
+struct BareButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        BareBody(configuration: configuration)
+    }
+
+    private struct BareBody: View {
+        let configuration: ButtonStyleConfiguration
+        @State private var hovering = false
+        var body: some View {
+            configuration.label
+                .font(Theme.label(12, .medium))
+                .foregroundStyle(Theme.textPrimary)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 7)
+                .background(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(Color.white.opacity(hovering ? 0.09 : 0))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .stroke(Color.white.opacity(hovering ? 0.28 : 0.16), lineWidth: 1)
+                )
+                .scaleEffect(configuration.isPressed ? 0.98 : 1)
+                .onHover { hovering = $0 }
+                .animation(.easeOut(duration: 0.12), value: hovering)
+                .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+        }
+    }
+}
+
+/// Secondary action (Copy): a clear glass pill — faint fill, bright hairline.
 struct GhostButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         GhostBody(configuration: configuration)
@@ -263,16 +891,12 @@ struct GhostButtonStyle: ButtonStyle {
             configuration.label
                 .font(Theme.label(12, .medium))
                 .foregroundStyle(Theme.textPrimary)
-                .padding(.horizontal, 14)
+                .padding(.horizontal, 16)
                 .padding(.vertical, 7)
                 .background(
-                    RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
-                        .fill(hovering ? Theme.surfaceHover : Theme.surface)
+                    Capsule().fill(Color.white.opacity(hovering ? 0.14 : 0.07))
                 )
-                .overlay(
-                    RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
-                        .stroke(Theme.hairline, lineWidth: 1)
-                )
+                .overlay(Capsule().stroke(Color.white.opacity(0.22), lineWidth: 1))
                 .scaleEffect(configuration.isPressed ? 0.98 : 1)
                 .onHover { hovering = $0 }
                 .animation(.easeOut(duration: 0.12), value: hovering)

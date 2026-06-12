@@ -224,7 +224,7 @@ final class CanvasOverlayView: NSView {
             let frame = AnnotationGeometry.boundingBox(kind).insetBy(dx: -3, dy: -3)
             halo.path = CGPath(roundedRect: frame, cornerWidth: 4, cornerHeight: 4, transform: nil)
             halo.fillColor = nil
-            halo.strokeColor = CGColor(red: 0.157, green: 0.792, blue: 0.722, alpha: 0.95)
+            halo.strokeColor = Theme.accentCG.copy(alpha: 0.95)
             halo.lineWidth = 1.5
             halo.lineDashPattern = [4, 3]
             container.addSublayer(halo)

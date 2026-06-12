@@ -15,8 +15,20 @@ final class CanvasContentView: NSView {
     private let selectionLayer: CALayer
     private let selectionMaskLayer: CAShapeLayer
     private let backgroundMaskLayer: CAShapeLayer
+    private let composedBackgroundQueue: OperationQueue
     private var pendingDynamicSource: CGImage?
     private var pendingDynamicSelection: CGRect = .null
+    private var pendingBGToken: BackgroundToken?
+    private var pendingBGOperation: Operation?
+
+    /// Identity of a composed (blur/noise) background render in flight.
+    private struct BackgroundToken: Equatable {
+        let screenshot: ObjectIdentifier
+        let selection: CGRect
+        let style: ClipShot.BackgroundStyle
+        let effects: BackgroundEffects
+        let size: CGSize
+    }
 
     override init(frame frameRect: NSRect) {
         self.solidBackgroundLayer = CALayer()
@@ -25,7 +37,11 @@ final class CanvasContentView: NSView {
         self.selectionLayer = CALayer()
         self.selectionMaskLayer = CAShapeLayer()
         self.backgroundMaskLayer = CAShapeLayer()
+        self.composedBackgroundQueue = OperationQueue()
         super.init(frame: frameRect)
+        composedBackgroundQueue.name = "com.ishu.ClipShot.composed-background"
+        composedBackgroundQueue.maxConcurrentOperationCount = 1
+        composedBackgroundQueue.qualityOfService = .userInitiated
         wantsLayer = true
         layer?.backgroundColor = .clear
         layer?.masksToBounds = false
@@ -57,6 +73,8 @@ final class CanvasContentView: NSView {
             dynamicBackgroundLayer.contents = nil
             selectionLayer.contents = nil
             selectionLayer.mask = nil
+            pendingBGOperation?.cancel()
+            pendingBGOperation = nil
             return
         }
         frame = doc.imageBounds
@@ -72,6 +90,9 @@ final class CanvasContentView: NSView {
             || previous?.padding != doc.padding
             || previous?.background != doc.background
             || previous?.cardCornerOverride != doc.cardCornerOverride
+            || previous?.backgroundEffects != doc.backgroundEffects
+            || previous?.screenshotCornerOverride != doc.screenshotCornerOverride
+            || previous?.lockCornersToCard != doc.lockCornersToCard
             || selectionMovedForDynamic
         if backgroundChanged {
             updateBackground(for: doc)
@@ -82,6 +103,10 @@ final class CanvasContentView: NSView {
             || previous?.baseSelection != doc.baseSelection
             || previous?.selectionCornerRadii != doc.selectionCornerRadii
             || previous?.padding != doc.padding
+            || previous?.screenshotCornerOverride != doc.screenshotCornerOverride
+            || previous?.lockCornersToCard != doc.lockCornersToCard
+            || previous?.cardCornerOverride != doc.cardCornerOverride
+            || previous?.shadow != doc.shadow
         if selectionChanged {
             updateSelection(for: doc)
         }
@@ -103,7 +128,28 @@ final class CanvasContentView: NSView {
             layer.masksToBounds = false
         }
 
-        guard !doc.padding.isZero else { return }
+        guard !doc.padding.isZero, doc.background.kind != .none else {
+            pendingDynamicSource = nil
+            pendingDynamicSelection = .null
+            pendingBGToken = nil
+            pendingBGOperation?.cancel()
+            pendingBGOperation = nil
+            return
+        }
+
+        // Effects active → one composed image (fill + blur + noise) drawn into the
+        // image layer, matching DocumentRenderer exactly. Cancel any plain-mesh job.
+        if doc.backgroundEffects.isActive {
+            pendingDynamicSource = nil
+            pendingDynamicSelection = .null
+            dynamicBackgroundLayer.isHidden = false
+            applyOuterMask(to: dynamicBackgroundLayer, doc: doc, size: backgroundFrame.size)
+            updateComposedBackground(for: doc, size: backgroundFrame.size)
+            return
+        }
+        pendingBGToken = nil
+        pendingBGOperation?.cancel()
+        pendingBGOperation = nil
 
         switch doc.background {
         case .none:
@@ -151,11 +197,47 @@ final class CanvasContentView: NSView {
                 }
                 guard let current = self.document,
                       current.background.kind == .dynamic,
+                      !current.backgroundEffects.isActive,
                       current.screenshot === screenshot,
                       current.baseSelection == selection else { return }
                 self.dynamicBackgroundLayer.contents = image
             }
         }
+    }
+
+    /// Renders the composed (fill + blur + noise) background off the main thread and
+    /// installs it as the image layer's contents. Keeps the previous image visible
+    /// until the new one is ready (no flicker during slider drags).
+    private func updateComposedBackground(for doc: EditorDocument, size: CGSize) {
+        let token = BackgroundToken(
+            screenshot: ObjectIdentifier(doc.screenshot),
+            selection: doc.baseSelection,
+            style: doc.background,
+            effects: doc.backgroundEffects,
+            size: size
+        )
+        guard pendingBGToken != token else { return }
+        pendingBGToken = token
+
+        pendingBGOperation?.cancel()
+        let operation = BlockOperation()
+        operation.addExecutionBlock { [weak operation, weak self] in
+            guard operation?.isCancelled == false else { return }
+            let image = DocumentRenderer.composedBackgroundImage(for: doc)
+            guard operation?.isCancelled == false else { return }
+            DispatchQueue.main.async {
+                guard let self,
+                      operation?.isCancelled == false,
+                      self.pendingBGToken == token,
+                      let image else { return }
+                self.dynamicBackgroundLayer.contents = image
+                if self.pendingBGOperation === operation {
+                    self.pendingBGOperation = nil
+                }
+            }
+        }
+        pendingBGOperation = operation
+        composedBackgroundQueue.addOperation(operation)
     }
 
     private func applyOuterMask(to layer: CALayer, doc: EditorDocument, size: CGSize) {
@@ -187,7 +269,7 @@ final class CanvasContentView: NSView {
 
         selectionLayer.frame = selection
         selectionLayer.contents = doc.screenshot.cropping(to: selection)
-        let radii = doc.selectionCornerRadii.clamped(to: selection.size)
+        let radii = doc.effectiveSelectionCornerRadii.clamped(to: selection.size)
         if radii.isZero {
             selectionLayer.mask = nil
         } else {
@@ -196,17 +278,17 @@ final class CanvasContentView: NSView {
             selectionLayer.mask = selectionMaskLayer
         }
 
-        if !doc.padding.isZero {
-            let shortSide = min(selection.width, selection.height)
-            selectionLayer.shadowColor = CGColor(srgbRed: 0, green: 0, blue: 0, alpha: 1)
-            selectionLayer.shadowOpacity = 0.30
-            selectionLayer.shadowRadius = max(8, shortSide * 0.02)
-            selectionLayer.shadowOffset = CGSize(width: 0, height: max(2, shortSide * 0.01))
-            let shadowRadii = doc.selectionCornerRadii.clamped(to: selection.size)
+        let shadow = doc.shadow
+        if !doc.padding.isZero, shadow.isEnabled, shadow.opacity > 0 {
+            // View is y-down (isFlipped), so a positive offsetY reads visually downward.
+            selectionLayer.shadowColor = shadow.color
+            selectionLayer.shadowOpacity = Float(shadow.opacity)
+            selectionLayer.shadowRadius = shadow.blur
+            selectionLayer.shadowOffset = CGSize(width: shadow.offsetX, height: shadow.offsetY)
             let bounds = CGRect(origin: .zero, size: selection.size)
-            selectionLayer.shadowPath = shadowRadii.isZero
+            selectionLayer.shadowPath = radii.isZero
                 ? CGPath(rect: bounds, transform: nil)
-                : shadowRadii.path(in: bounds)
+                : radii.path(in: bounds)
         } else {
             selectionLayer.shadowOpacity = 0
             selectionLayer.shadowPath = nil

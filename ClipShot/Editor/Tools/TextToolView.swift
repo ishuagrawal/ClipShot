@@ -12,13 +12,12 @@ struct TextToolView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
                 InspectorRowLabel(text: "Color")
-                ColorPicker("", selection: $color, supportsOpacity: false)
-                    .labelsHidden()
+                GlassColorWell(selection: $color, label: "Text color")
                     .onChange(of: color) { _, _ in apply() }
             }
             HStack(spacing: 10) {
                 InspectorRowLabel(text: "Size")
-                FlatSlider(
+                GlassSlider(
                     value: Binding(
                         get: { size },
                         set: { newValue in
@@ -33,7 +32,6 @@ struct TextToolView: View {
                 InspectorValueLabel(text: "\(Int(size.rounded()))")
             }
         }
-        .padding(16)
         .onAppear { syncFromState() }
         .onChange(of: state.selectedAnnotationID) { _, _ in syncFromState() }
         .onChange(of: state.document.version) { _, _ in syncFromState() }

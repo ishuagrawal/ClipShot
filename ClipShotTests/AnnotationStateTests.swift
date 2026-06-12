@@ -621,10 +621,11 @@ final class CanvasInteractionViewTests: XCTestCase {
             pageTitle: "t",
             pageURL: "u",
             baseSelection: CGRect(x: 0, y: 0, width: 300, height: 200),
-            padding: .uniform(40)
+            padding: .uniform(40),
+            background: .solidColor(.init(red: 0, green: 0, blue: 1, alpha: 1))
         )
         let cardFrame = CanvasCoordinator.initialFocusBounds(
-            effectiveCrop: document.effectiveCrop,
+            focus: document.fitFocusRect,
             imageBounds: document.imageBounds
         )
         let fit = CanvasCoordinator.initialFitRect(for: cardFrame, in: viewport)

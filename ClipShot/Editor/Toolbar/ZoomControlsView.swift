@@ -1,13 +1,13 @@
 import SwiftUI
 
 /// Zoom cluster for the bottom status bar: zoom out / percentage dropdown / zoom in,
-/// then the framing presets (reset to center, fill selection).
-/// No floating chrome — it sits inside the status bar.
+/// then a single framing action that restores the initial-load view.
+/// No floating chrome — it sits inside the status bar like an instrument readout.
 struct ZoomControlsView: View {
     @ObservedObject var zoom: CanvasZoomController
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 2) {
             IconButton(systemName: "minus") { zoom.zoomOut() }
                 .help("Zoom out")
                 .accessibilityLabel("Zoom out")
@@ -25,20 +25,16 @@ struct ZoomControlsView: View {
             separator
 
             IconButton(systemName: "scope") { zoom.resetToCenter() }
-                .help("Reset to center")
-                .accessibilityLabel("Reset to center")
-
-            IconButton(systemName: "viewfinder") { zoom.fitToSelection() }
-                .help("Fill selected area")
-                .accessibilityLabel("Fill selected area")
+                .help("Reset view")
+                .accessibilityLabel("Reset view")
         }
     }
 
     private var separator: some View {
         Rectangle()
             .fill(Theme.hairline)
-            .frame(width: 1, height: 16)
-            .padding(.horizontal, 2)
+            .frame(width: 1, height: 14)
+            .padding(.horizontal, 6)
     }
 
     private var percentMenu: some View {
@@ -48,9 +44,9 @@ struct ZoomControlsView: View {
             }
         } label: {
             Text(zoom.percentLabel)
-                .font(Theme.mono(12, .semibold))
-                .foregroundStyle(Theme.textPrimary)
-                .frame(width: 48, height: 26)
+                .font(Theme.mono(11.5, .semibold))
+                .foregroundStyle(Theme.textSecondary)
+                .frame(width: 48, height: 24)
                 .contentShape(Rectangle())
         }
         .menuStyle(.borderlessButton)

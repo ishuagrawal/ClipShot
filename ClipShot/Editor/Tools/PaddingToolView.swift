@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Padding detail panel with linked and per-side box-model controls.
@@ -7,8 +8,21 @@ struct PaddingToolView: View {
     @State private var linked: Bool = true
     @State private var cornerEditing: Bool = false
     @State private var cornerStart: CGFloat?
+    @State private var shotCornerEditing: Bool = false
+    @State private var shotCornerStart: CGFloat?
+    @State private var shadowColor = Color(cgColor: ShadowConfig.default.color)
+    @State private var syncingShadow = false
 
-    private let range: ClosedRange<Double> = 0...256
+    private let paddingRange: ClosedRange<Double> = 0...Double(PaddingConfig.maximum)
+
+    private var cardCornerRange: ClosedRange<Double> {
+        0...max(1, Double(state.document.maxCardCornerRadius.rounded(.down)))
+    }
+
+    private var screenshotCornerRange: ClosedRange<Double> {
+        let maximum = min(state.document.baseSelection.width, state.document.baseSelection.height) / 2
+        return 0...max(1, Double(maximum.rounded(.down)))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -16,70 +30,76 @@ struct PaddingToolView: View {
             boxModel
             uniformRow
             cornerRow
+            screenshotCornerRow
+            shadowSection
         }
-        .padding(16)
-        .onAppear { linked = padding.isLinked }
+        .onAppear {
+            linked = padding.isLinked
+            shadowColor = Color(cgColor: state.document.shadow.color)
+        }
+        .onChange(of: state.document.shadow) { _, newShadow in
+            syncingShadow = true
+            shadowColor = Color(cgColor: newShadow.color)
+            Task { @MainActor in syncingShadow = false }
+        }
     }
 
     private var padding: PaddingConfig { state.document.padding }
 
     private var header: some View {
         HStack {
-            Text("Layout")
-                .font(Theme.title(13))
-                .foregroundStyle(Theme.textPrimary)
-            Spacer()
-            Button("Auto") { applyAuto() }
-                .buttonStyle(.plain)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Theme.accent)
-                .padding(.horizontal, 8)
-                .frame(height: 24)
-                .background {
-                    RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
-                        .fill(Theme.accentDim)
-                }
-                .help("Auto padding + background")
-            Button {
+            ChipToggle(
+                label: "Auto",
+                systemName: "wand.and.stars",
+                isOn: true,
+                isMomentary: true,
+                help: "Auto padding + background"
+            ) { applyAuto() }
+            ChipToggle(
+                systemName: linked ? "link" : "link.slash",
+                isOn: linked,
+                help: linked ? "Sides linked" : "Sides independent"
+            ) {
                 linked.toggle()
                 if linked {
                     commit(.uniform(padding.top))
                 }
-            } label: {
-                Image(systemName: linked ? "link" : "link.slash")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(linked ? Theme.accent : Theme.textTertiary)
-                    .frame(width: 26, height: 24)
-                    .background {
-                        if linked {
-                            RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
-                                .fill(Theme.accentDim)
-                        }
-                    }
-                    .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
-            .help(linked ? "Sides linked" : "Sides independent")
+            Spacer()
         }
     }
 
+    /// Frame diagram: the artboard floats in the middle of a carved well, the four
+    /// per-side values orbit it as mono pills. Reads as a diagram, not a form.
     private var boxModel: some View {
-        VStack(spacing: 7) {
+        VStack(spacing: 6) {
             field(.top)
-            HStack(spacing: 7) {
+            HStack(spacing: 6) {
                 field(.left)
-                Color.clear
-                    .frame(height: 54)
-                    .insetField(cornerRadius: Theme.radiusControl)
-                    .overlay(
-                        Image(systemName: "photo")
-                            .font(.system(size: 15))
-                            .foregroundStyle(Theme.textTertiary)
-                    )
+                artboardGlyph
                 field(.right)
             }
             field(.bottom)
         }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var artboardGlyph: some View {
+        RoundedRectangle(cornerRadius: 9, style: .continuous)
+            .fill(Color.black.opacity(0.30))
+            .overlay(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .stroke(Theme.hairline, lineWidth: 1)
+            )
+            .overlay(
+                // The capture inside its padding, drawn as a glyph.
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .strokeBorder(Theme.accentText.opacity(0.85), lineWidth: 1.5)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 13)
+            )
+            .frame(height: 52)
+            .accessibilityHidden(true)
     }
 
     private func field(_ side: PaddingSide) -> some View {
@@ -100,8 +120,9 @@ struct PaddingToolView: View {
         .foregroundStyle(Theme.textPrimary)
         .multilineTextAlignment(.center)
         .frame(width: 54)
-        .padding(.vertical, 6)
-        .insetField(cornerRadius: Theme.radiusControl)
+        .padding(.vertical, 5)
+        .background(Capsule().fill(Color.black.opacity(0.30)))
+        .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 1))
         .accessibilityLabel(label(side))
     }
 
@@ -109,7 +130,7 @@ struct PaddingToolView: View {
         VStack(alignment: .leading, spacing: 9) {
             SectionLabel(text: "Uniform")
             HStack(spacing: 10) {
-                FlatSlider(
+                GlassSlider(
                 value: Binding(
                     get: { Double(padding.uniform ?? padding.top) },
                     set: { value in
@@ -117,7 +138,7 @@ struct PaddingToolView: View {
                         setLive(.uniform(CGFloat(value.rounded())))
                     }
                 ),
-                range: range,
+                range: paddingRange,
                 accessibilityLabel: "Uniform padding",
                 accessibilityValue: { "\(Int($0.rounded())) pixels" },
                 onEditingChanged: { editing in
@@ -138,27 +159,19 @@ struct PaddingToolView: View {
             HStack {
                 SectionLabel(text: "Corner radius")
                 Spacer()
-                Button("Concentric") { applyConcentricCorner() }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(isAutoCorner ? Theme.accent : Theme.textTertiary)
-                    .padding(.horizontal, 7)
-                    .frame(height: 20)
-                    .background {
-                        if isAutoCorner {
-                            RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
-                                .fill(Theme.accentDim)
-                        }
-                    }
-                    .help("Match the screenshot corners (concentric)")
+                ChipToggle(
+                    label: "Concentric",
+                    isOn: isConcentricCorner,
+                    help: "Match the screenshot corners (concentric)"
+                ) { applyConcentricCorner() }
             }
             HStack(spacing: 10) {
-                FlatSlider(
+                GlassSlider(
                     value: Binding(
                         get: { Double(state.document.cardCornerRadius ?? 0) },
                         set: { setLiveCorner(CGFloat($0.rounded())) }
                     ),
-                    range: range,
+                    range: cardCornerRange,
                     accessibilityLabel: "Corner radius",
                     accessibilityValue: { "\(Int($0.rounded())) pixels" },
                     onEditingChanged: { editing in
@@ -175,7 +188,7 @@ struct PaddingToolView: View {
         }
     }
 
-    private var isAutoCorner: Bool { state.document.cardCornerOverride == nil }
+    private var isConcentricCorner: Bool { state.document.isCardCornerConcentric }
 
     private func setLiveCorner(_ value: CGFloat) {
         if !cornerEditing {
@@ -200,6 +213,174 @@ struct PaddingToolView: View {
         state.performCommand(
             SetCardCornerCommand(from: state.document.cardCornerOverride, to: nil)
         )
+    }
+
+    // MARK: - Screenshot corners
+
+    private var screenshotCornerRow: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack {
+                SectionLabel(text: "Screenshot corners")
+                Spacer()
+                ChipToggle(
+                    systemName: isCornerLocked ? "lock" : "lock.open",
+                    isOn: isCornerLocked,
+                    help: "Lock the screenshot corners to the card radius"
+                ) { toggleCornerLock() }
+            }
+            HStack(spacing: 10) {
+                GlassSlider(
+                    value: Binding(
+                        get: { Double(screenshotCornerValue) },
+                        set: { setLiveShotCorner(CGFloat($0.rounded())) }
+                    ),
+                    range: screenshotCornerRange,
+                    accessibilityLabel: "Screenshot corner radius",
+                    accessibilityValue: { "\(Int($0.rounded())) pixels" },
+                    onEditingChanged: { editing in
+                        if editing {
+                            shotCornerEditing = true
+                            shotCornerStart = state.document.screenshotCornerOverride
+                        } else {
+                            commitShotCornerDrag()
+                        }
+                    }
+                )
+                .disabled(isCornerLocked)
+                .opacity(isCornerLocked ? 0.45 : 1)
+                InspectorValueLabel(text: "\(Int(screenshotCornerValue))")
+            }
+        }
+    }
+
+    private var isCornerLocked: Bool { state.document.lockCornersToCard }
+
+    private var screenshotCornerValue: CGFloat {
+        if state.document.lockCornersToCard { return state.document.cardCornerRadius ?? 0 }
+        return state.document.effectiveSelectionCornerRadii.uniformRadius ?? 0
+    }
+
+    private func setLiveShotCorner(_ value: CGFloat) {
+        guard !isCornerLocked else { return }
+        if !shotCornerEditing {
+            shotCornerEditing = true
+            shotCornerStart = state.document.screenshotCornerOverride
+        }
+        state.document.screenshotCornerOverride = value
+    }
+
+    private func commitShotCornerDrag() {
+        guard shotCornerEditing else { return }
+        let from = shotCornerStart
+        let to = state.document.screenshotCornerOverride
+        state.document.screenshotCornerOverride = from
+        state.performCommand(
+            SetScreenshotCornerCommand(
+                fromRadius: from, toRadius: to,
+                fromLock: state.document.lockCornersToCard,
+                toLock: state.document.lockCornersToCard
+            )
+        )
+        shotCornerEditing = false
+        shotCornerStart = nil
+    }
+
+    private func toggleCornerLock() {
+        let doc = state.document
+        let newLock = !doc.lockCornersToCard
+        // Seed the override on unlock to whatever was displayed while locked (the card
+        // radius), so the screenshot corners don't jump back to the captured value.
+        let newOverride: CGFloat? = newLock
+            ? doc.screenshotCornerOverride
+            : (doc.cardCornerRadius ?? doc.screenshotCornerOverride ?? doc.effectiveSelectionCornerRadii.uniformRadius)
+        state.performCommand(
+            SetScreenshotCornerCommand(
+                fromRadius: doc.screenshotCornerOverride, toRadius: newOverride,
+                fromLock: doc.lockCornersToCard, toLock: newLock
+            )
+        )
+    }
+
+    // MARK: - Shadow
+
+    private var shadow: ShadowConfig { state.document.shadow }
+
+    private var shadowSection: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack {
+                SectionLabel(text: "Shadow")
+                Spacer()
+                Toggle("Shadow", isOn: Binding(
+                    get: { shadow.isEnabled },
+                    set: { var next = shadow; next.isEnabled = $0; commitShadow(next) }
+                ))
+                .labelsHidden()
+                .toggleStyle(GlassToggleStyle())
+            }
+            if shadow.isEnabled {
+                shadowSlider("Blur", value: shadow.blur, range: 0...Double(ShadowConfig.maximumBlur)) {
+                    var next = shadow; next.blur = $0; commitShadow(next)
+                }
+                shadowSlider(
+                    "Offset X",
+                    value: shadow.offsetX,
+                    range: -Double(ShadowConfig.maximumOffset)...Double(ShadowConfig.maximumOffset)
+                ) {
+                    var next = shadow; next.offsetX = $0; commitShadow(next)
+                }
+                shadowSlider(
+                    "Offset Y",
+                    value: shadow.offsetY,
+                    range: -Double(ShadowConfig.maximumOffset)...Double(ShadowConfig.maximumOffset)
+                ) {
+                    var next = shadow; next.offsetY = $0; commitShadow(next)
+                }
+                shadowSlider(
+                    "Opacity",
+                    value: shadow.opacity * 100,
+                    range: 0...Double(ShadowConfig.maximumOpacity * 100),
+                    suffix: "%"
+                ) {
+                    var next = shadow; next.opacity = $0 / 100; commitShadow(next)
+                }
+                HStack {
+                    InspectorRowLabel(text: "Color")
+                    GlassColorWell(selection: $shadowColor, label: "Shadow color")
+                        .onChange(of: shadowColor) { _, newColor in
+                            guard !syncingShadow else { return }
+                            var next = shadow
+                            next.color = NSColor(newColor).cgColor
+                            commitShadow(next)
+                        }
+                    Spacer()
+                }
+            }
+        }
+    }
+
+    private func shadowSlider(
+        _ label: String,
+        value: CGFloat,
+        range: ClosedRange<Double>,
+        suffix: String = "",
+        _ set: @escaping (CGFloat) -> Void
+    ) -> some View {
+        HStack(spacing: 10) {
+            InspectorRowLabel(text: label)
+            GlassSlider(
+                value: Binding(get: { Double(value) }, set: { set(CGFloat($0.rounded())) }),
+                range: range,
+                accessibilityLabel: label,
+                accessibilityValue: { "\(Int($0.rounded()))\(suffix)" }
+            )
+            InspectorValueLabel(text: "\(Int(value))\(suffix)")
+        }
+    }
+
+    private func commitShadow(_ next: ShadowConfig) {
+        let clamped = next.clamped
+        guard clamped != shadow else { return }
+        state.performCommand(SetShadowCommand(from: shadow, to: clamped))
     }
 
     private func value(of side: PaddingSide) -> CGFloat {

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+<defs>
+<linearGradient id="dia" gradientUnits="userSpaceOnUse" x1="512" y1="356" x2="512" y2="453">
+<stop offset="0" stop-color="#F1EBE2"/>
+<stop offset="0.4" stop-color="#F1EBE2"/>
+<stop offset="1" stop-color="#F9AC72"/>
+</linearGradient>
+</defs>
+<path fill="url(#dia)" d="M 507.05 359.95 A 7 7 0 0 1 516.95 359.95 L 556.55 399.55 A 7 7 0 0 1 556.55 409.45 L 516.95 449.05 A 7 7 0 0 1 507.05 449.05 L 467.45 409.45 A 7 7 0 0 1 467.45 399.55 Z"/>
+</svg>
