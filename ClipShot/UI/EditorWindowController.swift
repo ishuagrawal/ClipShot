@@ -8,14 +8,20 @@ final class EditorWindowController {
     private let store: CaptureSessionStore
     private let recentsStore: RecentsStore
     private let onReopenRecent: (RecentEntry) -> Void
+    private let onImportFile: (URL) -> Bool
+    private let onImportData: (Data, String) -> Bool
     private var window: NSWindow?
 
     init(store: CaptureSessionStore,
          recentsStore: RecentsStore,
-         onReopenRecent: @escaping (RecentEntry) -> Void) {
+         onReopenRecent: @escaping (RecentEntry) -> Void,
+         onImportFile: @escaping (URL) -> Bool,
+         onImportData: @escaping (Data, String) -> Bool) {
         self.store = store
         self.recentsStore = recentsStore
         self.onReopenRecent = onReopenRecent
+        self.onImportFile = onImportFile
+        self.onImportData = onImportData
     }
 
     func show() {
@@ -28,7 +34,10 @@ final class EditorWindowController {
     }
 
     private func makeWindow() -> NSWindow {
-        let contentView = EditorView(store: store, onReopenRecent: onReopenRecent)
+        let contentView = EditorView(store: store,
+                                     onReopenRecent: onReopenRecent,
+                                     onImportFile: onImportFile,
+                                     onImportData: onImportData)
             .environmentObject(recentsStore)
         let hostingController = NSHostingController(rootView: contentView)
         let window = NSWindow(

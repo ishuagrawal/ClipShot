@@ -1,4 +1,5 @@
 import AppKit
+import ImageIO
 
 @MainActor
 final class CaptureCoordinator: @unchecked Sendable {
@@ -9,6 +10,28 @@ final class CaptureCoordinator: @unchecked Sendable {
 
     init(appState: AppState) {
         self.appState = appState
+    }
+
+    /// Brings the editor window forward; with no session it shows the home page.
+    func showHome() {
+        recentsStore.loadIfNeeded()
+        ensureWindowController().show()
+    }
+
+    /// Imports an image file as a new session; returns false if it can't be read.
+    @discardableResult
+    func importImage(at url: URL) -> Bool {
+        guard let data = try? Data(contentsOf: url) else { return importFailed() }
+        return importImage(data: data, sourceTitle: url.deletingPathExtension().lastPathComponent)
+    }
+
+    /// Imports raw image data (e.g. dragged from a browser) as a new session.
+    @discardableResult
+    func importImage(data: Data, sourceTitle: String) -> Bool {
+        guard let request = Self.makeImportRequest(imageData: data, sourceTitle: sourceTitle) else {
+            return importFailed()
+        }
+        return openSession(request: request)
     }
 
     func openSession(request: CaptureSessionRequest) -> Bool {
@@ -101,21 +124,72 @@ final class CaptureCoordinator: @unchecked Sendable {
         )
     }
 
+    /// Builds a session request from arbitrary image-file data; pure so it's unit-testable.
+    /// Selection covers the full frame; pixel scale comes from DPI metadata when present.
+    static func makeImportRequest(imageData: Data, sourceTitle: String) -> CaptureSessionRequest? {
+        guard let source = CGImageSourceCreateWithData(imageData as CFData, nil),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil),
+              let pngData = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])
+        else { return nil }
+
+        let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+        let dpi = properties?[kCGImagePropertyDPIWidth] as? Double ?? 0
+        // Retina screenshots are typically saved at 144 DPI; map DPI to a 1–4x scale.
+        let scale = dpi > 0 ? min(max((dpi / 72).rounded(), 1), 4) : 1
+        let pixelWidth = Double(image.width)
+        let pixelHeight = Double(image.height)
+        let pointWidth = pixelWidth / scale
+        let pointHeight = pixelHeight / scale
+
+        return CaptureSessionRequest(
+            screenshotBase64: pngData.base64EncodedString(),
+            selectedRect: CaptureRect(left: 0, top: 0, width: pointWidth, height: pointHeight),
+            viewport: CaptureViewport(
+                width: pointWidth,
+                height: pointHeight,
+                devicePixelRatio: scale,
+                scrollX: 0,
+                scrollY: 0
+            ),
+            candidates: [],
+            selectedIndex: -1,
+            sourceTitle: sourceTitle,
+            sourceURL: "",
+            imageWidth: pixelWidth,
+            imageHeight: pixelHeight,
+            selectedBorderRadii: nil,
+            premaskedCornerRadii: nil
+        )
+    }
+
     // MARK: - Private
+
+    private func ensureWindowController() -> EditorWindowController {
+        let controller = editorWindowController ?? EditorWindowController(
+            store: sessionStore,
+            recentsStore: recentsStore,
+            onReopenRecent: { [weak self] entry in self?.reopenRecent(entry) },
+            onImportFile: { [weak self] url in self?.importImage(at: url) ?? false },
+            onImportData: { [weak self] data, title in
+                self?.importImage(data: data, sourceTitle: title) ?? false
+            }
+        )
+        editorWindowController = controller
+        return controller
+    }
+
+    private func importFailed() -> Bool {
+        appState.setCaptureStatus("Couldn't read that image")
+        NSSound.beep()
+        return false
+    }
 
     private func presentSession(request: CaptureSessionRequest) -> CaptureSession? {
         do {
             let session = try CaptureSession(request: request)
             sessionStore.session = session
             recentsStore.loadIfNeeded()
-
-            let controller = editorWindowController ?? EditorWindowController(
-                store: sessionStore,
-                recentsStore: recentsStore,
-                onReopenRecent: { [weak self] entry in self?.reopenRecent(entry) }
-            )
-            editorWindowController = controller
-            controller.show()
+            ensureWindowController().show()
 
             appState.setCaptureStatus("Editor session ready")
             return session

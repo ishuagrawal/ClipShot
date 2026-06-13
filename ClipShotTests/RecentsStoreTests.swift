@@ -257,6 +257,39 @@ final class RecentsStoreTests: XCTestCase {
         XCTAssertEqual(request.selectedRect, CaptureRect(left: 0, top: 0, width: 300, height: 200))
     }
 
+    func test_makeImportRequest_decodesImage_andUsesFullFrame() throws {
+        let tiffData = try XCTUnwrap(Self.makeTestImageData(width: 40, height: 24))
+        let request = try XCTUnwrap(
+            CaptureCoordinator.makeImportRequest(imageData: tiffData, sourceTitle: "screenshot")
+        )
+
+        XCTAssertEqual(request.sourceTitle, "screenshot")
+        XCTAssertEqual(request.viewport.devicePixelRatio, 1)
+        XCTAssertEqual(request.imageWidth, 40)
+        XCTAssertEqual(request.imageHeight, 24)
+        XCTAssertEqual(request.selectedRect, CaptureRect(left: 0, top: 0, width: 40, height: 24))
+        XCTAssertNil(request.selectedBorderRadii)
+        XCTAssertNil(request.premaskedCornerRadii)
+        // Output is normalized to PNG regardless of the input format.
+        let decoded = try XCTUnwrap(Data(base64Encoded: request.screenshotBase64))
+        XCTAssertEqual(decoded.prefix(4), Data([0x89, 0x50, 0x4E, 0x47]))
+    }
+
+    func test_makeImportRequest_unreadableData_returnsNil() {
+        XCTAssertNil(CaptureCoordinator.makeImportRequest(imageData: Data([0xDE, 0xAD]),
+                                                          sourceTitle: "bad"))
+        XCTAssertNil(CaptureCoordinator.makeImportRequest(imageData: Data(), sourceTitle: "empty"))
+    }
+
+    /// Tiny TIFF so the import test exercises non-PNG decoding.
+    private static func makeTestImageData(width: Int, height: Int) -> Data? {
+        guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height,
+                                         bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+                                         isPlanar: false, colorSpaceName: .deviceRGB,
+                                         bytesPerRow: 0, bitsPerPixel: 0) else { return nil }
+        return rep.tiffRepresentation
+    }
+
     func test_loadIfNeeded_afterRecord_doesNotDuplicateEntry() {
         let store = makeStore()
         let entry = makeEntry()

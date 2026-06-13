@@ -1,23 +1,28 @@
 import AppKit
 import ImageIO
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Home page shown when no session is open: hero card plus a recents strip.
 struct HomeView: View {
     @EnvironmentObject private var recents: RecentsStore
     var onReopenRecent: (RecentEntry) -> Void = { _ in }
-    /// Open-file action and drop highlight are driven externally (Task 4).
-    var onOpenFile: () -> Void = {}
-    var isDropTargeted: Bool = false
+    /// Import an opened/dropped image; false means it couldn't be read.
+    var onImportFile: (URL) -> Bool = { _ in false }
+    var onImportData: (Data, String) -> Bool = { _, _ in false }
 
     @State private var appeared = false
+    @State private var isDropTargeted = false
+    @State private var importErrorVisible = false
+    @State private var errorDismissTask: Task<Void, Never>?
 
     var body: some View {
         ZStack {
             StageBackdrop()
             StageCornerTicks()
             VStack(spacing: 40) {
-                HomeHeroCard(onOpenFile: onOpenFile, isDropTargeted: isDropTargeted)
+                HomeHeroCard(onOpenFile: openFilePanel, isDropTargeted: isDropTargeted)
+                    .overlay(alignment: .bottom) { importErrorNotice }
                 if !recents.entries.isEmpty {
                     recentsStrip
                         .transition(.opacity.combined(with: .scale(scale: 0.97)))
@@ -29,10 +34,85 @@ struct HomeView: View {
         }
         .ignoresSafeArea()
         .frame(minWidth: 860, minHeight: 560)
+        .onDrop(of: [.fileURL, .image], isTargeted: $isDropTargeted) { providers in
+            handleDrop(providers)
+        }
         .onAppear {
             recents.loadIfNeeded()
             withAnimation(.easeOut(duration: 0.35)) { appeared = true }
         }
+    }
+
+    // MARK: - Import
+
+    private func openFilePanel() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            Task { @MainActor in importFile(at: url) }
+        }
+    }
+
+    private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
+        guard let provider = providers.first else { return false }
+        if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+            _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                Task { @MainActor in
+                    if let url { importFile(at: url) } else { showImportError() }
+                }
+            }
+            return true
+        }
+        if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
+            provider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, _ in
+                Task { @MainActor in
+                    guard let data, onImportData(data, "Dropped Image") else {
+                        showImportError()
+                        return
+                    }
+                }
+            }
+            return true
+        }
+        return false
+    }
+
+    @MainActor
+    private func importFile(at url: URL) {
+        if !onImportFile(url) { showImportError() }
+    }
+
+    @MainActor
+    private func showImportError() {
+        errorDismissTask?.cancel()
+        withAnimation(.easeOut(duration: 0.18)) { importErrorVisible = true }
+        errorDismissTask = Task {
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.3)) { importErrorVisible = false }
+        }
+    }
+
+    /// Transient notice pinned just below the hero card; auto-dismisses.
+    private var importErrorNotice: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(Theme.danger)
+            Text("Couldn't read that image")
+                .font(Theme.label(11.5))
+                .foregroundStyle(Theme.textPrimary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .glassPanel(cornerRadius: Theme.radiusPill)
+        .offset(y: 44)
+        .opacity(importErrorVisible ? 1 : 0)
+        .allowsHitTesting(false)
+        .accessibilityHidden(!importErrorVisible)
     }
 
     private var recentsStrip: some View {

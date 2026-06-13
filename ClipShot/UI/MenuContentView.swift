@@ -15,6 +15,18 @@ struct MenuContentView: View {
             Rectangle().fill(Theme.hairline).frame(height: 1)
 
             MenuRowButton {
+                appState.onOpenHome?()
+            } label: {
+                Text("Open ClipShot")
+                    .font(Theme.label(12.5, .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(6)
+
+            Rectangle().fill(Theme.hairline).frame(height: 1)
+
+            MenuRowButton {
                 appState.onBeginCapture?()
             } label: {
                 captureRow(

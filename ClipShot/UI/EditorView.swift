@@ -5,6 +5,9 @@ struct EditorView: View {
     @ObservedObject var store: CaptureSessionStore
     /// Reopens a recents entry as a fresh session; consumed by the home page (Task 3).
     var onReopenRecent: (RecentEntry) -> Void = { _ in }
+    /// Import an opened/dropped image as a new session; false means unreadable.
+    var onImportFile: (URL) -> Bool = { _ in false }
+    var onImportData: (Data, String) -> Bool = { _, _ in false }
 
     var body: some View {
         Group {
@@ -15,7 +18,9 @@ struct EditorView: View {
                     // the document instead of being ignored by @StateObject.
                     .id(session.id)
             } else {
-                HomeView(onReopenRecent: onReopenRecent)
+                HomeView(onReopenRecent: onReopenRecent,
+                         onImportFile: onImportFile,
+                         onImportData: onImportData)
             }
         }
         .preferredColorScheme(.dark)

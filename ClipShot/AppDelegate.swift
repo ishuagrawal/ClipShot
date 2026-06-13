@@ -15,6 +15,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             launcher?.beginCapture()
         }
         AppState.shared.onBeginCapture = beginCapture
+        AppState.shared.onOpenHome = { [weak coordinator] in
+            coordinator?.showHome()
+        }
         let shortcut = NativeCaptureShortcut(handler: beginCapture)
         if !shortcut.register() {
             AppState.shared.setCaptureStatus("Control Shift 5 unavailable")
