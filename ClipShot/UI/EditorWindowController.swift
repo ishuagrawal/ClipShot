@@ -12,6 +12,9 @@ final class EditorWindowController {
     private let onImportData: (Data, String) async -> Bool
     private var window: NSWindow?
 
+    /// False when the window is closed (ordered out); true on-screen or miniaturized.
+    var isWindowVisible: Bool { window?.isVisible ?? false }
+
     init(store: CaptureSessionStore,
          recentsStore: RecentsStore,
          onReopenRecent: @escaping (RecentEntry) -> Void,

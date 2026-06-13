@@ -14,9 +14,14 @@ final class CaptureCoordinator: @unchecked Sendable {
     }
 
     /// Brings the editor window forward; with no session it shows the home page.
+    /// A closed window reopens to the home page rather than a stale session.
     func showHome() {
         recentsStore.loadIfNeeded()
-        ensureWindowController().show()
+        let controller = ensureWindowController()
+        if !controller.isWindowVisible {
+            sessionStore.session = nil
+        }
+        controller.show()
     }
 
     /// Imports an image file as a new session; returns false if it can't be read.
