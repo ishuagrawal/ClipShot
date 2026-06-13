@@ -6,8 +6,8 @@ struct EditorView: View {
     /// Reopens a recents entry as a fresh session; consumed by the home page (Task 3).
     var onReopenRecent: (RecentEntry) -> Void = { _ in }
     /// Import an opened/dropped image as a new session; false means unreadable.
-    var onImportFile: (URL) -> Bool = { _ in false }
-    var onImportData: (Data, String) -> Bool = { _, _ in false }
+    var onImportFile: (URL) async -> Bool = { _ in false }
+    var onImportData: (Data, String) async -> Bool = { _, _ in false }
 
     var body: some View {
         Group {

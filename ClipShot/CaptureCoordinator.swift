@@ -1,5 +1,6 @@
 import AppKit
 import ImageIO
+import UniformTypeIdentifiers
 
 @MainActor
 final class CaptureCoordinator: @unchecked Sendable {
@@ -19,18 +20,25 @@ final class CaptureCoordinator: @unchecked Sendable {
     }
 
     /// Imports an image file as a new session; returns false if it can't be read.
+    /// File IO and decoding happen off the main actor.
     @discardableResult
-    func importImage(at url: URL) -> Bool {
-        guard let data = try? Data(contentsOf: url) else { return importFailed() }
-        return importImage(data: data, sourceTitle: url.deletingPathExtension().lastPathComponent)
+    func importImage(at url: URL) async -> Bool {
+        let request = await Task.detached(priority: .userInitiated) {
+            guard let data = try? Data(contentsOf: url) else { return CaptureSessionRequest?.none }
+            return Self.makeImportRequest(imageData: data,
+                                          sourceTitle: url.deletingPathExtension().lastPathComponent)
+        }.value
+        guard let request else { return importFailed() }
+        return openSession(request: request)
     }
 
     /// Imports raw image data (e.g. dragged from a browser) as a new session.
     @discardableResult
-    func importImage(data: Data, sourceTitle: String) -> Bool {
-        guard let request = Self.makeImportRequest(imageData: data, sourceTitle: sourceTitle) else {
-            return importFailed()
-        }
+    func importImage(data: Data, sourceTitle: String) async -> Bool {
+        let request = await Task.detached(priority: .userInitiated) {
+            Self.makeImportRequest(imageData: data, sourceTitle: sourceTitle)
+        }.value
+        guard let request else { return importFailed() }
         return openSession(request: request)
     }
 
@@ -126,18 +134,43 @@ final class CaptureCoordinator: @unchecked Sendable {
 
     /// Builds a session request from arbitrary image-file data; pure so it's unit-testable.
     /// Selection covers the full frame; pixel scale comes from DPI metadata when present.
-    static func makeImportRequest(imageData: Data, sourceTitle: String) -> CaptureSessionRequest? {
-        guard let source = CGImageSourceCreateWithData(imageData as CFData, nil),
-              let image = CGImageSourceCreateImageAtIndex(source, 0, nil),
-              let pngData = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])
-        else { return nil }
+    nonisolated static func makeImportRequest(imageData: Data, sourceTitle: String) -> CaptureSessionRequest? {
+        guard let source = CGImageSourceCreateWithData(imageData as CFData, nil) else { return nil }
 
         let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
-        let dpi = properties?[kCGImagePropertyDPIWidth] as? Double ?? 0
+        let orientation = (properties?[kCGImagePropertyOrientation] as? NSNumber)?.uint32Value ?? 1
+        let isPNG = (CGImageSourceGetType(source) as String?) == UTType.png.identifier
+        let metaWidth = (properties?[kCGImagePropertyPixelWidth] as? NSNumber)?.doubleValue
+        let metaHeight = (properties?[kCGImagePropertyPixelHeight] as? NSNumber)?.doubleValue
+
+        let pngData: Data
+        let pixelWidth: Double
+        let pixelHeight: Double
+        if isPNG, orientation == 1, let metaWidth, let metaHeight {
+            // Already an upright PNG: keep the original bytes.
+            pngData = imageData
+            pixelWidth = metaWidth
+            pixelHeight = metaHeight
+        } else {
+            // Full-size decode with EXIF orientation applied (same pattern as recents thumbnails).
+            var options: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true
+            ]
+            if let metaWidth, let metaHeight {
+                options[kCGImageSourceThumbnailMaxPixelSize] = max(metaWidth, metaHeight)
+            }
+            guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary),
+                  let encoded = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])
+            else { return nil }
+            pngData = encoded
+            pixelWidth = Double(image.width)
+            pixelHeight = Double(image.height)
+        }
+
+        let dpi = (properties?[kCGImagePropertyDPIWidth] as? NSNumber)?.doubleValue ?? 0
         // Retina screenshots are typically saved at 144 DPI; map DPI to a 1–4x scale.
         let scale = dpi > 0 ? min(max((dpi / 72).rounded(), 1), 4) : 1
-        let pixelWidth = Double(image.width)
-        let pixelHeight = Double(image.height)
         let pointWidth = pixelWidth / scale
         let pointHeight = pixelHeight / scale
 
@@ -169,9 +202,9 @@ final class CaptureCoordinator: @unchecked Sendable {
             store: sessionStore,
             recentsStore: recentsStore,
             onReopenRecent: { [weak self] entry in self?.reopenRecent(entry) },
-            onImportFile: { [weak self] url in self?.importImage(at: url) ?? false },
+            onImportFile: { [weak self] url in await self?.importImage(at: url) ?? false },
             onImportData: { [weak self] data, title in
-                self?.importImage(data: data, sourceTitle: title) ?? false
+                await self?.importImage(data: data, sourceTitle: title) ?? false
             }
         )
         editorWindowController = controller

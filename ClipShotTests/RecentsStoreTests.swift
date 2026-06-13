@@ -1,3 +1,5 @@
+import ImageIO
+import UniformTypeIdentifiers
 import XCTest
 @testable import ClipShot
 
@@ -275,6 +277,21 @@ final class RecentsStoreTests: XCTestCase {
         XCTAssertEqual(decoded.prefix(4), Data([0x89, 0x50, 0x4E, 0x47]))
     }
 
+    func test_makeImportRequest_144DPIPNG_yieldsScale2_andPassesThroughOriginalData() throws {
+        let pngData = try XCTUnwrap(Self.makePNGData(width: 40, height: 24, dpi: 144))
+        let request = try XCTUnwrap(
+            CaptureCoordinator.makeImportRequest(imageData: pngData, sourceTitle: "retina")
+        )
+
+        XCTAssertEqual(request.viewport.devicePixelRatio, 2)
+        XCTAssertEqual(request.viewport.width, 20) // 40px / 2x
+        XCTAssertEqual(request.viewport.height, 12)
+        XCTAssertEqual(request.imageWidth, 40)
+        XCTAssertEqual(request.imageHeight, 24)
+        // Upright PNG input skips the re-encode and keeps the original bytes.
+        XCTAssertEqual(Data(base64Encoded: request.screenshotBase64), pngData)
+    }
+
     func test_makeImportRequest_unreadableData_returnsNil() {
         XCTAssertNil(CaptureCoordinator.makeImportRequest(imageData: Data([0xDE, 0xAD]),
                                                           sourceTitle: "bad"))
@@ -288,6 +305,22 @@ final class RecentsStoreTests: XCTestCase {
                                          isPlanar: false, colorSpaceName: .deviceRGB,
                                          bytesPerRow: 0, bitsPerPixel: 0) else { return nil }
         return rep.tiffRepresentation
+    }
+
+    /// PNG with pHYs DPI metadata, mimicking a Retina screenshot file.
+    private static func makePNGData(width: Int, height: Int, dpi: Double) -> Data? {
+        guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height,
+                                         bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+                                         isPlanar: false, colorSpaceName: .deviceRGB,
+                                         bytesPerRow: 0, bitsPerPixel: 0),
+              let cgImage = rep.cgImage else { return nil }
+        let data = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            data, UTType.png.identifier as CFString, 1, nil) else { return nil }
+        let properties: [CFString: Any] = [kCGImagePropertyDPIWidth: dpi, kCGImagePropertyDPIHeight: dpi]
+        CGImageDestinationAddImage(destination, cgImage, properties as CFDictionary)
+        guard CGImageDestinationFinalize(destination) else { return nil }
+        return data as Data
     }
 
     func test_loadIfNeeded_afterRecord_doesNotDuplicateEntry() {

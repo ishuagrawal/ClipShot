@@ -8,15 +8,15 @@ final class EditorWindowController {
     private let store: CaptureSessionStore
     private let recentsStore: RecentsStore
     private let onReopenRecent: (RecentEntry) -> Void
-    private let onImportFile: (URL) -> Bool
-    private let onImportData: (Data, String) -> Bool
+    private let onImportFile: (URL) async -> Bool
+    private let onImportData: (Data, String) async -> Bool
     private var window: NSWindow?
 
     init(store: CaptureSessionStore,
          recentsStore: RecentsStore,
          onReopenRecent: @escaping (RecentEntry) -> Void,
-         onImportFile: @escaping (URL) -> Bool,
-         onImportData: @escaping (Data, String) -> Bool) {
+         onImportFile: @escaping (URL) async -> Bool,
+         onImportData: @escaping (Data, String) async -> Bool) {
         self.store = store
         self.recentsStore = recentsStore
         self.onReopenRecent = onReopenRecent

@@ -8,13 +8,14 @@ struct HomeView: View {
     @EnvironmentObject private var recents: RecentsStore
     var onReopenRecent: (RecentEntry) -> Void = { _ in }
     /// Import an opened/dropped image; false means it couldn't be read.
-    var onImportFile: (URL) -> Bool = { _ in false }
-    var onImportData: (Data, String) -> Bool = { _, _ in false }
+    var onImportFile: (URL) async -> Bool = { _ in false }
+    var onImportData: (Data, String) async -> Bool = { _, _ in false }
 
     @State private var appeared = false
     @State private var isDropTargeted = false
     @State private var importErrorVisible = false
     @State private var errorDismissTask: Task<Void, Never>?
+    @State private var filePanelOpen = false
 
     var body: some View {
         ZStack {
@@ -22,7 +23,6 @@ struct HomeView: View {
             StageCornerTicks()
             VStack(spacing: 40) {
                 HomeHeroCard(onOpenFile: openFilePanel, isDropTargeted: isDropTargeted)
-                    .overlay(alignment: .bottom) { importErrorNotice }
                 if !recents.entries.isEmpty {
                     recentsStrip
                         .transition(.opacity.combined(with: .scale(scale: 0.97)))
@@ -32,6 +32,7 @@ struct HomeView: View {
             .scaleEffect(appeared ? 1 : 0.985)
             .animation(Theme.panelSpring, value: recents.entries.map(\.id))
         }
+        .overlay(alignment: .bottom) { importErrorNotice.padding(.bottom, 28) }
         .ignoresSafeArea()
         .frame(minWidth: 860, minHeight: 560)
         .onDrop(of: [.fileURL, .image], isTargeted: $isDropTargeted) { providers in
@@ -46,13 +47,18 @@ struct HomeView: View {
     // MARK: - Import
 
     private func openFilePanel() {
+        guard !filePanelOpen else { return }
+        filePanelOpen = true
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.image]
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.begin { response in
-            guard response == .OK, let url = panel.url else { return }
-            Task { @MainActor in importFile(at: url) }
+            Task { @MainActor in
+                filePanelOpen = false
+                guard response == .OK, let url = panel.url else { return }
+                await importFile(at: url)
+            }
         }
     }
 
@@ -61,15 +67,18 @@ struct HomeView: View {
         if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
             _ = provider.loadObject(ofClass: URL.self) { url, _ in
                 Task { @MainActor in
-                    if let url { importFile(at: url) } else { showImportError() }
+                    if let url { await importFile(at: url) } else { showImportError() }
                 }
             }
             return true
         }
         if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
-            provider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, _ in
+            // Prefer the provider's concrete image type (public.png/jpeg) over the abstract one.
+            let identifier = provider.registeredTypeIdentifiers
+                .first { UTType($0)?.conforms(to: .image) == true } ?? UTType.image.identifier
+            provider.loadDataRepresentation(forTypeIdentifier: identifier) { data, _ in
                 Task { @MainActor in
-                    guard let data, onImportData(data, "Dropped Image") else {
+                    guard let data, await onImportData(data, "Dropped Image") else {
                         showImportError()
                         return
                     }
@@ -81,8 +90,8 @@ struct HomeView: View {
     }
 
     @MainActor
-    private func importFile(at url: URL) {
-        if !onImportFile(url) { showImportError() }
+    private func importFile(at url: URL) async {
+        if await !onImportFile(url) { showImportError() }
     }
 
     @MainActor
@@ -96,7 +105,7 @@ struct HomeView: View {
         }
     }
 
-    /// Transient notice pinned just below the hero card; auto-dismisses.
+    /// Transient notice floating near the bottom edge, clear of the recents strip; auto-dismisses.
     private var importErrorNotice: some View {
         HStack(spacing: 6) {
             Image(systemName: "exclamationmark.triangle.fill")
@@ -109,7 +118,6 @@ struct HomeView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
         .glassPanel(cornerRadius: Theme.radiusPill)
-        .offset(y: 44)
         .opacity(importErrorVisible ? 1 : 0)
         .allowsHitTesting(false)
         .accessibilityHidden(!importErrorVisible)
