@@ -3,6 +3,8 @@ import SwiftUI
 
 struct EditorView: View {
     @ObservedObject var store: CaptureSessionStore
+    /// Reopens a recents entry as a fresh session; consumed by the home page (Task 3).
+    var onReopenRecent: (RecentEntry) -> Void = { _ in }
 
     var body: some View {
         Group {

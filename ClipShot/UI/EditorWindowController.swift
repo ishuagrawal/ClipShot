@@ -6,10 +6,16 @@ final class EditorWindowController {
     private static let frameAutosaveName = NSWindow.FrameAutosaveName("ClipShotEditorWindow")
 
     private let store: CaptureSessionStore
+    private let recentsStore: RecentsStore
+    private let onReopenRecent: (RecentEntry) -> Void
     private var window: NSWindow?
 
-    init(store: CaptureSessionStore) {
+    init(store: CaptureSessionStore,
+         recentsStore: RecentsStore,
+         onReopenRecent: @escaping (RecentEntry) -> Void) {
         self.store = store
+        self.recentsStore = recentsStore
+        self.onReopenRecent = onReopenRecent
     }
 
     func show() {
@@ -22,7 +28,8 @@ final class EditorWindowController {
     }
 
     private func makeWindow() -> NSWindow {
-        let contentView = EditorView(store: store)
+        let contentView = EditorView(store: store, onReopenRecent: onReopenRecent)
+            .environmentObject(recentsStore)
         let hostingController = NSHostingController(rootView: contentView)
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1100, height: 760),

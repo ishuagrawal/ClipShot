@@ -176,6 +176,88 @@ final class RecentsStoreTests: XCTestCase {
         XCTAssertEqual(store.entries.count, 1)
     }
 
+    func test_touch_bumpsEntryToTopWithFreshDate() {
+        let store = RecentsStore(rootURL: rootURL)
+        let old = makeEntry(capturedAt: Date(timeIntervalSinceNow: -100), title: "old")
+        let new = makeEntry(capturedAt: Date(timeIntervalSinceNow: -50), title: "new")
+        store.record(imageData: Data([1]), entry: old)
+        store.record(imageData: Data([2]), entry: new)
+        XCTAssertEqual(store.entries.map(\.sourceTitle), ["new", "old"])
+
+        store.touch(old.id)
+
+        XCTAssertEqual(store.entries.map(\.sourceTitle), ["old", "new"])
+        XCTAssertEqual(store.entries.count, 2)
+        let bumped = store.entries[0]
+        XCTAssertEqual(bumped.id, old.id)
+        XCTAssertGreaterThan(bumped.capturedAt, old.capturedAt)
+        XCTAssertEqual(bumped.selectionRect, old.selectionRect)
+    }
+
+    func test_touch_persistsAcrossReload() {
+        let store = RecentsStore(rootURL: rootURL)
+        let old = makeEntry(capturedAt: Date(timeIntervalSinceNow: -100), title: "old")
+        let new = makeEntry(capturedAt: Date(timeIntervalSinceNow: -50), title: "new")
+        store.record(imageData: Data([1]), entry: old)
+        store.record(imageData: Data([2]), entry: new)
+        waitForDisk(new)
+
+        store.touch(old.id)
+        // Touch's meta rewrite is queued behind the record writes; settle via sentinel meta read.
+        let metaURL = rootURL.appendingPathComponent(old.id.uuidString).appendingPathComponent("meta.json")
+        wait {
+            guard let data = try? Data(contentsOf: metaURL),
+                  let entry = try? JSONDecoder().decode(RecentEntry.self, from: data) else { return false }
+            return entry.capturedAt > old.capturedAt
+        }
+
+        let reloaded = RecentsStore(rootURL: rootURL)
+        reloaded.loadIfNeeded()
+        wait { reloaded.entries.count == 2 }
+        XCTAssertEqual(reloaded.entries.map(\.sourceTitle), ["old", "new"])
+    }
+
+    func test_touch_unknownID_isNoOp() {
+        let store = RecentsStore(rootURL: rootURL)
+        let entry = makeEntry()
+        store.record(imageData: Data([1]), entry: entry)
+
+        store.touch(UUID())
+        XCTAssertEqual(store.entries.map(\.id), [entry.id])
+    }
+
+    func test_makeReopenRequest_mirrorsEntryMetadata() throws {
+        let entry = makeEntry()
+        let imageData = Data([0x01, 0x02])
+        let request = CaptureCoordinator.makeReopenRequest(entry: entry, imageData: imageData)
+
+        XCTAssertEqual(request.screenshotBase64, imageData.base64EncodedString())
+        XCTAssertEqual(request.sourceTitle, entry.sourceTitle)
+        XCTAssertEqual(request.viewport.devicePixelRatio, 2)
+        XCTAssertEqual(request.viewport.width, 300) // 600px / 2x
+        XCTAssertEqual(request.viewport.height, 200)
+        XCTAssertEqual(request.imageWidth, 600)
+        XCTAssertEqual(request.imageHeight, 400)
+        XCTAssertEqual(request.selectedRect, CaptureRect(left: 10, top: 20, width: 300, height: 200))
+        XCTAssertNil(request.premaskedCornerRadii)
+    }
+
+    func test_makeReopenRequest_withoutSelection_usesFullFrame() {
+        var entry = makeEntry()
+        entry = RecentEntry(
+            id: entry.id,
+            capturedAt: entry.capturedAt,
+            sourceTitle: entry.sourceTitle,
+            pixelScale: entry.pixelScale,
+            selectionRect: nil,
+            cornerRadii: entry.cornerRadii,
+            pixelWidth: entry.pixelWidth,
+            pixelHeight: entry.pixelHeight
+        )
+        let request = CaptureCoordinator.makeReopenRequest(entry: entry, imageData: Data([1]))
+        XCTAssertEqual(request.selectedRect, CaptureRect(left: 0, top: 0, width: 300, height: 200))
+    }
+
     func test_loadIfNeeded_afterRecord_doesNotDuplicateEntry() {
         let store = RecentsStore(rootURL: rootURL)
         let entry = makeEntry()

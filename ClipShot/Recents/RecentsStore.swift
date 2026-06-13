@@ -72,6 +72,32 @@ final class RecentsStore: ObservableObject {
         }
     }
 
+    /// Bumps an existing entry to the top (fresh capturedAt) and persists the updated meta.
+    func touch(_ id: UUID) {
+        guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
+        let old = entries[index]
+        let updated = RecentEntry(
+            id: old.id,
+            capturedAt: Date(),
+            sourceTitle: old.sourceTitle,
+            pixelScale: old.pixelScale,
+            selectionRect: old.selectionRect,
+            cornerRadii: old.cornerRadii,
+            pixelWidth: old.pixelWidth,
+            pixelHeight: old.pixelHeight
+        )
+        entries.remove(at: index)
+        insert(updated)
+        let metaURL = directoryURL(for: id).appendingPathComponent("meta.json")
+        queue.async {
+            do {
+                try JSONEncoder().encode(updated).write(to: metaURL, options: .atomic)
+            } catch {
+                NSLog("RecentsStore: failed to touch entry \(id): \(error)")
+            }
+        }
+    }
+
     func remove(_ id: UUID) {
         entries.removeAll { $0.id == id }
         deleteDirectory(for: id)
