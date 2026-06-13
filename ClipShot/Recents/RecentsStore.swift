@@ -41,11 +41,15 @@ final class RecentsStore: ObservableObject {
     }
 
     func record(imageData: Data, entry: RecentEntry) {
+        // Insert synchronously so the UI updates immediately and remove() can't race the write.
+        insert(entry)
+        guard entries.contains(where: { $0.id == entry.id }) else { return } // pruned at insert
         let directory = directoryURL(for: entry.id)
         queue.async { [weak self] in
-            Self.write(imageData: imageData, entry: entry, to: directory)
+            guard !Self.write(imageData: imageData, entry: entry, to: directory) else { return }
             Task { @MainActor in
-                self?.insert(entry)
+                NSLog("RecentsStore: dropping entry \(entry.id) after failed write")
+                self?.entries.removeAll { $0.id == entry.id }
             }
         }
     }
@@ -84,6 +88,8 @@ final class RecentsStore: ObservableObject {
         queue.async {
             do {
                 try FileManager.default.removeItem(at: url)
+            } catch let error as NSError where error.domain == NSCocoaErrorDomain && error.code == NSFileNoSuchFileError {
+                // Already gone (e.g. load-side cleanup); benign.
             } catch {
                 NSLog("RecentsStore: failed to delete \(url.lastPathComponent): \(error)")
             }
@@ -106,14 +112,16 @@ final class RecentsStore: ObservableObject {
         }
     }
 
-    private nonisolated static func write(imageData: Data, entry: RecentEntry, to directory: URL) {
+    private nonisolated static func write(imageData: Data, entry: RecentEntry, to directory: URL) -> Bool {
         do {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             try imageData.write(to: directory.appendingPathComponent("image.png"), options: .atomic)
             let meta = try JSONEncoder().encode(entry)
             try meta.write(to: directory.appendingPathComponent("meta.json"), options: .atomic)
+            return true
         } catch {
             NSLog("RecentsStore: failed to write entry \(entry.id): \(error)")
+            return false
         }
     }
 

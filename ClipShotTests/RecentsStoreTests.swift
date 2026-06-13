@@ -29,6 +29,12 @@ final class RecentsStoreTests: XCTestCase {
         )
     }
 
+    // meta.json is written last, so its presence means the entry is fully on disk.
+    private func waitForDisk(_ entry: RecentEntry) {
+        let meta = rootURL.appendingPathComponent(entry.id.uuidString).appendingPathComponent("meta.json")
+        wait { FileManager.default.fileExists(atPath: meta.path) }
+    }
+
     private func wait(timeout: TimeInterval = 5, until condition: @escaping () -> Bool) {
         let deadline = Date(timeIntervalSinceNow: timeout)
         while !condition() && Date() < deadline {
@@ -43,7 +49,8 @@ final class RecentsStoreTests: XCTestCase {
         let imageData = Data([0x89, 0x50, 0x4E, 0x47, 0x01, 0x02, 0x03])
 
         store.record(imageData: imageData, entry: entry)
-        wait { store.entries.count == 1 }
+        XCTAssertEqual(store.entries.count, 1)
+        waitForDisk(entry)
 
         let reloaded = RecentsStore(rootURL: rootURL)
         reloaded.loadIfNeeded()
@@ -66,7 +73,7 @@ final class RecentsStoreTests: XCTestCase {
 
         store.record(imageData: Data([1]), entry: old)
         store.record(imageData: Data([2]), entry: new)
-        wait { store.entries.count == 2 }
+        waitForDisk(new)
 
         XCTAssertEqual(store.entries.map(\.sourceTitle), ["new", "old"])
 
@@ -84,7 +91,7 @@ final class RecentsStoreTests: XCTestCase {
             if i == 0 { oldest = entry }
             store.record(imageData: Data([UInt8(i)]), entry: entry)
         }
-        wait { store.entries.first?.sourceTitle == "24" }
+        wait { store.entries.count == RecentsStore.maxEntries && store.entries.first?.sourceTitle == "24" }
 
         XCTAssertEqual(store.entries.count, RecentsStore.maxEntries)
         XCTAssertEqual(store.entries.last?.sourceTitle, "5")
@@ -95,8 +102,9 @@ final class RecentsStoreTests: XCTestCase {
 
     func test_load_prunesCorruptMeta() throws {
         let store = RecentsStore(rootURL: rootURL)
-        store.record(imageData: Data([1]), entry: makeEntry(title: "good"))
-        wait { store.entries.count == 1 }
+        let good = makeEntry(title: "good")
+        store.record(imageData: Data([1]), entry: good)
+        waitForDisk(good)
 
         let corruptDir = rootURL.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: corruptDir, withIntermediateDirectories: true)
@@ -134,5 +142,50 @@ final class RecentsStoreTests: XCTestCase {
 
         let dir = rootURL.appendingPathComponent(entry.id.uuidString)
         wait { !FileManager.default.fileExists(atPath: dir.path) }
+    }
+
+    func test_record_thenImmediateRemove_leavesNoEntryOrDirectory() {
+        let store = RecentsStore(rootURL: rootURL)
+        let entry = makeEntry()
+        store.record(imageData: Data([1]), entry: entry)
+        store.remove(entry.id)
+        XCTAssertTrue(store.entries.isEmpty)
+
+        // Sentinel write is queued after the entry's write + delete on the serial
+        // queue, so once it lands all earlier async work has settled.
+        let sentinel = makeEntry(title: "sentinel")
+        store.record(imageData: Data([2]), entry: sentinel)
+        waitForDisk(sentinel)
+
+        let dir = rootURL.appendingPathComponent(entry.id.uuidString)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.path))
+        XCTAssertEqual(store.entries.map(\.id), [sentinel.id])
+    }
+
+    func test_loadIfNeeded_isIdempotent() {
+        let writer = RecentsStore(rootURL: rootURL)
+        let entry = makeEntry()
+        writer.record(imageData: Data([1]), entry: entry)
+        waitForDisk(entry)
+
+        let store = RecentsStore(rootURL: rootURL)
+        store.loadIfNeeded()
+        wait { store.entries.count == 1 }
+        store.loadIfNeeded()
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.1))
+        XCTAssertEqual(store.entries.count, 1)
+    }
+
+    func test_loadIfNeeded_afterRecord_doesNotDuplicateEntry() {
+        let store = RecentsStore(rootURL: rootURL)
+        let entry = makeEntry()
+        store.record(imageData: Data([1]), entry: entry)
+        XCTAssertEqual(store.entries.count, 1)
+        waitForDisk(entry)
+
+        store.loadIfNeeded()
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.2))
+        XCTAssertEqual(store.entries.count, 1)
+        XCTAssertEqual(store.entries[0].id, entry.id)
     }
 }
