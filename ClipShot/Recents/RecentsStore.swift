@@ -7,6 +7,7 @@ struct RecentEntry: Identifiable, Codable, Sendable {
     let sourceTitle: String?
     let pixelScale: CGFloat
     let selectionRect: CGRect?
+    let selectedCornerRadii: CaptureCornerRadii?
     let cornerRadii: CaptureCornerRadii?
     let pixelWidth: Int
     let pixelHeight: Int
@@ -19,6 +20,7 @@ struct RecentEntry: Identifiable, Codable, Sendable {
             sourceTitle: sourceTitle,
             pixelScale: pixelScale,
             selectionRect: selectionRect,
+            selectedCornerRadii: selectedCornerRadii,
             cornerRadii: cornerRadii,
             pixelWidth: pixelWidth,
             pixelHeight: pixelHeight

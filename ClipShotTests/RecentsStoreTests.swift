@@ -37,6 +37,7 @@ final class RecentsStoreTests: XCTestCase {
             sourceTitle: title,
             pixelScale: 2,
             selectionRect: selectionRect,
+            selectedCornerRadii: nil,
             cornerRadii: nil,
             pixelWidth: 600,
             pixelHeight: 400
@@ -257,6 +258,39 @@ final class RecentsStoreTests: XCTestCase {
         let entry = makeEntry(selectionRect: nil)
         let request = CaptureCoordinator.makeReopenRequest(entry: entry, imageData: Data([1]))
         XCTAssertEqual(request.selectedRect, CaptureRect(left: 0, top: 0, width: 300, height: 200))
+    }
+
+    func test_makeReopenRequest_preservesSelectedAndPremaskedCornerRadii() {
+        let selectedRadius = CaptureCornerRadius(width: 8, height: 9)
+        let selectedRadii = CaptureCornerRadii(
+            topLeft: selectedRadius,
+            topRight: selectedRadius,
+            bottomRight: selectedRadius,
+            bottomLeft: selectedRadius
+        )
+        let premaskedRadius = CaptureCornerRadius(width: 12, height: 13)
+        let premaskedRadii = CaptureCornerRadii(
+            topLeft: premaskedRadius,
+            topRight: premaskedRadius,
+            bottomRight: premaskedRadius,
+            bottomLeft: premaskedRadius
+        )
+        let entry = RecentEntry(
+            id: UUID(),
+            capturedAt: Date(),
+            sourceTitle: "Rounded",
+            pixelScale: 2,
+            selectionRect: CGRect(x: 10, y: 20, width: 300, height: 200),
+            selectedCornerRadii: selectedRadii,
+            cornerRadii: premaskedRadii,
+            pixelWidth: 600,
+            pixelHeight: 400
+        )
+
+        let request = CaptureCoordinator.makeReopenRequest(entry: entry, imageData: Data([1]))
+
+        XCTAssertEqual(request.selectedBorderRadii, selectedRadii)
+        XCTAssertEqual(request.premaskedCornerRadii, premaskedRadii)
     }
 
     func test_makeImportRequest_decodesImage_andUsesFullFrame() throws {

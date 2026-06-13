@@ -235,6 +235,119 @@ struct AmbientGlowView: View {
     }
 }
 
+/// Lightweight animated field of small warm glow motes drifting over the home
+/// stage, atop a few huge faint warm blobs — one Canvas pass, GPU.
+struct DriftField: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private struct Mark {
+        var x, y, dx, dy, size: CGFloat
+        var hue: Int
+        var opacity, phase: CGFloat
+    }
+
+    private struct RNG: RandomNumberGenerator {
+        var state: UInt64
+        init(_ seed: UInt64) { state = seed != 0 ? seed : 0x9E37_79B9_7F4A_7C15 }
+        mutating func next() -> UInt64 {
+            state ^= state << 13; state ^= state >> 7; state ^= state << 17
+            return state
+        }
+    }
+
+    // Warm only — vermilion, amber, rose.
+    private static let palette: [Color] = [
+        Theme.accent,
+        Color(red: 1.0, green: 0.64, blue: 0.34),
+        Color(red: 1.0, green: 0.47, blue: 0.43)
+    ]
+
+    private static let marks: [Mark] = makeMarks()
+    private static let blobs: [Mark] = makeBlobs()
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion)) { timeline in
+            let t = timeline.date.timeIntervalSinceReferenceDate
+            Canvas { ctx, size in
+                for b in Self.blobs { Self.drawBlob(b, t: t, size: size, into: &ctx) }
+                for m in Self.marks { Self.drawMark(m, t: t, size: size, into: &ctx) }
+            }
+        }
+        .drawingGroup()
+        .blendMode(.plusLighter)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private static func makeMarks() -> [Mark] {
+        var rng = RNG(0xC119_5A07)
+        return (0..<40).map { _ in
+            Mark(
+                x: .random(in: 0...1, using: &rng),
+                y: .random(in: 0...1, using: &rng),
+                dx: .random(in: -0.011...0.011, using: &rng),
+                dy: .random(in: -0.011...0.011, using: &rng),
+                size: .random(in: 8...22, using: &rng),
+                hue: Int.random(in: 0..<palette.count, using: &rng),
+                opacity: .random(in: 0.06...0.17, using: &rng),
+                phase: .random(in: 0...(.pi * 2), using: &rng)
+            )
+        }
+    }
+
+    private static func makeBlobs() -> [Mark] {
+        var rng = RNG(0x5EED_9B10)
+        return (0..<4).map { _ in
+            Mark(
+                x: .random(in: 0.2...0.8, using: &rng),
+                y: .random(in: 0.2...0.8, using: &rng),
+                // dx/dy are oscillation amplitudes (fraction of size), not velocity.
+                dx: .random(in: 0.04...0.08, using: &rng),
+                dy: .random(in: 0.04...0.08, using: &rng),
+                size: .random(in: 0.30...0.46, using: &rng),
+                hue: Int.random(in: 0..<palette.count, using: &rng),
+                opacity: .random(in: 0.05...0.09, using: &rng),
+                phase: .random(in: 0...(.pi * 2), using: &rng)
+            )
+        }
+    }
+
+    private static func wrap(_ v: CGFloat) -> CGFloat {
+        let w = v.truncatingRemainder(dividingBy: 1); return w < 0 ? w + 1 : w
+    }
+
+    private static func drawMark(_ m: Mark, t: Double, size: CGSize, into ctx: inout GraphicsContext) {
+        let fx = wrap(m.x + m.dx * CGFloat(t)), fy = wrap(m.y + m.dy * CGFloat(t))
+        // Fade near edges so wraps don't pop.
+        let edge: CGFloat = 0.07
+        let ef = min(1, min(fx, 1 - fx) / edge) * min(1, min(fy, 1 - fy) / edge)
+        let breathe = 0.7 + 0.3 * CGFloat(sin(t * 0.22 + Double(m.phase)))
+        let p = CGPoint(x: fx * size.width, y: fy * size.height)
+        let color = palette[m.hue].opacity(m.opacity * max(0, ef) * breathe)
+        let a = m.size
+        let rect = CGRect(x: p.x - a, y: p.y - a, width: a * 2, height: a * 2)
+        ctx.fill(Path(ellipseIn: rect),
+                 with: .radialGradient(Gradient(colors: [color, color.opacity(0)]),
+                                       center: p, startRadius: 0, endRadius: a))
+    }
+
+    private static func drawBlob(_ m: Mark, t: Double, size: CGSize, into ctx: inout GraphicsContext) {
+        // Slow Lissajous drift around the base point — bounded, never wraps.
+        let sx = CGFloat(sin(t * 0.05 + Double(m.phase)))
+        let sy = CGFloat(sin(t * 0.04 + Double(m.phase) * 1.7 + 1.0))
+        let cx = (m.x + m.dx * sx) * size.width
+        let cy = (m.y + m.dy * sy) * size.height
+        let r = m.size * max(size.width, size.height)
+        let breathe = 0.85 + 0.15 * CGFloat(sin(t * 0.12 + Double(m.phase)))
+        let color = palette[m.hue].opacity(m.opacity * breathe)
+        let center = CGPoint(x: cx, y: cy)
+        let rect = CGRect(x: cx - r, y: cy - r, width: r * 2, height: r * 2)
+        ctx.fill(Path(ellipseIn: rect),
+                 with: .radialGradient(Gradient(colors: [color, color.opacity(0)]),
+                                       center: center, startRadius: 0, endRadius: r))
+    }
+}
+
 /// Registration ticks marking the four corners of the stage — the drafting-table frame.
 struct StageCornerTicks: View {
     private let arm: CGFloat = 14
@@ -350,21 +463,24 @@ struct InspectorValueLabel: View {
 /// Keycap glyph for shortcut hints ("⌃", "⇧", "5").
 struct Keycap: View {
     let text: String
+    var glass: Bool = false
+
+    @ViewBuilder
     var body: some View {
-        Text(text)
+        let shape = RoundedRectangle(cornerRadius: 5, style: .continuous)
+        let label = Text(text)
             .font(Theme.mono(11, .semibold))
             .foregroundStyle(Theme.textSecondary)
             .frame(minWidth: 22)
             .frame(height: 22)
             .padding(.horizontal, 3)
-            .background(
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .fill(Theme.inputFill)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .stroke(Theme.hairlineStrong, lineWidth: 1)
-            )
+        if glass, #available(macOS 26.0, *) {
+            label.glassEffect(.regular.tint(Theme.glassTint), in: shape)
+        } else {
+            label
+                .background(shape.fill(Theme.inputFill))
+                .overlay(shape.stroke(Theme.hairlineStrong, lineWidth: 1))
+        }
     }
 }
 
@@ -503,6 +619,7 @@ extension View {
             self
         }
     }
+
 }
 
 /// One floating inspector card: a glass panel with a title row and its controls.

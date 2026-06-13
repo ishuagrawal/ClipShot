@@ -132,7 +132,7 @@ final class CaptureCoordinator: @unchecked Sendable {
             sourceURL: "",
             imageWidth: Double(entry.pixelWidth),
             imageHeight: Double(entry.pixelHeight),
-            selectedBorderRadii: nil,
+            selectedBorderRadii: entry.selectedCornerRadii,
             premaskedCornerRadii: entry.cornerRadii
         )
     }
@@ -250,6 +250,7 @@ final class CaptureCoordinator: @unchecked Sendable {
                 width: request.selectedRect.width,
                 height: request.selectedRect.height
             ),
+            selectedCornerRadii: request.selectedBorderRadii,
             cornerRadii: request.premaskedCornerRadii,
             pixelWidth: Int(session.imagePixelSize.width),
             pixelHeight: Int(session.imagePixelSize.height)
