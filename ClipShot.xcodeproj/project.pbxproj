@@ -41,6 +41,7 @@
 		01A000000000000000000212 /* PaddingToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000212 /* PaddingToolView.swift */; };
 		01A000000000000000000213 /* BackgroundToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000213 /* BackgroundToolView.swift */; };
 		01A000000000000000000214 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000214 /* Theme.swift */; };
+		01A000000000000000000500 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000500 /* HomeView.swift */; };
 		01A000000000000000000215 /* TopToolBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000215 /* TopToolBarView.swift */; };
 		01A000000000000000000216 /* CanvasGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000216 /* CanvasGeometry.swift */; };
 		01A000000000000000000217 /* AnnotationGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000217 /* AnnotationGeometry.swift */; };
@@ -130,6 +131,7 @@
 		01B000000000000000000212 /* PaddingToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaddingToolView.swift; sourceTree = "<group>"; };
 		01B000000000000000000213 /* BackgroundToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundToolView.swift; sourceTree = "<group>"; };
 		01B000000000000000000214 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		01B000000000000000000500 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		01B000000000000000000215 /* TopToolBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopToolBarView.swift; sourceTree = "<group>"; };
 		01B000000000000000000216 /* CanvasGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasGeometry.swift; sourceTree = "<group>"; };
 		01B000000000000000000217 /* AnnotationGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnotationGeometry.swift; sourceTree = "<group>"; };
@@ -232,6 +234,7 @@
 				01B00000000000000000000C /* MenuContentView.swift */,
 				01B000000000000000000012 /* EditorWindowController.swift */,
 				01B000000000000000000013 /* EditorView.swift */,
+				01B000000000000000000500 /* HomeView.swift */,
 				01B000000000000000000214 /* Theme.swift */,
 			);
 			path = UI;
@@ -480,6 +483,7 @@
 				01A000000000000000000402 /* NativeCaptureShortcut.swift in Sources */,
 				01A000000000000000000012 /* EditorWindowController.swift in Sources */,
 				01A000000000000000000013 /* EditorView.swift in Sources */,
+				01A000000000000000000500 /* HomeView.swift in Sources */,
 				01A000000000000000000214 /* Theme.swift in Sources */,
 				01A000000000000000000201 /* EditorDocument.swift in Sources */,
 				01A000000000000000000202 /* PaddingConfig.swift in Sources */,

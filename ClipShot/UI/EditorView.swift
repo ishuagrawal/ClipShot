@@ -15,7 +15,7 @@ struct EditorView: View {
                     // the document instead of being ignored by @StateObject.
                     .id(session.id)
             } else {
-                EmptyEditorView()
+                HomeView(onReopenRecent: onReopenRecent)
             }
         }
         .preferredColorScheme(.dark)
@@ -185,43 +185,6 @@ private struct EditorShell: View {
         case .dynamic, .none:
             return meshPalette
         }
-    }
-}
-
-private struct EmptyEditorView: View {
-    var body: some View {
-        ZStack {
-            StageBackdrop()
-            StageCornerTicks()
-            VStack(spacing: 0) {
-                Image(systemName: "viewfinder")
-                    .font(.system(size: 30, weight: .regular))
-                    .foregroundStyle(Theme.textTertiary)
-                    .padding(.bottom, 18)
-                Text("Nothing captured yet")
-                    .font(Theme.title(15))
-                    .foregroundStyle(Theme.textPrimary)
-                    .padding(.bottom, 6)
-                Text("Capture a component and it lands here, ready to frame.")
-                    .font(Theme.label(12))
-                    .foregroundStyle(Theme.textSecondary)
-                    .padding(.bottom, 22)
-                HStack(spacing: 5) {
-                    Keycap(text: "⌃")
-                    Keycap(text: "⇧")
-                    Keycap(text: "5")
-                    Text("to capture a component")
-                        .font(Theme.label(12))
-                        .foregroundStyle(Theme.textTertiary)
-                        .padding(.leading, 6)
-                }
-            }
-            .padding(.horizontal, 44)
-            .padding(.vertical, 40)
-            .glassPanel(cornerRadius: 24)
-        }
-        .ignoresSafeArea()
-        .frame(minWidth: 860, minHeight: 560)
     }
 }
 
