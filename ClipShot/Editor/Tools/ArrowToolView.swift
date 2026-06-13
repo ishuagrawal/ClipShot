@@ -9,7 +9,7 @@ struct ArrowToolView: View {
     @State private var isSyncing = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: Theme.panelRowSpacing) {
             HStack(spacing: 10) {
                 InspectorRowLabel(text: "Color")
                 GlassColorWell(selection: $color, label: "Arrow color")

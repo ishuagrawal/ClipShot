@@ -3,7 +3,6 @@ import AppKit
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var captureCoordinator: CaptureCoordinator?
-    private var domBridgeServer: DOMCaptureBridgeServer?
     private var nativeCaptureLauncher: NativeCaptureLauncher?
     private var nativeCaptureShortcut: NativeCaptureShortcut?
 
@@ -12,40 +11,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         captureCoordinator = coordinator
         let launcher = NativeCaptureLauncher(coordinator: coordinator, appState: AppState.shared)
         nativeCaptureLauncher = launcher
-        let shortcut = NativeCaptureShortcut { [weak launcher] in
+        let beginCapture: () -> Void = { [weak launcher] in
             launcher?.beginCapture()
         }
+        AppState.shared.onBeginCapture = beginCapture
+        AppState.shared.onOpenHome = { [weak coordinator] in
+            coordinator?.showHome()
+        }
+        let shortcut = NativeCaptureShortcut(handler: beginCapture)
         if !shortcut.register() {
             AppState.shared.setCaptureStatus("Control Shift 5 unavailable")
         }
         nativeCaptureShortcut = shortcut
-        startDOMBridgeServer(coordinator: coordinator)
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         nativeCaptureShortcut?.unregister()
-        domBridgeServer?.stop()
-    }
-
-    private func startDOMBridgeServer(coordinator: CaptureCoordinator) {
-        let server = DOMCaptureBridgeServer(
-            clipboardHandler: { [coordinator] pngData in
-                await MainActor.run {
-                    coordinator.copyDOMPNGToClipboard(pngData: pngData)
-                }
-            },
-            sessionHandler: { [coordinator] request in
-                await MainActor.run {
-                    coordinator.openDOMSession(request: request)
-                }
-            },
-            statusHandler: { status in
-                await MainActor.run {
-                    AppState.shared.setCaptureStatus(status)
-                }
-            }
-        )
-        server.start()
-        domBridgeServer = server
     }
 }

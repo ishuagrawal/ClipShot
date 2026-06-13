@@ -2,7 +2,12 @@ import AppKit
 import SwiftUI
 
 struct EditorView: View {
-    @ObservedObject var store: DOMCaptureSessionStore
+    @ObservedObject var store: CaptureSessionStore
+    /// Reopens a recents entry as a fresh session; consumed by the home page (Task 3).
+    var onReopenRecent: (RecentEntry) -> Void = { _ in }
+    /// Import an opened/dropped image as a new session; false means unreadable.
+    var onImportFile: (URL) async -> Bool = { _ in false }
+    var onImportData: (Data, String) async -> Bool = { _, _ in false }
 
     var body: some View {
         Group {
@@ -13,7 +18,9 @@ struct EditorView: View {
                     // the document instead of being ignored by @StateObject.
                     .id(session.id)
             } else {
-                EmptyEditorView()
+                HomeView(onReopenRecent: onReopenRecent,
+                         onImportFile: onImportFile,
+                         onImportData: onImportData)
             }
         }
         .preferredColorScheme(.dark)
@@ -95,7 +102,7 @@ private struct EditorShell: View {
                     // edge (the inspector column plus the canvas fit margin); the
                     // title plate keeps the window-margin alignment on the left.
                     TitleBarView(state: state)
-                        .padding(.leading, Theme.chromeMargin + 16)
+                        .padding(.leading, Theme.chromeMargin + Theme.panelInset)
                         .padding(.trailing, exportPodTrailingPadding(
                             windowSize: geo.size,
                             rightChrome: rightChrome
@@ -186,46 +193,9 @@ private struct EditorShell: View {
     }
 }
 
-private struct EmptyEditorView: View {
-    var body: some View {
-        ZStack {
-            StageBackdrop()
-            StageCornerTicks()
-            VStack(spacing: 0) {
-                Image(systemName: "viewfinder")
-                    .font(.system(size: 30, weight: .regular))
-                    .foregroundStyle(Theme.textTertiary)
-                    .padding(.bottom, 18)
-                Text("Nothing captured yet")
-                    .font(Theme.title(15))
-                    .foregroundStyle(Theme.textPrimary)
-                    .padding(.bottom, 6)
-                Text("Capture a component and it lands here, ready to frame.")
-                    .font(Theme.label(12))
-                    .foregroundStyle(Theme.textSecondary)
-                    .padding(.bottom, 22)
-                HStack(spacing: 5) {
-                    Keycap(text: "⌃")
-                    Keycap(text: "⇧")
-                    Keycap(text: "5")
-                    Text("in the browser, then pick a component")
-                        .font(Theme.label(12))
-                        .foregroundStyle(Theme.textTertiary)
-                        .padding(.leading, 6)
-                }
-            }
-            .padding(.horizontal, 44)
-            .padding(.vertical, 40)
-            .glassPanel(cornerRadius: 24)
-        }
-        .ignoresSafeArea()
-        .frame(minWidth: 860, minHeight: 560)
-    }
-}
-
 fileprivate extension EditorDocument {
-    /// Bridge from the existing DOMCaptureSession into the new value-type document.
-    init(session: DOMCaptureSession) {
+    /// Bridge from a CaptureSession into the value-type document.
+    init(session: CaptureSession) {
         let pixelSelection = session.pixelRect(for: session.selectedRect)
         let selectionRadii = session.pixelCornerRadii(for: session.selectedBorderRadii)
         let premaskedRadii = session.pixelCornerRadii(for: session.premaskedCornerRadii)
@@ -236,8 +206,8 @@ fileprivate extension EditorDocument {
                 width: CGFloat(session.viewport.width),
                 height: CGFloat(session.viewport.height)
             ),
-            pageTitle: session.pageTitle,
-            pageURL: session.pageURL,
+            sourceTitle: session.sourceTitle,
+            sourceURL: session.sourceURL,
             baseSelection: pixelSelection,
             selectionCornerRadii: selectionRadii,
             contentCornerRadii: selectionRadii.isZero ? premaskedRadii : selectionRadii,

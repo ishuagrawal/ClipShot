@@ -12,8 +12,8 @@ final class EditorDocumentTests: XCTestCase {
         return EditorDocument(
             screenshot: cgImage,
             viewport: screenshotSize,
-            pageTitle: "Test",
-            pageURL: "https://example.com",
+            sourceTitle: "Test",
+            sourceURL: "https://example.com",
             baseSelection: selection,
             padding: padding,
             background: .none,
@@ -260,7 +260,7 @@ final class EditorDocumentTests: XCTestCase {
         EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 400, height: 400)),
             viewport: CGSize(width: 400, height: 400),
-            pageTitle: "t", pageURL: "u",
+            sourceTitle: "t", sourceURL: "u",
             baseSelection: CGRect(x: 50, y: 50, width: 200, height: 160),
             selectionCornerRadii: .uniform(radius),
             padding: padding
@@ -275,7 +275,7 @@ final class EditorDocumentTests: XCTestCase {
         let doc = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 400, height: 400)),
             viewport: CGSize(width: 400, height: 400),
-            pageTitle: "t", pageURL: "u",
+            sourceTitle: "t", sourceURL: "u",
             baseSelection: CGRect(x: 50, y: 50, width: 200, height: 160),
             selectionCornerRadii: .zero,
             padding: .uniform(10)
@@ -314,7 +314,7 @@ final class EditorDocumentTests: XCTestCase {
         let doc = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 400, height: 400)),
             viewport: CGSize(width: 400, height: 400),
-            pageTitle: "t", pageURL: "u",
+            sourceTitle: "t", sourceURL: "u",
             baseSelection: CGRect(x: 50, y: 50, width: 200, height: 160),
             selectionCornerRadii: .zero,
             contentCornerRadii: .uniform(18),
@@ -327,7 +327,7 @@ final class EditorDocumentTests: XCTestCase {
         let doc = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 400, height: 400)),
             viewport: CGSize(width: 400, height: 400),
-            pageTitle: "t", pageURL: "u",
+            sourceTitle: "t", sourceURL: "u",
             baseSelection: CGRect(x: 50, y: 50, width: 200, height: 160),
             selectionCornerRadii: .uniform(12),
             padding: .uniform(10)
@@ -339,7 +339,7 @@ final class EditorDocumentTests: XCTestCase {
         let doc = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 400, height: 400)),
             viewport: CGSize(width: 400, height: 400),
-            pageTitle: "t", pageURL: "u",
+            sourceTitle: "t", sourceURL: "u",
             baseSelection: CGRect(x: 50, y: 50, width: 200, height: 160),
             selectionCornerRadii: .zero,
             contentCornerRadii: .uniform(18),
@@ -352,7 +352,7 @@ final class EditorDocumentTests: XCTestCase {
         let noPad = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 400, height: 400)),
             viewport: CGSize(width: 400, height: 400),
-            pageTitle: "t", pageURL: "u",
+            sourceTitle: "t", sourceURL: "u",
             baseSelection: CGRect(x: 50, y: 50, width: 200, height: 160),
             contentCornerRadii: .uniform(18),
             padding: .zero
@@ -364,7 +364,7 @@ final class EditorDocumentTests: XCTestCase {
         EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 400, height: 400)),
             viewport: CGSize(width: 400, height: 400),
-            pageTitle: "t", pageURL: "u",
+            sourceTitle: "t", sourceURL: "u",
             baseSelection: CGRect(x: 50, y: 50, width: 200, height: 160),
             selectionCornerRadii: .zero,
             contentCornerRadii: .uniform(18),

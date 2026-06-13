@@ -11,7 +11,7 @@ final class DocumentRendererTests: XCTestCase {
         XCTAssertEqual(rendered.height, Int(crop.height), "output height must equal effectiveCrop")
     }
 
-    func test_render_v0_pixelEqualToLegacyDOMCaptureCrop() throws {
+    func test_render_v0_pixelEqualToLegacyCaptureCrop() throws {
         let (session, doc) = FixtureDocument.basicPair()
 
         let legacyPNG = try XCTUnwrap(session.selectedCropPNGData())
@@ -53,8 +53,8 @@ final class DocumentRendererTests: XCTestCase {
         let doc = EditorDocument(
             screenshot: screenshot,
             viewport: CGSize(width: 40, height: 30),
-            pageTitle: "Fractional",
-            pageURL: "https://example.com",
+            sourceTitle: "Fractional",
+            sourceURL: "https://example.com",
             baseSelection: selection
         )
 
@@ -86,8 +86,8 @@ final class DocumentRendererTests: XCTestCase {
         let doc = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 48, height: 48)),
             viewport: CGSize(width: 48, height: 48),
-            pageTitle: "Rounded",
-            pageURL: "https://example.com",
+            sourceTitle: "Rounded",
+            sourceURL: "https://example.com",
             baseSelection: CGRect(x: 4, y: 4, width: 40, height: 40),
             selectionCornerRadii: .uniform(14),
             background: .none
@@ -107,8 +107,8 @@ final class DocumentRendererTests: XCTestCase {
         let doc = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 48, height: 48)),
             viewport: CGSize(width: 48, height: 48),
-            pageTitle: "Rounded",
-            pageURL: "https://example.com",
+            sourceTitle: "Rounded",
+            sourceURL: "https://example.com",
             baseSelection: CGRect(x: 4, y: 4, width: 40, height: 40),
             selectionCornerRadii: .uniform(14),
             padding: .zero,
@@ -242,7 +242,7 @@ final class DocumentRendererTests: XCTestCase {
         let doc = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 200, height: 200)),
             viewport: CGSize(width: 200, height: 200),
-            pageTitle: "t", pageURL: "u",
+            sourceTitle: "t", sourceURL: "u",
             baseSelection: CGRect(x: 50, y: 50, width: 80, height: 60),
             selectionCornerRadii: .uniform(14),
             padding: .uniform(10),
@@ -266,7 +266,7 @@ final class DocumentRendererTests: XCTestCase {
         let doc = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 200, height: 200)),
             viewport: CGSize(width: 200, height: 200),
-            pageTitle: "t", pageURL: "u",
+            sourceTitle: "t", sourceURL: "u",
             baseSelection: CGRect(x: 50, y: 50, width: 80, height: 60),
             selectionCornerRadii: .zero,
             padding: .uniform(10),
@@ -304,7 +304,7 @@ final class DocumentRendererTests: XCTestCase {
         var doc = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 200, height: 200)),
             viewport: CGSize(width: 200, height: 200),
-            pageTitle: "t", pageURL: "u",
+            sourceTitle: "t", sourceURL: "u",
             baseSelection: CGRect(x: 50, y: 50, width: 80, height: 60),
             selectionCornerRadii: .uniform(14),
             padding: .uniform(10),
@@ -350,7 +350,7 @@ final class DocumentRendererTests: XCTestCase {
         let doc = EditorDocument(
             screenshot: shot,
             viewport: CGSize(width: 120, height: 120),
-            pageTitle: "t", pageURL: "u",
+            sourceTitle: "t", sourceURL: "u",
             baseSelection: CGRect(x: 0, y: 0, width: 120, height: 120),
             selectionCornerRadii: .zero,            // native: corners baked, no mask
             contentCornerRadii: .uniform(16),       // measured visual radius
@@ -445,8 +445,8 @@ final class DocumentRendererTests: XCTestCase {
         var doc = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 80, height: 80)),
             viewport: CGSize(width: 80, height: 80),
-            pageTitle: "Shadow",
-            pageURL: "https://example.com",
+            sourceTitle: "Shadow",
+            sourceURL: "https://example.com",
             baseSelection: CGRect(x: 20, y: 20, width: 40, height: 40),
             selectionCornerRadii: .uniform(12),
             padding: .uniform(20),
@@ -494,8 +494,8 @@ final class DocumentRendererTests: XCTestCase {
         var doc = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 48, height: 48)),
             viewport: CGSize(width: 48, height: 48),
-            pageTitle: "Rounded",
-            pageURL: "https://example.com",
+            sourceTitle: "Rounded",
+            sourceURL: "https://example.com",
             baseSelection: CGRect(x: 4, y: 4, width: 40, height: 40),
             background: .none
         )
@@ -523,8 +523,8 @@ final class DocumentRendererTests: XCTestCase {
         EditorDocument(
             screenshot: screenshot,
             viewport: CGSize(width: screenshot.width, height: screenshot.height),
-            pageTitle: "t",
-            pageURL: "u",
+            sourceTitle: "t",
+            sourceURL: "u",
             baseSelection: selection,
             padding: PaddingConfig(top: padding, right: padding, bottom: padding, left: padding),
             background: background

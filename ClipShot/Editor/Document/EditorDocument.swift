@@ -215,8 +215,8 @@ struct EditorDocument {
     let viewport: CGSize            // CSS px, informational only — rendering uses baseSelection (imagePx)
     // User-editable in the top bar; drives the export filename only. Never drawn
     // on the canvas or in exports, so edits intentionally do not bump version.
-    var pageTitle: String
-    let pageURL: String
+    var sourceTitle: String
+    let sourceURL: String
 
     let baseSelection: CGRect       // imagePx coords, clamped to ≥ 8×8 on init
     let selectionCornerRadii: SelectionCornerRadii
@@ -224,7 +224,7 @@ struct EditorDocument {
     // mask we APPLY to a rectangular shot). Native window shots bake their rounded
     // corners into the pixels and leave selectionCornerRadii zero, but carry the
     // measured radius here so concentric outer rounding still matches. Defaults to
-    // selectionCornerRadii for DOM/web captures. Drives ONLY outerCornerRadii.
+    // selectionCornerRadii for masked captures. Drives ONLY outerCornerRadii.
     let contentCornerRadii: SelectionCornerRadii
     // Mutations bump version unconditionally (even no-op writes) so the canvas can
     // treat version as a cheap change token without value-diffing.
@@ -247,8 +247,8 @@ struct EditorDocument {
     init(
         screenshot: CGImage,
         viewport: CGSize,
-        pageTitle: String,
-        pageURL: String,
+        sourceTitle: String,
+        sourceURL: String,
         baseSelection: CGRect,
         selectionCornerRadii: SelectionCornerRadii = .zero,
         contentCornerRadii: SelectionCornerRadii? = nil,
@@ -263,8 +263,8 @@ struct EditorDocument {
     ) {
         self.screenshot = screenshot
         self.viewport = viewport
-        self.pageTitle = pageTitle
-        self.pageURL = pageURL
+        self.sourceTitle = sourceTitle
+        self.sourceURL = sourceURL
         let minSide: CGFloat = 8
         self.baseSelection = CGRect(
             x: baseSelection.origin.x,
@@ -398,8 +398,8 @@ extension EditorDocument: Equatable {
     static func == (lhs: EditorDocument, rhs: EditorDocument) -> Bool {
         lhs.screenshot === rhs.screenshot
         && lhs.viewport == rhs.viewport
-        && lhs.pageTitle == rhs.pageTitle
-        && lhs.pageURL == rhs.pageURL
+        && lhs.sourceTitle == rhs.sourceTitle
+        && lhs.sourceURL == rhs.sourceURL
         && lhs.baseSelection == rhs.baseSelection
         && lhs.selectionCornerRadii == rhs.selectionCornerRadii
         && lhs.contentCornerRadii == rhs.contentCornerRadii

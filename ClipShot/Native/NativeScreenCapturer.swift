@@ -14,7 +14,7 @@ struct NativeWindowShot: @unchecked Sendable {
     /// The measured radius of the baked rounded corners, so concentric padding
     /// can match it. nil when no rounding was detected, or for non-window
     /// rectangular captures.
-    let cornerRadii: DOMCornerRadii?
+    let cornerRadii: CaptureCornerRadii?
 }
 
 enum NativeCaptureError: Error {
@@ -185,11 +185,11 @@ final class NativeScreenCapturer: @unchecked Sendable {
             pixelScale: visibleBitmap.pixelScale
         )
         let safeScale = max(1, visibleBitmap.pixelScale)
-        let cornerRadii: DOMCornerRadii?
+        let cornerRadii: CaptureCornerRadii?
         if shaped.cornerRadiusPixels > 0.5 {
             let pointRadius = Double(shaped.cornerRadiusPixels / safeScale)
-            let r = DOMCornerRadius(width: pointRadius, height: pointRadius)
-            cornerRadii = DOMCornerRadii(topLeft: r, topRight: r, bottomRight: r, bottomLeft: r)
+            let r = CaptureCornerRadius(width: pointRadius, height: pointRadius)
+            cornerRadii = CaptureCornerRadii(topLeft: r, topRight: r, bottomRight: r, bottomLeft: r)
         } else {
             cornerRadii = nil
         }

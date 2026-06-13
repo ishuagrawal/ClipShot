@@ -3,18 +3,18 @@ import Foundation
 @testable import ClipShot
 
 enum FixtureDocument {
-    /// Builds a `DOMCaptureSession` AND a matching `EditorDocument` from a recognizable
+    /// Builds a `CaptureSession` AND a matching `EditorDocument` from a recognizable
     /// programmatic screenshot. Selection covers a contrasting inner region so cropping
     /// behavior is visually verifiable from pixel buffers alone.
-    static func basicPair() -> (session: DOMCaptureSession, document: EditorDocument) {
+    static func basicPair() -> (session: CaptureSession, document: EditorDocument) {
         let viewport = CGSize(width: 400, height: 300)
         let cgImage = makeStripedImage(size: viewport)
         let pngData = NSBitmapImageRep(cgImage: cgImage)
             .representation(using: .png, properties: [:])!
 
-        // DOMCaptureSessionRequest is Decodable-only; construct via JSON decoding.
-        let selectedRect = DOMCaptureRect(left: 80, top: 60, width: 120, height: 90)
-        let viewportObj = DOMCaptureViewport(
+        // CaptureSessionRequest is Decodable-only; construct via JSON decoding.
+        let selectedRect = CaptureRect(left: 80, top: 60, width: 120, height: 90)
+        let viewportObj = CaptureViewport(
             width: Double(viewport.width),
             height: Double(viewport.height),
             devicePixelRatio: 1,
@@ -22,7 +22,7 @@ enum FixtureDocument {
             scrollY: 0
         )
 
-        // Build JSON to decode into DOMCaptureSessionRequest.
+        // Build JSON to decode into CaptureSessionRequest.
         let json: [String: Any] = [
             "screenshotBase64": pngData.base64EncodedString(),
             "selectedRect": [
@@ -40,21 +40,21 @@ enum FixtureDocument {
             ],
             "candidates": [],
             "selectedIndex": 0,
-            "pageTitle": "Fixture",
-            "pageURL": "https://example.com",
+            "sourceTitle": "Fixture",
+            "sourceURL": "https://example.com",
             "imageWidth": Double(viewport.width),
             "imageHeight": Double(viewport.height)
         ]
         let jsonData = try! JSONSerialization.data(withJSONObject: json)
-        let request = try! JSONDecoder().decode(DOMCaptureSessionRequest.self, from: jsonData)
-        let session = try! DOMCaptureSession(request: request)
+        let request = try! JSONDecoder().decode(CaptureSessionRequest.self, from: jsonData)
+        let session = try! CaptureSession(request: request)
 
         let pixelSelection = session.pixelRect(for: request.selectedRect)
         let document = EditorDocument(
             screenshot: cgImage,
             viewport: viewport,
-            pageTitle: "Fixture",
-            pageURL: "https://example.com",
+            sourceTitle: "Fixture",
+            sourceURL: "https://example.com",
             baseSelection: pixelSelection
         )
         return (session, document)

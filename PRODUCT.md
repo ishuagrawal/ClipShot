@@ -6,7 +6,7 @@ product
 
 ## Users
 
-Developers, designers, and writers who capture UI components (web today, any app soon) to drop into docs, bug reports, PRs, and social posts. They are fluent in tools like Figma, Linear, CleanShot, and Raycast. They arrive mid-task: capture, frame, annotate, export, leave. Sessions are short and goal-directed.
+Developers, designers, and writers who capture UI components from any app to drop into docs, bug reports, PRs, and social posts. They are fluent in tools like Figma, Linear, CleanShot, and Raycast. They arrive mid-task: capture, frame, annotate, export, leave. Sessions are short and goal-directed.
 
 ## Product Purpose
 

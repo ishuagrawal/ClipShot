@@ -32,6 +32,8 @@ enum Theme {
     static let accent        = Color(red: 1.0, green: 0.361, blue: 0.220)     // #FF5C38
     static let accentText    = Color(red: 1.0, green: 0.557, blue: 0.420)     // #FF8E6B on dark ~7:1
     static let accentDim     = Color(red: 1.0, green: 0.361, blue: 0.220).opacity(0.14)
+    /// Destructive hover tint (delete actions).
+    static let danger        = Color(red: 1.0, green: 0.357, blue: 0.310)     // #FF5B4F
     static let accentFocus   = Color(red: 1.0, green: 0.361, blue: 0.220).opacity(0.55)
     static let accentInk     = Color(red: 0.173, green: 0.055, blue: 0.020)   // ink on solid accent
 
@@ -98,13 +100,29 @@ enum Theme {
     static var rightChromeWidth: CGFloat { rightChromeWidth(forInspector: inspectorWidth) }
     /// Same measurement for a live (window-proportional) inspector width.
     static func rightChromeWidth(forInspector inspectorWidth: CGFloat) -> CGFloat {
-        inspectorWidth + 16 + chromeMargin
+        inspectorWidth + panelInset + chromeMargin
     }
 
     // MARK: Motion
     /// Shared spring for chrome panels entering and leaving the stage; a touch
     /// underdamped so panels settle with a soft, liquid overshoot.
     static let panelSpring: Animation = .spring(response: 0.45, dampingFraction: 0.78)
+
+    // MARK: Inspector rhythm — one spacing scale shared by every glass panel.
+    /// Gap between labelled subsections inside a card.
+    static let panelSectionSpacing: CGFloat = 16
+    /// Gap between a section heading and its first control.
+    static let panelHeaderSpacing: CGFloat = 7
+    /// Gap between control rows within one subsection.
+    static let panelRowSpacing: CGFloat = 10
+    /// Interior inset of a glass panel (horizontal and bottom edges).
+    static let panelInset: CGFloat = 16
+    /// Top inset; tighter because the title's cap height carries its own headroom.
+    static let panelInsetTop: CGFloat = 13
+    /// Gap between stacked inspector cards; the glass edge amplifies it visually.
+    static let cardGap: CGFloat = 12
+    /// Horizontal inset for glass bars (dock), whose rounded ends add optical room.
+    static let barInset: CGFloat = 12
 
     // MARK: Type — SF Pro for labels, SF Mono for every measured value
     static func title(_ size: CGFloat = 14, _ weight: Font.Weight = .semibold) -> Font {
@@ -217,6 +235,119 @@ struct AmbientGlowView: View {
     }
 }
 
+/// Lightweight animated field of small warm glow motes drifting over the home
+/// stage, atop a few huge faint warm blobs — one Canvas pass, GPU.
+struct DriftField: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private struct Mark {
+        var x, y, dx, dy, size: CGFloat
+        var hue: Int
+        var opacity, phase: CGFloat
+    }
+
+    private struct RNG: RandomNumberGenerator {
+        var state: UInt64
+        init(_ seed: UInt64) { state = seed != 0 ? seed : 0x9E37_79B9_7F4A_7C15 }
+        mutating func next() -> UInt64 {
+            state ^= state << 13; state ^= state >> 7; state ^= state << 17
+            return state
+        }
+    }
+
+    // Warm only — vermilion, amber, rose.
+    private static let palette: [Color] = [
+        Theme.accent,
+        Color(red: 1.0, green: 0.64, blue: 0.34),
+        Color(red: 1.0, green: 0.47, blue: 0.43)
+    ]
+
+    private static let marks: [Mark] = makeMarks()
+    private static let blobs: [Mark] = makeBlobs()
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion)) { timeline in
+            let t = timeline.date.timeIntervalSinceReferenceDate
+            Canvas { ctx, size in
+                for b in Self.blobs { Self.drawBlob(b, t: t, size: size, into: &ctx) }
+                for m in Self.marks { Self.drawMark(m, t: t, size: size, into: &ctx) }
+            }
+        }
+        .drawingGroup()
+        .blendMode(.plusLighter)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private static func makeMarks() -> [Mark] {
+        var rng = RNG(0xC119_5A07)
+        return (0..<40).map { _ in
+            Mark(
+                x: .random(in: 0...1, using: &rng),
+                y: .random(in: 0...1, using: &rng),
+                dx: .random(in: -0.011...0.011, using: &rng),
+                dy: .random(in: -0.011...0.011, using: &rng),
+                size: .random(in: 8...22, using: &rng),
+                hue: Int.random(in: 0..<palette.count, using: &rng),
+                opacity: .random(in: 0.06...0.17, using: &rng),
+                phase: .random(in: 0...(.pi * 2), using: &rng)
+            )
+        }
+    }
+
+    private static func makeBlobs() -> [Mark] {
+        var rng = RNG(0x5EED_9B10)
+        return (0..<4).map { _ in
+            Mark(
+                x: .random(in: 0.2...0.8, using: &rng),
+                y: .random(in: 0.2...0.8, using: &rng),
+                // dx/dy are oscillation amplitudes (fraction of size), not velocity.
+                dx: .random(in: 0.04...0.08, using: &rng),
+                dy: .random(in: 0.04...0.08, using: &rng),
+                size: .random(in: 0.30...0.46, using: &rng),
+                hue: Int.random(in: 0..<palette.count, using: &rng),
+                opacity: .random(in: 0.05...0.09, using: &rng),
+                phase: .random(in: 0...(.pi * 2), using: &rng)
+            )
+        }
+    }
+
+    private static func wrap(_ v: CGFloat) -> CGFloat {
+        let w = v.truncatingRemainder(dividingBy: 1); return w < 0 ? w + 1 : w
+    }
+
+    private static func drawMark(_ m: Mark, t: Double, size: CGSize, into ctx: inout GraphicsContext) {
+        let fx = wrap(m.x + m.dx * CGFloat(t)), fy = wrap(m.y + m.dy * CGFloat(t))
+        // Fade near edges so wraps don't pop.
+        let edge: CGFloat = 0.07
+        let ef = min(1, min(fx, 1 - fx) / edge) * min(1, min(fy, 1 - fy) / edge)
+        let breathe = 0.7 + 0.3 * CGFloat(sin(t * 0.22 + Double(m.phase)))
+        let p = CGPoint(x: fx * size.width, y: fy * size.height)
+        let color = palette[m.hue].opacity(m.opacity * max(0, ef) * breathe)
+        let a = m.size
+        let rect = CGRect(x: p.x - a, y: p.y - a, width: a * 2, height: a * 2)
+        ctx.fill(Path(ellipseIn: rect),
+                 with: .radialGradient(Gradient(colors: [color, color.opacity(0)]),
+                                       center: p, startRadius: 0, endRadius: a))
+    }
+
+    private static func drawBlob(_ m: Mark, t: Double, size: CGSize, into ctx: inout GraphicsContext) {
+        // Slow Lissajous drift around the base point — bounded, never wraps.
+        let sx = CGFloat(sin(t * 0.05 + Double(m.phase)))
+        let sy = CGFloat(sin(t * 0.04 + Double(m.phase) * 1.7 + 1.0))
+        let cx = (m.x + m.dx * sx) * size.width
+        let cy = (m.y + m.dy * sy) * size.height
+        let r = m.size * max(size.width, size.height)
+        let breathe = 0.85 + 0.15 * CGFloat(sin(t * 0.12 + Double(m.phase)))
+        let color = palette[m.hue].opacity(m.opacity * breathe)
+        let center = CGPoint(x: cx, y: cy)
+        let rect = CGRect(x: cx - r, y: cy - r, width: r * 2, height: r * 2)
+        ctx.fill(Path(ellipseIn: rect),
+                 with: .radialGradient(Gradient(colors: [color, color.opacity(0)]),
+                                       center: center, startRadius: 0, endRadius: r))
+    }
+}
+
 /// Registration ticks marking the four corners of the stage — the drafting-table frame.
 struct StageCornerTicks: View {
     private let arm: CGFloat = 14
@@ -255,13 +386,47 @@ struct BrandMarkGlyph: View {
 
 // MARK: - Shared text roles
 
-/// Sentence-case section label used to head each inspector group.
+/// Tracked-uppercase section label; smaller and dimmer than row labels on purpose.
 struct SectionLabel: View {
     let text: String
     var body: some View {
-        Text(text)
-            .font(Theme.section())
-            .foregroundStyle(Theme.textSecondary)
+        Text(text.uppercased())
+            .font(Theme.section(10, .semibold))
+            .tracking(0.9)
+            .foregroundStyle(Theme.textTertiary)
+    }
+}
+
+/// One labelled subsection of a glass panel: tracked heading, optional trailing
+/// accessory, and rows — all at the shared inspector rhythm.
+struct PanelSection<Accessory: View, Content: View>: View {
+    let title: String
+    @ViewBuilder var accessory: () -> Accessory
+    @ViewBuilder var content: () -> Content
+
+    init(
+        _ title: String,
+        @ViewBuilder accessory: @escaping () -> Accessory = { EmptyView() },
+        @ViewBuilder content: @escaping () -> Content
+    ) {
+        self.title = title
+        self.accessory = accessory
+        self.content = content
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.panelHeaderSpacing) {
+            HStack(spacing: 8) {
+                SectionLabel(text: title)
+                Spacer(minLength: 8)
+                // Zero height so a tall accessory can't shift the heading (see GlassCard).
+                accessory()
+                    .frame(height: 0)
+            }
+            VStack(alignment: .leading, spacing: Theme.panelRowSpacing) {
+                content()
+            }
+        }
     }
 }
 
@@ -277,34 +442,45 @@ struct InspectorRowLabel: View {
 }
 
 /// Inspector numeric readout (right column) — always monospaced, always aligned.
+/// Units ("%", "°") render in a fixed gutter so digits share one column everywhere.
 struct InspectorValueLabel: View {
     let text: String
+    var suffix: String = ""
     var body: some View {
-        Text(text)
-            .font(Theme.mono(11.5, .semibold))
-            .foregroundStyle(Theme.textPrimary)
-            .frame(width: 40, alignment: .trailing)
+        HStack(alignment: .firstTextBaseline, spacing: 1) {
+            Text(text)
+                .font(Theme.mono(11.5, .semibold))
+                .foregroundStyle(Theme.textPrimary)
+                .frame(width: 36, alignment: .trailing)
+            Text(suffix)
+                .font(Theme.mono(9.5, .medium))
+                .foregroundStyle(Theme.textTertiary)
+                .frame(width: 10, alignment: .leading)
+        }
     }
 }
 
 /// Keycap glyph for shortcut hints ("⌃", "⇧", "5").
 struct Keycap: View {
     let text: String
+    var glass: Bool = false
+
+    @ViewBuilder
     var body: some View {
-        Text(text)
+        let shape = RoundedRectangle(cornerRadius: 5, style: .continuous)
+        let label = Text(text)
             .font(Theme.mono(11, .semibold))
             .foregroundStyle(Theme.textSecondary)
             .frame(minWidth: 22)
             .frame(height: 22)
             .padding(.horizontal, 3)
-            .background(
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .fill(Theme.inputFill)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .stroke(Theme.hairlineStrong, lineWidth: 1)
-            )
+        if glass, #available(macOS 26.0, *) {
+            label.glassEffect(.regular.tint(Theme.glassTint), in: shape)
+        } else {
+            label
+                .background(shape.fill(Theme.inputFill))
+                .overlay(shape.stroke(Theme.hairlineStrong, lineWidth: 1))
+        }
     }
 }
 
@@ -443,33 +619,7 @@ extension View {
             self
         }
     }
-}
 
-/// Drives `AnyTransition.liquidPanel`: at progress 0 the panel is a blurred,
-/// transparent droplet shrunk toward its own top edge; at 1 it is the crisp
-/// resting card. Animating between the two reads as the glass condensing out
-/// of the stage and dissolving back into it.
-private struct LiquidPanelModifier: ViewModifier {
-    let progress: CGFloat
-
-    func body(content: Content) -> some View {
-        content
-            .opacity(progress)
-            .blur(radius: (1 - progress) * 10)
-            .scaleEffect(0.86 + 0.14 * progress, anchor: .top)
-    }
-}
-
-extension AnyTransition {
-    /// Liquid condense/dissolve for floating glass panels entering or leaving
-    /// the chrome. Pair with `Theme.panelSpring` on the surrounding layout so
-    /// neighbouring panels flow out of the way rather than jumping.
-    static var liquidPanel: AnyTransition {
-        .modifier(
-            active: LiquidPanelModifier(progress: 0),
-            identity: LiquidPanelModifier(progress: 1)
-        )
-    }
 }
 
 /// One floating inspector card: a glass panel with a title row and its controls.
@@ -477,39 +627,53 @@ extension AnyTransition {
 /// the same place. No chevrons, no routing, no collapse state to manage.
 struct GlassCard<Accessory: View, Content: View>: View {
     let title: String
+    /// When false, renders only the card interior (title row + controls) with
+    /// no glass chrome — for slots that draw one persistent glass surface
+    /// around swappable interiors so the surface can resize smoothly.
+    let glass: Bool
     @Environment(\.inspectorWidth) private var inspectorWidth
     @ViewBuilder var accessory: () -> Accessory
     @ViewBuilder var content: () -> Content
 
     init(
         _ title: String,
+        glass: Bool = true,
         @ViewBuilder accessory: @escaping () -> Accessory = { EmptyView() },
         @ViewBuilder content: @escaping () -> Content
     ) {
         self.title = title
+        self.glass = glass
         self.accessory = accessory
         self.content = content
     }
 
     var body: some View {
+        if glass {
+            interior.glassPanel()
+        } else {
+            interior
+        }
+    }
+
+    private var interior: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
-                Text(title)
-                    .font(Theme.section(11.5))
-                    .foregroundStyle(Theme.textSecondary)
+                SectionLabel(text: title)
                 Spacer(minLength: 8)
+                // Zero layout height: a tall accessory centers on the title's midline
+                // instead of inflating the row, so headings align across cards.
                 accessory()
+                    .frame(height: 0)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 13)
-            .padding(.bottom, 10)
+            .padding(.horizontal, Theme.panelInset)
+            .padding(.top, Theme.panelInsetTop)
+            .padding(.bottom, Theme.panelRowSpacing)
 
             content()
-                .padding(.horizontal, 16)
-                .padding(.bottom, 15)
+                .padding(.horizontal, Theme.panelInset)
+                .padding(.bottom, Theme.panelInset)
         }
         .frame(width: inspectorWidth)
-        .glassPanel()
         .accessibilityElement(children: .contain)
         .accessibilityLabel(title)
     }
@@ -533,14 +697,23 @@ struct ToolRailButton: View {
                 .foregroundStyle(isActive ? Theme.accentInk : (hovering ? Theme.textPrimary : Theme.textSecondary))
                 .frame(width: 36, height: 36)
                 .background(
-                    RoundedRectangle(cornerRadius: Theme.radiusPill, style: .continuous)
-                        .fill(isActive ? Theme.accent : (hovering ? Theme.surfaceHover : .clear))
+                    ZStack {
+                        RoundedRectangle(cornerRadius: Theme.radiusPill, style: .continuous)
+                            .fill(Theme.surfaceHover)
+                            .opacity(hovering && !isActive ? 1 : 0)
+                        RoundedRectangle(cornerRadius: Theme.radiusPill, style: .continuous)
+                            .fill(Theme.accent)
+                            .scaleEffect(isActive ? 1 : 0.6)
+                            .opacity(isActive ? 1 : 0)
+                    }
+                    .padding(3)
                 )
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
+        .animation(.spring(response: 0.28, dampingFraction: 0.72), value: isActive)
         .help(shortcut.map { "\(label)  \($0)" } ?? label)
         .accessibilityLabel(label)
         .accessibilityAddTraits(isActive ? [.isSelected] : [])
@@ -754,15 +927,17 @@ struct ToolPaletteButton: View {
 /// Compact icon button (undo/redo, panel close). Flat, hover tint only.
 struct IconButton: View {
     let systemName: String
+    var hoverColor: Color = Theme.textPrimary
+    var hoverFill: Color = .white
     var action: () -> Void = {}
     @State private var hovering = false
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(hovering ? Theme.textPrimary : Theme.textSecondary)
+                .foregroundStyle(hovering ? hoverColor : Theme.textSecondary)
                 .frame(width: 28, height: 28)
-                .background(Circle().fill(Color.white.opacity(hovering ? 0.12 : 0)))
+                .background(Circle().fill(hoverFill.opacity(hovering ? 0.12 : 0)))
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)

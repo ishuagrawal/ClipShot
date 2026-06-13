@@ -28,7 +28,7 @@ final class UndoStackTests: XCTestCase {
         EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
             viewport: CGSize(width: 100, height: 100),
-            pageTitle: "t", pageURL: "u",
+            sourceTitle: "t", sourceURL: "u",
             baseSelection: CGRect(x: 0, y: 0, width: 50, height: 50)
         )
     }

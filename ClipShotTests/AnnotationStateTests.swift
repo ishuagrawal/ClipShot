@@ -10,8 +10,8 @@ final class AnnotationStateTests: XCTestCase {
             document: EditorDocument(
                 screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
                 viewport: CGSize(width: 100, height: 100),
-                pageTitle: "t",
-                pageURL: "u",
+                sourceTitle: "t",
+                sourceURL: "u",
                 baseSelection: CGRect(x: 10, y: 10, width: 40, height: 40)
             )
         )
@@ -144,8 +144,8 @@ final class CanvasTextEditorTests: XCTestCase {
         var document = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
             viewport: CGSize(width: 100, height: 100),
-            pageTitle: "t",
-            pageURL: "u",
+            sourceTitle: "t",
+            sourceURL: "u",
             baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80),
             annotations: [annotation]
         )
@@ -186,8 +186,8 @@ final class CanvasTextEditorTests: XCTestCase {
         let document = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
             viewport: CGSize(width: 100, height: 100),
-            pageTitle: "t",
-            pageURL: "u",
+            sourceTitle: "t",
+            sourceURL: "u",
             baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80),
             annotations: [annotation]
         )
@@ -229,8 +229,8 @@ final class CanvasTextEditorTests: XCTestCase {
         let document = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
             viewport: CGSize(width: 100, height: 100),
-            pageTitle: "t",
-            pageURL: "u",
+            sourceTitle: "t",
+            sourceURL: "u",
             baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80),
             annotations: [annotation]
         )
@@ -267,8 +267,8 @@ final class CanvasTextEditorTests: XCTestCase {
         let document = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
             viewport: CGSize(width: 100, height: 100),
-            pageTitle: "t",
-            pageURL: "u",
+            sourceTitle: "t",
+            sourceURL: "u",
             baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80)
         )
         let state = EditorState(document: document)
@@ -299,8 +299,8 @@ final class CanvasTextEditorTests: XCTestCase {
         let document = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
             viewport: CGSize(width: 100, height: 100),
-            pageTitle: "t",
-            pageURL: "u",
+            sourceTitle: "t",
+            sourceURL: "u",
             baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80)
         )
         let state = EditorState(document: document)
@@ -342,8 +342,8 @@ final class CanvasTextEditorTests: XCTestCase {
         let document = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
             viewport: CGSize(width: 100, height: 100),
-            pageTitle: "t",
-            pageURL: "u",
+            sourceTitle: "t",
+            sourceURL: "u",
             baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80),
             annotations: [annotation]
         )
@@ -382,8 +382,8 @@ final class CanvasTextEditorTests: XCTestCase {
         let document = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
             viewport: CGSize(width: 100, height: 100),
-            pageTitle: "t",
-            pageURL: "u",
+            sourceTitle: "t",
+            sourceURL: "u",
             baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80),
             annotations: [annotation]
         )
@@ -490,8 +490,8 @@ final class CanvasInteractionViewTests: XCTestCase {
         let document = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
             viewport: CGSize(width: 100, height: 100),
-            pageTitle: "t",
-            pageURL: "u",
+            sourceTitle: "t",
+            sourceURL: "u",
             baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80)
         )
         let state = EditorState(document: document)
@@ -530,8 +530,8 @@ final class CanvasInteractionViewTests: XCTestCase {
         let document = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
             viewport: CGSize(width: 100, height: 100),
-            pageTitle: "t",
-            pageURL: "u",
+            sourceTitle: "t",
+            sourceURL: "u",
             baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80)
         )
         let state = EditorState(document: document)
@@ -570,8 +570,8 @@ final class CanvasInteractionViewTests: XCTestCase {
         let document = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 120, height: 100)),
             viewport: CGSize(width: 120, height: 100),
-            pageTitle: "t",
-            pageURL: "u",
+            sourceTitle: "t",
+            sourceURL: "u",
             baseSelection: CGRect(x: 20, y: 30, width: 70, height: 50),
             padding: PaddingConfig(top: 10, right: 15, bottom: 20, left: 25)
         )
@@ -596,8 +596,8 @@ final class CanvasInteractionViewTests: XCTestCase {
         let document = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 120, height: 100)),
             viewport: CGSize(width: 120, height: 100),
-            pageTitle: "t",
-            pageURL: "u",
+            sourceTitle: "t",
+            sourceURL: "u",
             baseSelection: CGRect(x: 40, y: 50, width: 60, height: 40),
             padding: .uniform(20),
             annotations: [annotation]
@@ -618,8 +618,8 @@ final class CanvasInteractionViewTests: XCTestCase {
         let document = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 300, height: 200)),
             viewport: CGSize(width: 300, height: 200),
-            pageTitle: "t",
-            pageURL: "u",
+            sourceTitle: "t",
+            sourceURL: "u",
             baseSelection: CGRect(x: 0, y: 0, width: 300, height: 200),
             padding: .uniform(40),
             background: .solidColor(.init(red: 0, green: 0, blue: 1, alpha: 1))
@@ -643,8 +643,8 @@ final class CanvasInteractionViewTests: XCTestCase {
         let document = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
             viewport: CGSize(width: 100, height: 100),
-            pageTitle: "t",
-            pageURL: "u",
+            sourceTitle: "t",
+            sourceURL: "u",
             baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80)
         )
         let state = EditorState(document: document)
@@ -706,8 +706,8 @@ final class CanvasInteractionViewTests: XCTestCase {
         let document = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
             viewport: CGSize(width: 100, height: 100),
-            pageTitle: "t",
-            pageURL: "u",
+            sourceTitle: "t",
+            sourceURL: "u",
             baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80)
         )
         let state = EditorState(document: document)
@@ -1287,8 +1287,8 @@ final class CanvasInteractionViewTests: XCTestCase {
         let document = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
             viewport: CGSize(width: 100, height: 100),
-            pageTitle: "t",
-            pageURL: "u",
+            sourceTitle: "t",
+            sourceURL: "u",
             baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80),
             annotations: [annotation]
         )
@@ -1364,8 +1364,8 @@ final class CanvasInteractionViewTests: XCTestCase {
         let document = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
             viewport: CGSize(width: 100, height: 100),
-            pageTitle: "t",
-            pageURL: "u",
+            sourceTitle: "t",
+            sourceURL: "u",
             baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80),
             annotations: [annotation]
         )
@@ -1384,8 +1384,8 @@ final class CanvasInteractionViewTests: XCTestCase {
         let document = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
             viewport: CGSize(width: 100, height: 100),
-            pageTitle: "t",
-            pageURL: "u",
+            sourceTitle: "t",
+            sourceURL: "u",
             baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80)
         )
         let state = EditorState(document: document)
@@ -1470,8 +1470,8 @@ final class CanvasOverlayViewTests: XCTestCase {
         let document = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
             viewport: CGSize(width: 100, height: 100),
-            pageTitle: "t",
-            pageURL: "u",
+            sourceTitle: "t",
+            sourceURL: "u",
             baseSelection: CGRect(x: 0, y: 0, width: 80, height: 80),
             annotations: [annotation]
         )

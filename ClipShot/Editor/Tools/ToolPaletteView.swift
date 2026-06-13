@@ -46,7 +46,7 @@ struct DockView: View {
 
             ZoomControlsView(zoom: zoom)
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, Theme.barInset)
         .frame(height: Theme.dockHeight)
         .glassPanel(cornerRadius: 26)
         .accessibilityElement(children: .contain)

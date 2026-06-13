@@ -12,7 +12,7 @@ struct RectangleToolView: View {
     @State private var isSyncing = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: Theme.panelRowSpacing) {
             HStack(spacing: 10) {
                 InspectorRowLabel(text: "Stroke")
                 GlassColorWell(selection: $stroke, label: "Stroke color")

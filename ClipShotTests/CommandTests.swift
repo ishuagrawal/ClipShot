@@ -7,8 +7,8 @@ final class CommandTests: XCTestCase {
         EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 100, height: 100)),
             viewport: CGSize(width: 100, height: 100),
-            pageTitle: "t",
-            pageURL: "u",
+            sourceTitle: "t",
+            sourceURL: "u",
             baseSelection: CGRect(x: 10, y: 10, width: 40, height: 40)
         )
     }

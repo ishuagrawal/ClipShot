@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Menu bar popover: capture entry points, bridge status, quit. Styled as a small
-/// slab of the editor's drafting-room chrome so the brand starts at the menu bar.
+/// Menu bar popover: capture entry point and quit, styled on a glassy material
+/// so the brand starts at the menu bar.
 struct MenuContentView: View {
     @EnvironmentObject private var appState: AppState
 
@@ -14,44 +14,43 @@ struct MenuContentView: View {
 
             Rectangle().fill(Theme.hairline).frame(height: 1)
 
-            VStack(alignment: .leading, spacing: 14) {
+            MenuRowButton {
+                appState.onOpenHome?()
+            } label: {
+                Text("Open ClipShot")
+                    .font(Theme.label(12.5, .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(6)
+
+            Rectangle().fill(Theme.hairline).frame(height: 1)
+
+            MenuRowButton {
+                appState.onBeginCapture?()
+            } label: {
                 captureRow(
                     title: "Screen capture",
                     detail: "Drag an exact region or click a window.",
                     keys: ["⌃", "⇧", "5"]
                 )
-                captureRow(
-                    title: "Web component capture",
-                    detail: "Same shortcut inside Arc or Chrome picks a DOM component and opens it here.",
-                    keys: ["⌃", "⇧", "5"]
-                )
             }
-            .padding(16)
+            .padding(6)
 
             Rectangle().fill(Theme.hairline).frame(height: 1)
 
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(appState.lastCaptureStatus != nil ? Theme.accent : Theme.textTertiary)
-                    .frame(width: 6, height: 6)
-                Text(appState.lastCaptureStatus ?? "Starting DOM bridge")
-                    .font(Theme.label(11))
+            MenuRowButton {
+                NSApplication.shared.terminate(nil)
+            } label: {
+                Text("Quit ClipShot")
+                    .font(Theme.label(11.5))
                     .foregroundStyle(Theme.textSecondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                Spacer(minLength: 12)
-                Button("Quit ClipShot") {
-                    NSApplication.shared.terminate(nil)
-                }
-                .buttonStyle(.plain)
-                .font(Theme.label(11.5))
-                .foregroundStyle(Theme.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 11)
+            .padding(6)
         }
         .frame(width: 320)
-        .background(Theme.surface)
+        .background(.ultraThinMaterial)
         .preferredColorScheme(.dark)
     }
 
@@ -83,5 +82,28 @@ struct MenuContentView: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// Menu row that highlights on hover like a native macOS menu item.
+private struct MenuRowButton<Label: View>: View {
+    let action: () -> Void
+    @ViewBuilder let label: () -> Label
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            label()
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(Color.primary.opacity(isHovered ? 0.08 : 0))
+        )
+        .onHover { isHovered = $0 }
     }
 }

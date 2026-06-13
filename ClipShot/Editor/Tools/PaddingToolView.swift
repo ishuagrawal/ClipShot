@@ -25,9 +25,11 @@ struct PaddingToolView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            header
-            boxModel
+        VStack(alignment: .leading, spacing: Theme.panelSectionSpacing) {
+            VStack(alignment: .leading, spacing: Theme.panelRowSpacing) {
+                header
+                boxModel
+            }
             uniformRow
             cornerRow
             screenshotCornerRow
@@ -127,8 +129,7 @@ struct PaddingToolView: View {
     }
 
     private var uniformRow: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            SectionLabel(text: "Uniform")
+        PanelSection("Uniform") {
             HStack(spacing: 10) {
                 GlassSlider(
                 value: Binding(
@@ -155,16 +156,13 @@ struct PaddingToolView: View {
     }
 
     private var cornerRow: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack {
-                SectionLabel(text: "Corner radius")
-                Spacer()
-                ChipToggle(
-                    label: "Concentric",
-                    isOn: isConcentricCorner,
-                    help: "Match the screenshot corners (concentric)"
-                ) { applyConcentricCorner() }
-            }
+        PanelSection("Corner radius") {
+            ChipToggle(
+                label: "Concentric",
+                isOn: isConcentricCorner,
+                help: "Match the screenshot corners (concentric)"
+            ) { applyConcentricCorner() }
+        } content: {
             HStack(spacing: 10) {
                 GlassSlider(
                     value: Binding(
@@ -218,16 +216,13 @@ struct PaddingToolView: View {
     // MARK: - Screenshot corners
 
     private var screenshotCornerRow: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack {
-                SectionLabel(text: "Screenshot corners")
-                Spacer()
-                ChipToggle(
-                    systemName: isCornerLocked ? "lock" : "lock.open",
-                    isOn: isCornerLocked,
-                    help: "Lock the screenshot corners to the card radius"
-                ) { toggleCornerLock() }
-            }
+        PanelSection("Screenshot corners") {
+            ChipToggle(
+                systemName: isCornerLocked ? "lock" : "lock.open",
+                isOn: isCornerLocked,
+                help: "Lock the screenshot corners to the card radius"
+            ) { toggleCornerLock() }
+        } content: {
             HStack(spacing: 10) {
                 GlassSlider(
                     value: Binding(
@@ -306,17 +301,14 @@ struct PaddingToolView: View {
     private var shadow: ShadowConfig { state.document.shadow }
 
     private var shadowSection: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack {
-                SectionLabel(text: "Shadow")
-                Spacer()
-                Toggle("Shadow", isOn: Binding(
-                    get: { shadow.isEnabled },
-                    set: { var next = shadow; next.isEnabled = $0; commitShadow(next) }
-                ))
-                .labelsHidden()
-                .toggleStyle(GlassToggleStyle())
-            }
+        PanelSection("Shadow") {
+            Toggle("Shadow", isOn: Binding(
+                get: { shadow.isEnabled },
+                set: { var next = shadow; next.isEnabled = $0; commitShadow(next) }
+            ))
+            .labelsHidden()
+            .toggleStyle(GlassToggleStyle())
+        } content: {
             if shadow.isEnabled {
                 shadowSlider("Blur", value: shadow.blur, range: 0...Double(ShadowConfig.maximumBlur)) {
                     var next = shadow; next.blur = $0; commitShadow(next)
@@ -373,7 +365,7 @@ struct PaddingToolView: View {
                 accessibilityLabel: label,
                 accessibilityValue: { "\(Int($0.rounded()))\(suffix)" }
             )
-            InspectorValueLabel(text: "\(Int(value))\(suffix)")
+            InspectorValueLabel(text: "\(Int(value))", suffix: suffix)
         }
     }
 

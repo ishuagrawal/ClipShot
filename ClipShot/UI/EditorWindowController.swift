@@ -5,11 +5,26 @@ import SwiftUI
 final class EditorWindowController {
     private static let frameAutosaveName = NSWindow.FrameAutosaveName("ClipShotEditorWindow")
 
-    private let store: DOMCaptureSessionStore
+    private let store: CaptureSessionStore
+    private let recentsStore: RecentsStore
+    private let onReopenRecent: (RecentEntry) -> Void
+    private let onImportFile: (URL) async -> Bool
+    private let onImportData: (Data, String) async -> Bool
     private var window: NSWindow?
 
-    init(store: DOMCaptureSessionStore) {
+    /// False when the window is closed (ordered out); true on-screen or miniaturized.
+    var isWindowVisible: Bool { window?.isVisible ?? false }
+
+    init(store: CaptureSessionStore,
+         recentsStore: RecentsStore,
+         onReopenRecent: @escaping (RecentEntry) -> Void,
+         onImportFile: @escaping (URL) async -> Bool,
+         onImportData: @escaping (Data, String) async -> Bool) {
         self.store = store
+        self.recentsStore = recentsStore
+        self.onReopenRecent = onReopenRecent
+        self.onImportFile = onImportFile
+        self.onImportData = onImportData
     }
 
     func show() {
@@ -22,7 +37,11 @@ final class EditorWindowController {
     }
 
     private func makeWindow() -> NSWindow {
-        let contentView = EditorView(store: store)
+        let contentView = EditorView(store: store,
+                                     onReopenRecent: onReopenRecent,
+                                     onImportFile: onImportFile,
+                                     onImportData: onImportData)
+            .environmentObject(recentsStore)
         let hostingController = NSHostingController(rootView: contentView)
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1100, height: 760),
