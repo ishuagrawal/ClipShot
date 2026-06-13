@@ -17,9 +17,11 @@ struct BackgroundToolView: View {
     private var style: BackgroundStyle { state.document.background }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            tiles
-            config
+        VStack(alignment: .leading, spacing: Theme.panelSectionSpacing) {
+            VStack(alignment: .leading, spacing: Theme.panelRowSpacing) {
+                tiles
+                config
+            }
             effects
         }
         .onAppear {
@@ -38,26 +40,28 @@ struct BackgroundToolView: View {
     @ViewBuilder
     private var effects: some View {
         if style.kind != .none {
-            Rectangle().fill(Theme.hairline).frame(height: 1).padding(.vertical, 2)
-            HStack(spacing: 10) {
-                InspectorRowLabel(text: "Blur")
-                GlassSlider(
-                    value: Binding(get: { blur }, set: { blur = $0; commitEffects() }),
-                    range: 0...Double(BackgroundEffects.maximumBlurRadius),
-                    accessibilityLabel: "Background blur",
-                    accessibilityValue: { "\(Int($0.rounded()))" }
-                )
-                InspectorValueLabel(text: "\(Int(blur))")
-            }
-            HStack(spacing: 10) {
-                InspectorRowLabel(text: "Noise")
-                GlassSlider(
-                    value: Binding(get: { noise }, set: { noise = $0; commitEffects() }),
-                    range: 0...Double(BackgroundEffects.maximumNoiseOpacity * 100),
-                    accessibilityLabel: "Background noise",
-                    accessibilityValue: { "\(Int($0.rounded())) percent" }
-                )
-                InspectorValueLabel(text: "\(Int(noise))%")
+            VStack(alignment: .leading, spacing: Theme.panelRowSpacing) {
+                Rectangle().fill(Theme.hairline).frame(height: 1).padding(.vertical, 2)
+                HStack(spacing: 10) {
+                    InspectorRowLabel(text: "Blur")
+                    GlassSlider(
+                        value: Binding(get: { blur }, set: { blur = $0; commitEffects() }),
+                        range: 0...Double(BackgroundEffects.maximumBlurRadius),
+                        accessibilityLabel: "Background blur",
+                        accessibilityValue: { "\(Int($0.rounded()))" }
+                    )
+                    InspectorValueLabel(text: "\(Int(blur))")
+                }
+                HStack(spacing: 10) {
+                    InspectorRowLabel(text: "Noise")
+                    GlassSlider(
+                        value: Binding(get: { noise }, set: { noise = $0; commitEffects() }),
+                        range: 0...Double(BackgroundEffects.maximumNoiseOpacity * 100),
+                        accessibilityLabel: "Background noise",
+                        accessibilityValue: { "\(Int($0.rounded())) percent" }
+                    )
+                    InspectorValueLabel(text: "\(Int(noise))", suffix: "%")
+                }
             }
         }
     }
@@ -175,8 +179,8 @@ struct BackgroundToolView: View {
                     }
             }
         case .gradient:
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: Theme.panelRowSpacing) {
+                HStack(spacing: 10) {
                     InspectorRowLabel(text: "Colors")
                     GlassColorWell(selection: $gradientStart, label: "Gradient start")
                         .onChange(of: gradientStart) { _, _ in
@@ -203,7 +207,7 @@ struct BackgroundToolView: View {
                         accessibilityLabel: "Gradient angle",
                         accessibilityValue: { "\(Int($0.rounded())) degrees" }
                     )
-                    InspectorValueLabel(text: "\(Int(gradientAngle))°")
+                    InspectorValueLabel(text: "\(Int(gradientAngle))", suffix: "°")
                 }
             }
         case .dynamic:

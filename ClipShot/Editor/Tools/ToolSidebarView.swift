@@ -22,7 +22,7 @@ struct InspectorView: View {
             // separate effects each re-blur the canvas every scroll frame.
             glassGroupedColumn
                 .padding(.vertical, 2)
-                .padding(.horizontal, 16)
+                .padding(.horizontal, Theme.panelInset)
         }
         .defaultScrollAnchor(.top)
         // Cards blur and fade at the scroll bounds instead of hard-clipping. The
@@ -56,7 +56,7 @@ struct InspectorView: View {
                 Color.clear.frame(height: Theme.scrollFadeBottomInset - Theme.scrollFadeBand)
             }
         }
-        .frame(width: inspectorWidth + 32)
+        .frame(width: inspectorWidth + Theme.panelInset * 2)
     }
 
     @ViewBuilder
@@ -75,7 +75,7 @@ struct InspectorView: View {
 
     /// Gap between inspector cards; also cancelled out below the collapsed
     /// contextual slot so the hidden slot leaves no double gap.
-    private let columnSpacing: CGFloat = 10
+    private let columnSpacing: CGFloat = Theme.cardGap
 
     @ViewBuilder
     private var cardColumn: some View {
@@ -170,17 +170,22 @@ struct InspectorView: View {
 
     private var selectionCard: some View {
         GlassCard(selectionTitle, glass: false) {
-            IconButton(systemName: "trash") { state.deleteSelectedAnnotation() }
-                .help("Delete annotation")
-                .accessibilityLabel("Delete annotation")
-        } content: {
             SelectToolView(state: state)
+        }
+        // Top padding centers the 28pt button on the title's text line (13pt inset + ~6pt half line - 14).
+        .overlay(alignment: .topTrailing) {
+            IconButton(systemName: "trash", hoverColor: Theme.danger, hoverFill: Theme.danger) {
+                state.deleteSelectedAnnotation()
+            }
+            .help("Delete annotation")
+            .accessibilityLabel("Delete annotation")
+            .padding([.top, .trailing], 5)
         }
     }
 
     private var toolDefaultsCard: some View {
         let tool = state.inProgressTextDraft != nil ? EditorTool.text : state.activeTool
-        return GlassCard("\(tool.displayName) defaults", glass: false) {
+        return GlassCard(tool.displayName, glass: false) {
             switch tool {
             case .arrow:     ArrowToolView(state: state)
             case .rectangle: RectangleToolView(state: state)

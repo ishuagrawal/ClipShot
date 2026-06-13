@@ -26,7 +26,7 @@ struct TitleBarView: View {
             // room on its top, left, and bottom; the trailing side stays wider
             // for the dissolving field.
             .padding(.leading, 8)
-            .padding(.trailing, 16)
+            .padding(.trailing, Theme.panelInset)
             .padding(.vertical, 8)
             .frame(minHeight: Theme.topBarHeight)
             .floatingGlassPanel(glow: titleFocused)

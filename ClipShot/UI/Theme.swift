@@ -32,6 +32,8 @@ enum Theme {
     static let accent        = Color(red: 1.0, green: 0.361, blue: 0.220)     // #FF5C38
     static let accentText    = Color(red: 1.0, green: 0.557, blue: 0.420)     // #FF8E6B on dark ~7:1
     static let accentDim     = Color(red: 1.0, green: 0.361, blue: 0.220).opacity(0.14)
+    /// Destructive hover tint (delete actions).
+    static let danger        = Color(red: 1.0, green: 0.357, blue: 0.310)     // #FF5B4F
     static let accentFocus   = Color(red: 1.0, green: 0.361, blue: 0.220).opacity(0.55)
     static let accentInk     = Color(red: 0.173, green: 0.055, blue: 0.020)   // ink on solid accent
 
@@ -98,13 +100,29 @@ enum Theme {
     static var rightChromeWidth: CGFloat { rightChromeWidth(forInspector: inspectorWidth) }
     /// Same measurement for a live (window-proportional) inspector width.
     static func rightChromeWidth(forInspector inspectorWidth: CGFloat) -> CGFloat {
-        inspectorWidth + 16 + chromeMargin
+        inspectorWidth + panelInset + chromeMargin
     }
 
     // MARK: Motion
     /// Shared spring for chrome panels entering and leaving the stage; a touch
     /// underdamped so panels settle with a soft, liquid overshoot.
     static let panelSpring: Animation = .spring(response: 0.45, dampingFraction: 0.78)
+
+    // MARK: Inspector rhythm — one spacing scale shared by every glass panel.
+    /// Gap between labelled subsections inside a card.
+    static let panelSectionSpacing: CGFloat = 16
+    /// Gap between a section heading and its first control.
+    static let panelHeaderSpacing: CGFloat = 7
+    /// Gap between control rows within one subsection.
+    static let panelRowSpacing: CGFloat = 10
+    /// Interior inset of a glass panel (horizontal and bottom edges).
+    static let panelInset: CGFloat = 16
+    /// Top inset; tighter because the title's cap height carries its own headroom.
+    static let panelInsetTop: CGFloat = 13
+    /// Gap between stacked inspector cards; the glass edge amplifies it visually.
+    static let cardGap: CGFloat = 12
+    /// Horizontal inset for glass bars (dock), whose rounded ends add optical room.
+    static let barInset: CGFloat = 12
 
     // MARK: Type — SF Pro for labels, SF Mono for every measured value
     static func title(_ size: CGFloat = 14, _ weight: Font.Weight = .semibold) -> Font {
@@ -255,13 +273,47 @@ struct BrandMarkGlyph: View {
 
 // MARK: - Shared text roles
 
-/// Sentence-case section label used to head each inspector group.
+/// Tracked-uppercase section label; smaller and dimmer than row labels on purpose.
 struct SectionLabel: View {
     let text: String
     var body: some View {
-        Text(text)
-            .font(Theme.section())
-            .foregroundStyle(Theme.textSecondary)
+        Text(text.uppercased())
+            .font(Theme.section(10, .semibold))
+            .tracking(0.9)
+            .foregroundStyle(Theme.textTertiary)
+    }
+}
+
+/// One labelled subsection of a glass panel: tracked heading, optional trailing
+/// accessory, and rows — all at the shared inspector rhythm.
+struct PanelSection<Accessory: View, Content: View>: View {
+    let title: String
+    @ViewBuilder var accessory: () -> Accessory
+    @ViewBuilder var content: () -> Content
+
+    init(
+        _ title: String,
+        @ViewBuilder accessory: @escaping () -> Accessory = { EmptyView() },
+        @ViewBuilder content: @escaping () -> Content
+    ) {
+        self.title = title
+        self.accessory = accessory
+        self.content = content
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.panelHeaderSpacing) {
+            HStack(spacing: 8) {
+                SectionLabel(text: title)
+                Spacer(minLength: 8)
+                // Zero height so a tall accessory can't shift the heading (see GlassCard).
+                accessory()
+                    .frame(height: 0)
+            }
+            VStack(alignment: .leading, spacing: Theme.panelRowSpacing) {
+                content()
+            }
+        }
     }
 }
 
@@ -277,13 +329,21 @@ struct InspectorRowLabel: View {
 }
 
 /// Inspector numeric readout (right column) — always monospaced, always aligned.
+/// Units ("%", "°") render in a fixed gutter so digits share one column everywhere.
 struct InspectorValueLabel: View {
     let text: String
+    var suffix: String = ""
     var body: some View {
-        Text(text)
-            .font(Theme.mono(11.5, .semibold))
-            .foregroundStyle(Theme.textPrimary)
-            .frame(width: 40, alignment: .trailing)
+        HStack(alignment: .firstTextBaseline, spacing: 1) {
+            Text(text)
+                .font(Theme.mono(11.5, .semibold))
+                .foregroundStyle(Theme.textPrimary)
+                .frame(width: 36, alignment: .trailing)
+            Text(suffix)
+                .font(Theme.mono(9.5, .medium))
+                .foregroundStyle(Theme.textTertiary)
+                .frame(width: 10, alignment: .leading)
+        }
     }
 }
 
@@ -481,19 +541,20 @@ struct GlassCard<Accessory: View, Content: View>: View {
     private var interior: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
-                Text(title)
-                    .font(Theme.section(11.5))
-                    .foregroundStyle(Theme.textSecondary)
+                SectionLabel(text: title)
                 Spacer(minLength: 8)
+                // Zero layout height: a tall accessory centers on the title's midline
+                // instead of inflating the row, so headings align across cards.
                 accessory()
+                    .frame(height: 0)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 13)
-            .padding(.bottom, 10)
+            .padding(.horizontal, Theme.panelInset)
+            .padding(.top, Theme.panelInsetTop)
+            .padding(.bottom, Theme.panelRowSpacing)
 
             content()
-                .padding(.horizontal, 16)
-                .padding(.bottom, 15)
+                .padding(.horizontal, Theme.panelInset)
+                .padding(.bottom, Theme.panelInset)
         }
         .frame(width: inspectorWidth)
         .accessibilityElement(children: .contain)
@@ -749,15 +810,17 @@ struct ToolPaletteButton: View {
 /// Compact icon button (undo/redo, panel close). Flat, hover tint only.
 struct IconButton: View {
     let systemName: String
+    var hoverColor: Color = Theme.textPrimary
+    var hoverFill: Color = .white
     var action: () -> Void = {}
     @State private var hovering = false
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(hovering ? Theme.textPrimary : Theme.textSecondary)
+                .foregroundStyle(hovering ? hoverColor : Theme.textSecondary)
                 .frame(width: 28, height: 28)
-                .background(Circle().fill(Color.white.opacity(hovering ? 0.12 : 0)))
+                .background(Circle().fill(hoverFill.opacity(hovering ? 0.12 : 0)))
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)

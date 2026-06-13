@@ -95,7 +95,7 @@ private struct EditorShell: View {
                     // edge (the inspector column plus the canvas fit margin); the
                     // title plate keeps the window-margin alignment on the left.
                     TitleBarView(state: state)
-                        .padding(.leading, Theme.chromeMargin + 16)
+                        .padding(.leading, Theme.chromeMargin + Theme.panelInset)
                         .padding(.trailing, exportPodTrailingPadding(
                             windowSize: geo.size,
                             rightChrome: rightChrome
