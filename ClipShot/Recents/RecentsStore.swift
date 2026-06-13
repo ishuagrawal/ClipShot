@@ -10,6 +10,20 @@ struct RecentEntry: Identifiable, Codable, Sendable {
     let cornerRadii: CaptureCornerRadii?
     let pixelWidth: Int
     let pixelHeight: Int
+
+    /// Copy of the entry with a fresh capturedAt; all other fields preserved.
+    func touched(at date: Date = Date()) -> RecentEntry {
+        RecentEntry(
+            id: id,
+            capturedAt: date,
+            sourceTitle: sourceTitle,
+            pixelScale: pixelScale,
+            selectionRect: selectionRect,
+            cornerRadii: cornerRadii,
+            pixelWidth: pixelWidth,
+            pixelHeight: pixelHeight
+        )
+    }
 }
 
 @MainActor
@@ -38,6 +52,20 @@ final class RecentsStore: ObservableObject {
 
     nonisolated func imageData(for entry: RecentEntry) -> Data? {
         try? Data(contentsOf: imageURL(for: entry))
+    }
+
+    /// Reads on the store's serial queue so the read is ordered after any pending write.
+    nonisolated func imageData(for entry: RecentEntry, completion: @escaping @MainActor (Data?) -> Void) {
+        let url = imageURL(for: entry)
+        queue.async {
+            let data = try? Data(contentsOf: url)
+            Task { @MainActor in completion(data) }
+        }
+    }
+
+    /// Blocks until all queued disk work has finished; test-only.
+    nonisolated func drainForTesting() {
+        queue.sync {}
     }
 
     func record(imageData: Data, entry: RecentEntry) {
@@ -74,19 +102,8 @@ final class RecentsStore: ObservableObject {
 
     /// Bumps an existing entry to the top (fresh capturedAt) and persists the updated meta.
     func touch(_ id: UUID) {
-        guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
-        let old = entries[index]
-        let updated = RecentEntry(
-            id: old.id,
-            capturedAt: Date(),
-            sourceTitle: old.sourceTitle,
-            pixelScale: old.pixelScale,
-            selectionRect: old.selectionRect,
-            cornerRadii: old.cornerRadii,
-            pixelWidth: old.pixelWidth,
-            pixelHeight: old.pixelHeight
-        )
-        entries.remove(at: index)
+        guard let old = entries.first(where: { $0.id == id }) else { return }
+        let updated = old.touched()
         insert(updated)
         let metaURL = directoryURL(for: id).appendingPathComponent("meta.json")
         queue.async {

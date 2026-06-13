@@ -18,16 +18,20 @@ final class CaptureCoordinator: @unchecked Sendable {
     }
 
     func reopenRecent(_ entry: RecentEntry) {
-        guard let imageData = recentsStore.imageData(for: entry) else {
-            appState.setCaptureStatus("Recent capture is missing")
-            NSSound.beep()
-            recentsStore.remove(entry.id)
-            return
-        }
+        // Ordered read: lands after any in-flight write for this entry, so nil means truly missing.
+        recentsStore.imageData(for: entry) { [weak self] imageData in
+            guard let self else { return }
+            guard let imageData else {
+                self.appState.setCaptureStatus("Recent capture is missing")
+                NSSound.beep()
+                self.recentsStore.remove(entry.id)
+                return
+            }
 
-        let request = Self.makeReopenRequest(entry: entry, imageData: imageData)
-        guard presentSession(request: request) != nil else { return }
-        recentsStore.touch(entry.id)
+            let request = Self.makeReopenRequest(entry: entry, imageData: imageData)
+            guard self.presentSession(request: request) != nil else { return }
+            self.recentsStore.touch(entry.id)
+        }
     }
 
     func openNativeScreenshot(image: CGImage,

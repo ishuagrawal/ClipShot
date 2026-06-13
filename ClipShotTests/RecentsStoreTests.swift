@@ -5,6 +5,7 @@ import XCTest
 final class RecentsStoreTests: XCTestCase {
 
     private var rootURL: URL!
+    private var stores: [RecentsStore] = []
 
     override func setUpWithError() throws {
         rootURL = FileManager.default.temporaryDirectory
@@ -13,16 +14,27 @@ final class RecentsStoreTests: XCTestCase {
     }
 
     override func tearDownWithError() throws {
+        // Drain queued disk work before deleting rootURL out from under it.
+        for store in stores { store.drainForTesting() }
+        stores = []
         try? FileManager.default.removeItem(at: rootURL)
     }
 
-    private func makeEntry(capturedAt: Date = Date(), title: String? = "Test") -> RecentEntry {
+    private func makeStore() -> RecentsStore {
+        let store = RecentsStore(rootURL: rootURL)
+        stores.append(store)
+        return store
+    }
+
+    private func makeEntry(capturedAt: Date = Date(),
+                           title: String? = "Test",
+                           selectionRect: CGRect? = CGRect(x: 10, y: 20, width: 300, height: 200)) -> RecentEntry {
         RecentEntry(
             id: UUID(),
             capturedAt: capturedAt,
             sourceTitle: title,
             pixelScale: 2,
-            selectionRect: CGRect(x: 10, y: 20, width: 300, height: 200),
+            selectionRect: selectionRect,
             cornerRadii: nil,
             pixelWidth: 600,
             pixelHeight: 400
@@ -44,7 +56,7 @@ final class RecentsStoreTests: XCTestCase {
     }
 
     func test_record_thenLoad_roundTripsEntryAndImage() {
-        let store = RecentsStore(rootURL: rootURL)
+        let store = makeStore()
         let entry = makeEntry()
         let imageData = Data([0x89, 0x50, 0x4E, 0x47, 0x01, 0x02, 0x03])
 
@@ -52,7 +64,7 @@ final class RecentsStoreTests: XCTestCase {
         XCTAssertEqual(store.entries.count, 1)
         waitForDisk(entry)
 
-        let reloaded = RecentsStore(rootURL: rootURL)
+        let reloaded = makeStore()
         reloaded.loadIfNeeded()
         wait { reloaded.entries.count == 1 }
 
@@ -67,7 +79,7 @@ final class RecentsStoreTests: XCTestCase {
     }
 
     func test_entries_areNewestFirst() {
-        let store = RecentsStore(rootURL: rootURL)
+        let store = makeStore()
         let old = makeEntry(capturedAt: Date(timeIntervalSinceNow: -100), title: "old")
         let new = makeEntry(capturedAt: Date(), title: "new")
 
@@ -77,14 +89,14 @@ final class RecentsStoreTests: XCTestCase {
 
         XCTAssertEqual(store.entries.map(\.sourceTitle), ["new", "old"])
 
-        let reloaded = RecentsStore(rootURL: rootURL)
+        let reloaded = makeStore()
         reloaded.loadIfNeeded()
         wait { reloaded.entries.count == 2 }
         XCTAssertEqual(reloaded.entries.map(\.sourceTitle), ["new", "old"])
     }
 
     func test_record_prunesBeyondCap() {
-        let store = RecentsStore(rootURL: rootURL)
+        let store = makeStore()
         var oldest: RecentEntry?
         for i in 0..<25 {
             let entry = makeEntry(capturedAt: Date(timeIntervalSinceNow: TimeInterval(i)), title: "\(i)")
@@ -101,7 +113,7 @@ final class RecentsStoreTests: XCTestCase {
     }
 
     func test_load_prunesCorruptMeta() throws {
-        let store = RecentsStore(rootURL: rootURL)
+        let store = makeStore()
         let good = makeEntry(title: "good")
         store.record(imageData: Data([1]), entry: good)
         waitForDisk(good)
@@ -111,7 +123,7 @@ final class RecentsStoreTests: XCTestCase {
         try Data([1]).write(to: corruptDir.appendingPathComponent("image.png"))
         try Data("not json".utf8).write(to: corruptDir.appendingPathComponent("meta.json"))
 
-        let reloaded = RecentsStore(rootURL: rootURL)
+        let reloaded = makeStore()
         reloaded.loadIfNeeded()
         wait { reloaded.entries.count == 1 }
 
@@ -125,14 +137,14 @@ final class RecentsStoreTests: XCTestCase {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         try JSONEncoder().encode(entry).write(to: dir.appendingPathComponent("meta.json"))
 
-        let store = RecentsStore(rootURL: rootURL)
+        let store = makeStore()
         store.loadIfNeeded()
         wait { !FileManager.default.fileExists(atPath: dir.path) }
         XCTAssertTrue(store.entries.isEmpty)
     }
 
     func test_remove_deletesEntryAndDirectory() {
-        let store = RecentsStore(rootURL: rootURL)
+        let store = makeStore()
         let entry = makeEntry()
         store.record(imageData: Data([1]), entry: entry)
         wait { store.entries.count == 1 }
@@ -145,30 +157,27 @@ final class RecentsStoreTests: XCTestCase {
     }
 
     func test_record_thenImmediateRemove_leavesNoEntryOrDirectory() {
-        let store = RecentsStore(rootURL: rootURL)
+        let store = makeStore()
         let entry = makeEntry()
         store.record(imageData: Data([1]), entry: entry)
         store.remove(entry.id)
         XCTAssertTrue(store.entries.isEmpty)
 
-        // Sentinel write is queued after the entry's write + delete on the serial
-        // queue, so once it lands all earlier async work has settled.
-        let sentinel = makeEntry(title: "sentinel")
-        store.record(imageData: Data([2]), entry: sentinel)
-        waitForDisk(sentinel)
+        // Drain the serial queue so the write + delete have both settled.
+        store.drainForTesting()
 
         let dir = rootURL.appendingPathComponent(entry.id.uuidString)
         XCTAssertFalse(FileManager.default.fileExists(atPath: dir.path))
-        XCTAssertEqual(store.entries.map(\.id), [sentinel.id])
+        XCTAssertTrue(store.entries.isEmpty)
     }
 
     func test_loadIfNeeded_isIdempotent() {
-        let writer = RecentsStore(rootURL: rootURL)
+        let writer = makeStore()
         let entry = makeEntry()
         writer.record(imageData: Data([1]), entry: entry)
         waitForDisk(entry)
 
-        let store = RecentsStore(rootURL: rootURL)
+        let store = makeStore()
         store.loadIfNeeded()
         wait { store.entries.count == 1 }
         store.loadIfNeeded()
@@ -177,7 +186,7 @@ final class RecentsStoreTests: XCTestCase {
     }
 
     func test_touch_bumpsEntryToTopWithFreshDate() {
-        let store = RecentsStore(rootURL: rootURL)
+        let store = makeStore()
         let old = makeEntry(capturedAt: Date(timeIntervalSinceNow: -100), title: "old")
         let new = makeEntry(capturedAt: Date(timeIntervalSinceNow: -50), title: "new")
         store.record(imageData: Data([1]), entry: old)
@@ -195,7 +204,7 @@ final class RecentsStoreTests: XCTestCase {
     }
 
     func test_touch_persistsAcrossReload() {
-        let store = RecentsStore(rootURL: rootURL)
+        let store = makeStore()
         let old = makeEntry(capturedAt: Date(timeIntervalSinceNow: -100), title: "old")
         let new = makeEntry(capturedAt: Date(timeIntervalSinceNow: -50), title: "new")
         store.record(imageData: Data([1]), entry: old)
@@ -211,14 +220,14 @@ final class RecentsStoreTests: XCTestCase {
             return entry.capturedAt > old.capturedAt
         }
 
-        let reloaded = RecentsStore(rootURL: rootURL)
+        let reloaded = makeStore()
         reloaded.loadIfNeeded()
         wait { reloaded.entries.count == 2 }
         XCTAssertEqual(reloaded.entries.map(\.sourceTitle), ["old", "new"])
     }
 
     func test_touch_unknownID_isNoOp() {
-        let store = RecentsStore(rootURL: rootURL)
+        let store = makeStore()
         let entry = makeEntry()
         store.record(imageData: Data([1]), entry: entry)
 
@@ -243,23 +252,13 @@ final class RecentsStoreTests: XCTestCase {
     }
 
     func test_makeReopenRequest_withoutSelection_usesFullFrame() {
-        var entry = makeEntry()
-        entry = RecentEntry(
-            id: entry.id,
-            capturedAt: entry.capturedAt,
-            sourceTitle: entry.sourceTitle,
-            pixelScale: entry.pixelScale,
-            selectionRect: nil,
-            cornerRadii: entry.cornerRadii,
-            pixelWidth: entry.pixelWidth,
-            pixelHeight: entry.pixelHeight
-        )
+        let entry = makeEntry(selectionRect: nil)
         let request = CaptureCoordinator.makeReopenRequest(entry: entry, imageData: Data([1]))
         XCTAssertEqual(request.selectedRect, CaptureRect(left: 0, top: 0, width: 300, height: 200))
     }
 
     func test_loadIfNeeded_afterRecord_doesNotDuplicateEntry() {
-        let store = RecentsStore(rootURL: rootURL)
+        let store = makeStore()
         let entry = makeEntry()
         store.record(imageData: Data([1]), entry: entry)
         XCTAssertEqual(store.entries.count, 1)
