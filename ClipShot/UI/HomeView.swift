@@ -25,7 +25,7 @@ struct HomeView: View {
             }
             .opacity(appeared ? 1 : 0)
             .scaleEffect(appeared ? 1 : 0.985)
-            .animation(Theme.panelSpring, value: recents.entries.isEmpty)
+            .animation(Theme.panelSpring, value: recents.entries.map(\.id))
         }
         .ignoresSafeArea()
         .frame(minWidth: 860, minHeight: 560)
@@ -144,7 +144,7 @@ private struct RecentThumbnailCell: View {
             ZStack {
                 Theme.inputFill
                 if let thumbnail {
-                    Image(decorative: thumbnail, scale: entry.pixelScale)
+                    Image(decorative: thumbnail, scale: 1)
                         .resizable()
                         .scaledToFill()
                 }
@@ -165,9 +165,14 @@ private struct RecentThumbnailCell: View {
         .overlay(alignment: .topTrailing) { removeButton }
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.14), value: hovering)
-        .onAppear(perform: loadThumbnail)
+        .task {
+            guard thumbnail == nil else { return }
+            let maxPixel = max(width, Self.height) * 2
+            thumbnail = await Self.decodeThumbnail(url: imageURL, maxPixel: maxPixel)
+        }
         .help(title)
         .accessibilityLabel("\(title), \(relativeDate)")
+        .accessibilityAction(named: "Remove from recents", onRemove)
     }
 
     private var title: String { entry.sourceTitle ?? "Untitled" }
@@ -213,13 +218,6 @@ private struct RecentThumbnailCell: View {
         .offset(y: hovering ? -3 : 0)
         .help("Remove from recents")
         .accessibilityLabel("Remove \(title) from recents")
-    }
-
-    private func loadThumbnail() {
-        guard thumbnail == nil else { return }
-        let url = imageURL
-        let maxPixel = max(width, Self.height) * 2 * max(entry.pixelScale, 1)
-        Task { thumbnail = await Self.decodeThumbnail(url: url, maxPixel: maxPixel) }
     }
 
     /// Decodes a downscaled thumbnail off the main thread; never the full PNG.
