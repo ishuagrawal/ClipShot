@@ -12,6 +12,7 @@ struct PaddingToolView: View {
     @State private var shotCornerStart: CGFloat?
     @State private var shadowColor = Color(cgColor: ShadowConfig.default.color)
     @State private var syncingShadow = false
+    @State private var isCentering = false
 
     private let paddingRange: ClosedRange<Double> = 0...Double(PaddingConfig.maximum)
 
@@ -57,6 +58,13 @@ struct PaddingToolView: View {
                 isMomentary: true,
                 help: "Auto padding + background"
             ) { applyAuto() }
+            ChipToggle(
+                label: "Center",
+                systemName: isCentering ? "circle.dotted" : "rectangle.center.inset.filled",
+                isOn: true,
+                isMomentary: true,
+                help: "Crop to content and center with equal margins"
+            ) { applyAutoCenter() }
             ChipToggle(
                 systemName: linked ? "link" : "link.slash",
                 isOn: linked,
@@ -437,6 +445,41 @@ struct PaddingToolView: View {
                 toBackground: autoBackground
             )
         )
+    }
+
+    private func applyAutoCenter() {
+        guard !isCentering else { return }
+        isCentering = true
+        let image = state.document.screenshot
+        let region = state.document.baseSelection
+        let fromPadding = state.document.padding
+        Task.detached(priority: .userInitiated) {
+            let bbox = ContentBoundsDetector().detect(in: image, region: region)
+            await MainActor.run {
+                isCentering = false
+                guard let bbox else { return }
+                let toPadding = resolvedUniformPadding(fromPadding, bboxSize: bbox.size)
+                guard bbox != region || toPadding != fromPadding else { return }
+                linked = true
+                state.performCommand(
+                    ApplyAutoCenterCommand(
+                        fromSelection: region,
+                        toSelection: bbox,
+                        fromPadding: fromPadding,
+                        toPadding: toPadding
+                    )
+                )
+            }
+        }
+    }
+
+    /// Equal margins on all sides: keep the user's uniform amount if they set one,
+    /// otherwise fall back to the size-derived sweet spot.
+    private func resolvedUniformPadding(_ current: PaddingConfig, bboxSize: CGSize) -> PaddingConfig {
+        if let uniform = current.uniform, uniform > 0 {
+            return current
+        }
+        return PaddingConfig.autoSweetSpot(forSelection: bboxSize).clamped()
     }
 
     private func commitDrag() {

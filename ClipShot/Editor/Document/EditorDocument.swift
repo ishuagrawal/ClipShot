@@ -218,7 +218,9 @@ struct EditorDocument {
     var sourceTitle: String
     let sourceURL: String
 
-    let baseSelection: CGRect       // imagePx coords, clamped to ≥ 8×8 on init
+    // imagePx coords, clamped to ≥ 8×8 on init. Mutable so auto-center can recrop
+    // to the detected content bbox; the setter bumps version like other edits.
+    var baseSelection: CGRect { didSet { bumpVersion() } }
     let selectionCornerRadii: SelectionCornerRadii
     // The screenshot's VISUAL corner radius, separate from selectionCornerRadii (the
     // mask we APPLY to a rectangular shot). Native window shots bake their rounded

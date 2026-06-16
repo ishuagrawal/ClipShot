@@ -162,4 +162,56 @@ final class CommandTests: XCTestCase {
         XCTAssertEqual(doc.background, beforeBackground)
         XCTAssertEqual(doc.annotations, beforeAnnotations)
     }
+
+    func test_applyAutoCenter_applyThenRevert_restoresSelectionPaddingAnnotations() {
+        var doc = makeDoc()
+        doc.annotations = [
+            Annotation(kind: .text(
+                origin: CGPoint(x: 6, y: 8),
+                string: "Pinned",
+                fontSize: 14,
+                color: CGColor(gray: 0, alpha: 1)
+            ))
+        ]
+        let beforeSelection = doc.baseSelection      // (10, 10, 40, 40)
+        let beforePadding = doc.padding
+        let beforeAnnotations = doc.annotations
+        let cropped = CGRect(x: 18, y: 22, width: 20, height: 14)
+        let command = ApplyAutoCenterCommand(
+            fromSelection: beforeSelection,
+            toSelection: cropped,
+            fromPadding: beforePadding,
+            toPadding: .uniform(30)
+        )
+
+        command.apply(to: &doc)
+        XCTAssertEqual(doc.baseSelection, cropped)
+        XCTAssertEqual(doc.padding, .uniform(30))
+        // Annotation glued to content: shifted by (from.origin - to.origin) = (-8, -12).
+        guard case let .text(origin, _, _, _) = doc.annotations[0].kind else {
+            return XCTFail("expected text annotation")
+        }
+        XCTAssertEqual(origin, CGPoint(x: -2, y: -4))
+
+        command.revert(to: &doc)
+        XCTAssertEqual(doc.baseSelection, beforeSelection)
+        XCTAssertEqual(doc.padding, beforePadding)
+        XCTAssertEqual(doc.annotations, beforeAnnotations)
+    }
+
+    func test_applyAutoCenter_isOneUndoableAction() {
+        var doc = makeDoc()
+        let stack = UndoStack()
+        let command = ApplyAutoCenterCommand(
+            fromSelection: doc.baseSelection,
+            toSelection: CGRect(x: 12, y: 12, width: 30, height: 30),
+            fromPadding: doc.padding,
+            toPadding: .uniform(24)
+        )
+
+        stack.push(command, apply: { $0.apply(to: &doc) })
+
+        XCTAssertEqual(stack.undoCount, 1)
+        XCTAssertEqual(doc.baseSelection, CGRect(x: 12, y: 12, width: 30, height: 30))
+    }
 }
