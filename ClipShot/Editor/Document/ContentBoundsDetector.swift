@@ -15,6 +15,7 @@ struct ContentBoundsDetector {
     var channelThreshold: Int = 12     // per-channel diff from background to count as content
     var minContentPixels: Int = 2      // content pixels a row/col needs to count (ignores stray noise)
     var cornerTolerance: Int = 24      // max channel spread among bg samples to call them uniform
+    var backgroundUniformFraction: Double = 0.7  // share of border samples that must match to call it a bg
     var minSize: CGFloat = 8
     var minSaliencyConfidence: Float = 0.1
 
@@ -50,23 +51,29 @@ struct ContentBoundsDetector {
         let samples = borderSamples(buffer)
         guard !samples.isEmpty else { return nil }
         let median = medianColor(samples)
-        let uniform = samples.allSatisfy { channelDiff($0, median) <= cornerTolerance }
-        return uniform ? median : nil
+        // Fraction, not all-or-nothing: a thin frame where content touches a few
+        // border points stays a valid background instead of dropping to saliency.
+        let within = samples.filter { channelDiff($0, median) <= cornerTolerance }.count
+        return Double(within) / Double(samples.count) >= backgroundUniformFraction ? median : nil
     }
 
-    /// Border ring only — corners + edge midpoints. Never the center, which centered
-    /// content would occupy and falsely read as non-uniform.
+    /// Dense border ring — samples along all four edges, off the very edge. Never the
+    /// center, which centered content would occupy and falsely read as non-uniform.
     private func borderSamples(_ buffer: RGBABuffer) -> [(Int, Int, Int)] {
         let w = buffer.width, h = buffer.height
-        let inset = max(1, min(w, h) / 50)
+        let inset = max(1, min(w, h) / 100)
+        let step = max(1, min(w, h) / 64)
         let lastX = w - 1 - inset, lastY = h - 1 - inset
-        let points = [
-            (inset, inset), (lastX, inset), (inset, lastY), (lastX, lastY),
-            (w / 2, inset), (w / 2, lastY), (inset, h / 2), (lastX, h / 2)
-        ]
-        return points
-            .filter { $0.0 >= 0 && $0.0 < w && $0.1 >= 0 && $0.1 < h }
-            .map { buffer.rgb(x: $0.0, y: $0.1) }
+        var samples: [(Int, Int, Int)] = []
+        for x in stride(from: 0, to: w, by: step) {
+            samples.append(buffer.rgb(x: x, y: inset))
+            samples.append(buffer.rgb(x: x, y: lastY))
+        }
+        for y in stride(from: 0, to: h, by: step) {
+            samples.append(buffer.rgb(x: inset, y: y))
+            samples.append(buffer.rgb(x: lastX, y: y))
+        }
+        return samples
     }
 
     private func medianColor(_ samples: [(Int, Int, Int)]) -> (Int, Int, Int) {

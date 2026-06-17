@@ -72,6 +72,27 @@ final class ContentBoundsDetectorTests: XCTestCase {
         XCTAssertEqual(result?.box, rect)
     }
 
+    func test_contentTouchingBorderSample_stillDetectsBackground() {
+        // Black frame with content that reaches the top edge at center — a single
+        // border sample lands on content. Must stay the trim path, not drop to saliency.
+        let w = 200, h = 200
+        let cs = CGColorSpace(name: CGColorSpace.sRGB)!
+        let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8,
+                            bytesPerRow: w * 4, space: cs,
+                            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                                | CGBitmapInfo.byteOrder32Big.rawValue)!
+        ctx.setFillColor(NSColor.black.cgColor)
+        ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
+        ctx.setFillColor(NSColor.white.cgColor)
+        ctx.fill(CGRect(x: 50, y: 50, width: 100, height: 100))           // main content
+        ctx.fill(CGRect(x: 95, y: 0, width: 10, height: 30))              // nub touching top edge
+        let img = ctx.makeImage()!
+
+        let result = detector.detect(in: img, region: fullRegion(img))
+        XCTAssertNotNil(result)
+        XCTAssertEqual(channels(result!.fillColor), [0, 0, 0])           // black bg, not saliency fill
+    }
+
     func test_uniformImage_returnsNil() {
         let img = TestImage.solid(.white, size: CGSize(width: 120, height: 120))
         XCTAssertNil(detector.detect(in: img, region: fullRegion(img)))
