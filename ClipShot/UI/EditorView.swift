@@ -98,15 +98,12 @@ private struct EditorShell: View {
             .overlay(alignment: .top) {
                 VStack(spacing: Theme.chromeMargin) {
                     titleStrip
-                    // The export pod's right edge lines up with the image's right
-                    // edge (the inspector column plus the canvas fit margin); the
-                    // title plate keeps the window-margin alignment on the left.
+                    // The export pod pins to the clear-space right edge so it stays
+                    // put when the screenshot resizes; the title plate keeps the
+                    // window-margin alignment on the left.
                     TitleBarView(state: state)
                         .padding(.leading, Theme.chromeMargin + Theme.panelInset)
-                        .padding(.trailing, exportPodTrailingPadding(
-                            windowSize: geo.size,
-                            rightChrome: rightChrome
-                        ))
+                        .padding(.trailing, rightChrome + Theme.canvasFitMargin)
                 }
             }
             // Stage and overlays bleed under the titlebar and the dock bar; the
@@ -136,29 +133,6 @@ private struct EditorShell: View {
                 canvasFocusProxy.requestKeyboardFocus()
             }
         }
-    }
-
-    /// Trailing padding that puts the export pod's right edge on the image's
-    /// right edge at the initial fit. Mirrors the canvas fit: the image scales
-    /// to fill the clear space (window minus chrome occlusions) inside the fit
-    /// margin, centered — so when the image is height-constrained its right
-    /// edge sits further in than the clear-space edge.
-    private func exportPodTrailingPadding(windowSize: CGSize, rightChrome: CGFloat) -> CGFloat {
-        let crop = CanvasCoordinator.initialFocusBounds(
-            focus: state.document.fitFocusRect,
-            imageBounds: state.document.imageBounds
-        )
-        let clearWidth = windowSize.width - rightChrome
-        let clearHeight = windowSize.height - Theme.topChromeHeight - Theme.bottomChromeHeight
-        let margin = Theme.canvasFitMargin
-        guard crop.width > 0, crop.height > 0,
-              clearWidth > margin * 2, clearHeight > margin * 2 else {
-            return rightChrome + margin
-        }
-        let scale = min((clearWidth - margin * 2) / crop.width,
-                        (clearHeight - margin * 2) / crop.height)
-        let displayedWidth = crop.width * scale
-        return rightChrome + (clearWidth - displayedWidth) / 2
     }
 
     /// Hand-drawn titlebar: the app name centered on the stoplight row. The system
