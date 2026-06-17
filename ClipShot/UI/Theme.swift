@@ -813,11 +813,16 @@ struct GlassSlider: View {
         .accessibilityValue(Text(accessibilityValue(value)))
         .accessibilityAdjustableAction { direction in
             let step = (range.upperBound - range.lowerBound) / 20
+            let next: Double
             switch direction {
-            case .increment: value = min(range.upperBound, value + step)
-            case .decrement: value = max(range.lowerBound, value - step)
-            @unknown default: break
+            case .increment: next = min(range.upperBound, value + step)
+            case .decrement: next = max(range.lowerBound, value - step)
+            @unknown default: return
             }
+            guard next != value else { return }
+            onEditingChanged(true)
+            value = next
+            onEditingChanged(false)
         }
     }
 

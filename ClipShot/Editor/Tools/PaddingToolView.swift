@@ -13,6 +13,8 @@ struct PaddingToolView: View {
     @State private var shadowColor = Color(cgColor: ShadowConfig.default.color)
     @State private var syncingShadow = false
     @State private var isCentering = false
+    @State private var insetDragStart: (screenshot: CGImage, selection: CGRect, padding: PaddingConfig)?
+    @State private var insetDragDelta: CGFloat = 0
 
     private let paddingRange: ClosedRange<Double> = 0...Double(PaddingConfig.maximum)
 
@@ -32,6 +34,9 @@ struct PaddingToolView: View {
                 boxModel
             }
             uniformRow
+            if let context = state.autoCenter, state.document.screenshot === context.card {
+                insetRow
+            }
             cornerRow
             screenshotCornerRow
             shadowSection
@@ -63,7 +68,7 @@ struct PaddingToolView: View {
                 systemName: isCentering ? "circle.dotted" : "rectangle.center.inset.filled",
                 isOn: true,
                 isMomentary: true,
-                help: "Trim to content and center with equal whitespace"
+                help: "Trim to content and center with equal inset"
             ) { applyAutoCenter() }
             ChipToggle(
                 systemName: linked ? "link" : "link.slash",
@@ -160,6 +165,88 @@ struct PaddingToolView: View {
             )
                 InspectorValueLabel(text: "\(Int(padding.uniform ?? padding.top))")
             }
+        }
+    }
+
+    private var insetRange: ClosedRange<Double> {
+        guard let context = state.autoCenter else { return 0...96 }
+        let maxSide = Double(max(context.content.width, context.content.height))
+        return 0...max(96, (maxSide * 0.5).rounded())
+    }
+
+    /// Inset band inside the centered card. Drags recompose the card live from
+    /// the trimmed content; the original screenshot is never re-trimmed.
+    private var insetRow: some View {
+        PanelSection("Inset") {
+            HStack(spacing: 10) {
+                GlassSlider(
+                    value: Binding(
+                        get: { Double(state.autoCenter?.inset ?? 0) },
+                        set: { setLiveInset(CGFloat($0.rounded())) }
+                    ),
+                    range: insetRange,
+                    accessibilityLabel: "Inset",
+                    accessibilityValue: { "\(Int($0.rounded())) pixels" },
+                    onEditingChanged: { editing in
+                        if !editing { commitInsetDrag() }
+                    }
+                )
+                InspectorValueLabel(text: "\(Int(state.autoCenter?.inset ?? 0))")
+            }
+        }
+    }
+
+    private func setLiveInset(_ newInset: CGFloat) {
+        guard let context = state.autoCenter else { return }
+        if insetDragStart == nil {
+            insetDragStart = (state.document.screenshot, state.document.baseSelection, state.document.padding)
+            insetDragDelta = 0
+        }
+        let rect = CGRect(x: 0, y: 0, width: context.content.width, height: context.content.height)
+        guard let card = ContentInsetComposer.compose(
+            screenshot: context.content, content: rect, inset: newInset, fill: context.fill
+        ) else { return }
+        let delta = newInset - context.inset
+        state.document.screenshot = card
+        state.document.baseSelection = CGRect(x: 0, y: 0, width: card.width, height: card.height)
+        translateAnnotations(by: delta)
+        insetDragDelta += delta
+        state.autoCenter?.inset = newInset
+        state.autoCenter?.card = card
+    }
+
+    private func commitInsetDrag() {
+        guard let start = insetDragStart else { return }
+        let toScreenshot = state.document.screenshot
+        let toSelection = state.document.baseSelection
+        let net = insetDragDelta
+        // Rewind to the drag start, then record one undoable step covering the whole drag.
+        state.document.screenshot = start.screenshot
+        state.document.baseSelection = start.selection
+        translateAnnotations(by: -net)
+        if toScreenshot !== start.screenshot {
+            state.performCommand(ApplyAutoCenterCommand(
+                fromScreenshot: start.screenshot,
+                toScreenshot: toScreenshot,
+                fromSelection: start.selection,
+                toSelection: toSelection,
+                fromPadding: start.padding,
+                toPadding: start.padding,
+                annotationDelta: CGSize(width: net, height: net)
+            ))
+            state.autoCenter?.card = state.document.screenshot
+        }
+        insetDragStart = nil
+        insetDragDelta = 0
+    }
+
+    private func translateAnnotations(by amount: CGFloat) {
+        guard amount != 0 else { return }
+        let delta = CGSize(width: amount, height: amount)
+        for index in state.document.annotations.indices {
+            state.document.annotations[index].kind = AnnotationGeometry.translated(
+                state.document.annotations[index].kind, by: delta
+            )
         }
     }
 
@@ -454,8 +541,9 @@ struct PaddingToolView: View {
         let region = state.document.baseSelection
         let fromPadding = state.document.padding
         Task {
-            let command: ApplyAutoCenterCommand? = await Task.detached(priority: .userInitiated) { () -> ApplyAutoCenterCommand? in
-                guard let content = ContentBoundsDetector().detect(in: image, region: region) else { return nil }
+            let result = await Task.detached(priority: .userInitiated) { () -> (ApplyAutoCenterCommand, EditorState.AutoCenterContext)? in
+                guard let content = ContentBoundsDetector().detect(in: image, region: region),
+                      let contentImage = image.cropping(to: content.box.integral) else { return nil }
                 let inset = Self.contentInset(forContentSize: content.box.size)
                 guard let card = ContentInsetComposer.compose(
                     screenshot: image, content: content.box, inset: inset, fill: content.fillColor
@@ -468,7 +556,7 @@ struct PaddingToolView: View {
                     width: region.minX - content.box.minX + inset,
                     height: region.minY - content.box.minY + inset
                 )
-                return ApplyAutoCenterCommand(
+                let command = ApplyAutoCenterCommand(
                     fromScreenshot: image,
                     toScreenshot: card,
                     fromSelection: region,
@@ -477,14 +565,19 @@ struct PaddingToolView: View {
                     toPadding: toPadding,
                     annotationDelta: delta
                 )
+                let context = EditorState.AutoCenterContext(
+                    content: contentImage, fill: content.fillColor, inset: inset, card: card
+                )
+                return (command, context)
             }.value
 
             isCentering = false
-            guard let command,
+            guard let (command, context) = result,
                   state.document.screenshot === image,
                   state.document.baseSelection == region else { return }
             linked = true
             state.performCommand(command)
+            state.autoCenter = context
         }
     }
 
