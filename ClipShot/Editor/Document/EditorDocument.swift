@@ -211,7 +211,9 @@ struct BackgroundEffects: Equatable {
 }
 
 struct EditorDocument {
-    let screenshot: CGImage
+    // Mutable so auto-center can swap in a composited card (content + synthesized
+    // inset). The setter bumps version; identity-based change detection redraws.
+    var screenshot: CGImage { didSet { bumpVersion() } }
     let viewport: CGSize            // CSS px, informational only — rendering uses baseSelection (imagePx)
     // User-editable in the top bar; drives the export filename only. Never drawn
     // on the canvas or in exports, so edits intentionally do not bump version.

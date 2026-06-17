@@ -2,9 +2,15 @@ import CoreGraphics
 import Foundation
 import Vision
 
+/// The detected content region plus the background color to synthesize whitespace with.
+struct ContentBounds: Equatable {
+    let box: CGRect       // imagePx, offset into the analyzed image
+    let fillColor: CGColor
+}
+
 /// Finds the content bounding box inside a screenshot region by trimming a uniform
-/// background (the `-trim` technique). Pure: CGImage + rect in, rect out. Falls back
-/// to Vision saliency when no uniform background is present.
+/// background (the `-trim` technique). Pure: CGImage + rect in. Falls back to Vision
+/// saliency when no uniform background is present.
 struct ContentBoundsDetector {
     var channelThreshold: Int = 12     // per-channel diff from background to count as content
     var minContentPixels: Int = 2      // content pixels a row/col needs to count (ignores stray noise)
@@ -12,53 +18,73 @@ struct ContentBoundsDetector {
     var minSize: CGFloat = 8
     var minSaliencyConfidence: Float = 0.1
 
-    /// Content bbox in imagePx (offset into `image`), or nil when no confident
-    /// content region exists — no uniform background and no salient object.
-    func detect(in image: CGImage, region: CGRect) -> CGRect? {
+    /// Content bounds in imagePx, or nil when no confident content region exists —
+    /// no uniform background and no salient object.
+    func detect(in image: CGImage, region: CGRect) -> ContentBounds? {
         let imageBounds = CGRect(x: 0, y: 0, width: image.width, height: image.height)
         let r = region.integral.intersection(imageBounds)
         guard r.width >= minSize, r.height >= minSize,
               let cropped = image.cropping(to: r),
               let buffer = RGBABuffer(cropped) else { return nil }
 
-        guard let background = backgroundColor(buffer),
-              let local = trimBox(buffer, background: background) else {
-            return saliencyBox(cropped, region: r, imageBounds: imageBounds)
+        if let background = backgroundColor(buffer),
+           let local = trimBox(buffer, background: background) {
+            let box = CGRect(
+                x: r.minX + CGFloat(local.minX),
+                y: r.minY + CGFloat(local.minY),
+                width: CGFloat(local.width),
+                height: CGFloat(local.height)
+            )
+            guard let clamped = clamp(box, to: imageBounds) else { return nil }
+            return ContentBounds(box: clamped, fillColor: cgColor(background))
         }
 
-        let box = CGRect(
-            x: r.minX + CGFloat(local.minX),
-            y: r.minY + CGFloat(local.minY),
-            width: CGFloat(local.width),
-            height: CGFloat(local.height)
-        )
-        return clamp(box, to: imageBounds)
+        guard let box = saliencyBox(cropped, region: r, imageBounds: imageBounds) else { return nil }
+        let fill = borderColor(of: box, in: image) ?? cgColor((255, 255, 255))
+        return ContentBounds(box: box, fillColor: fill)
     }
 
     // MARK: - Background estimate
 
     private func backgroundColor(_ buffer: RGBABuffer) -> (Int, Int, Int)? {
+        let samples = borderSamples(buffer)
+        guard !samples.isEmpty else { return nil }
+        let median = medianColor(samples)
+        let uniform = samples.allSatisfy { channelDiff($0, median) <= cornerTolerance }
+        return uniform ? median : nil
+    }
+
+    /// Border ring only — corners + edge midpoints. Never the center, which centered
+    /// content would occupy and falsely read as non-uniform.
+    private func borderSamples(_ buffer: RGBABuffer) -> [(Int, Int, Int)] {
         let w = buffer.width, h = buffer.height
         let inset = max(1, min(w, h) / 50)
         let lastX = w - 1 - inset, lastY = h - 1 - inset
-        // Border ring only — corners + edge midpoints. Never the center, which
-        // centered content would occupy and falsely read as non-uniform.
         let points = [
             (inset, inset), (lastX, inset), (inset, lastY), (lastX, lastY),
             (w / 2, inset), (w / 2, lastY), (inset, h / 2), (lastX, h / 2)
         ]
-        let samples = points
+        return points
             .filter { $0.0 >= 0 && $0.0 < w && $0.1 >= 0 && $0.1 < h }
             .map { buffer.rgb(x: $0.0, y: $0.1) }
-        guard !samples.isEmpty else { return nil }
+    }
 
-        let median = (
-            samples.map(\.0).sorted()[samples.count / 2],
-            samples.map(\.1).sorted()[samples.count / 2],
-            samples.map(\.2).sorted()[samples.count / 2]
+    private func medianColor(_ samples: [(Int, Int, Int)]) -> (Int, Int, Int) {
+        let mid = samples.count / 2
+        return (
+            samples.map(\.0).sorted()[mid],
+            samples.map(\.1).sorted()[mid],
+            samples.map(\.2).sorted()[mid]
         )
-        let uniform = samples.allSatisfy { channelDiff($0, median) <= cornerTolerance }
-        return uniform ? median : nil
+    }
+
+    /// Median color around a box's border, used as the inset fill when no uniform
+    /// region background was found (the salient object's own edge color).
+    private func borderColor(of box: CGRect, in image: CGImage) -> CGColor? {
+        guard let cropped = image.cropping(to: box.integral), let buffer = RGBABuffer(cropped) else { return nil }
+        let samples = borderSamples(buffer)
+        guard !samples.isEmpty else { return nil }
+        return cgColor(medianColor(samples))
     }
 
     // MARK: - Trim scan
@@ -108,10 +134,41 @@ struct ContentBoundsDetector {
         max(abs(a.0 - b.0), abs(a.1 - b.1), abs(a.2 - b.2))
     }
 
+    private func cgColor(_ rgb: (Int, Int, Int)) -> CGColor {
+        CGColor(srgbRed: CGFloat(rgb.0) / 255, green: CGFloat(rgb.1) / 255, blue: CGFloat(rgb.2) / 255, alpha: 1)
+    }
+
     private func clamp(_ box: CGRect, to bounds: CGRect) -> CGRect? {
         let clamped = box.integral.intersection(bounds)
         guard clamped.width >= minSize, clamped.height >= minSize else { return nil }
         return clamped
+    }
+}
+
+/// Builds a new card image: the content region surrounded by an equal band of a
+/// fill color, synthesizing whitespace inside the screenshot itself.
+enum ContentInsetComposer {
+    static func compose(screenshot: CGImage, content: CGRect, inset: CGFloat, fill: CGColor) -> CGImage? {
+        let box = content.integral
+        let pad = max(0, inset.rounded())
+        let width = Int(box.width + 2 * pad)
+        let height = Int(box.height + 2 * pad)
+        guard width > 0, height > 0,
+              let contentImage = screenshot.cropping(to: box) else { return nil }
+
+        let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
+        guard let ctx = CGContext(
+            data: nil, width: width, height: height, bitsPerComponent: 8,
+            bytesPerRow: width * 4, space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                | CGBitmapInfo.byteOrder32Big.rawValue
+        ) else { return nil }
+
+        ctx.setFillColor(fill)
+        ctx.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        // Equal inset all around → the content sits centered in the y-up context.
+        ctx.draw(contentImage, in: CGRect(x: pad, y: pad, width: box.width, height: box.height))
+        return ctx.makeImage()
     }
 }
 

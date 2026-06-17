@@ -29,13 +29,27 @@ final class ContentBoundsDetectorTests: XCTestCase {
         CGRect(x: 0, y: 0, width: image.width, height: image.height)
     }
 
+    private func channels(_ color: CGColor) -> [CGFloat] {
+        (color.components ?? []).prefix(3).map { $0 }
+    }
+
     func test_offCenterContent_returnsTightBox() {
         let rect = CGRect(x: 60, y: 40, width: 120, height: 90)
         let img = image(size: CGSize(width: 300, height: 300),
                         background: .white, content: .black, contentRect: rect)
 
-        let box = detector.detect(in: img, region: fullRegion(img))
-        XCTAssertEqual(box, rect)
+        let result = detector.detect(in: img, region: fullRegion(img))
+        XCTAssertEqual(result?.box, rect)
+    }
+
+    func test_detectsBackgroundFillColor() {
+        let rect = CGRect(x: 60, y: 40, width: 120, height: 90)
+        let img = image(size: CGSize(width: 300, height: 300),
+                        background: .white, content: .black, contentRect: rect)
+
+        let result = detector.detect(in: img, region: fullRegion(img))
+        // White background reported as the inset fill color.
+        XCTAssertEqual(channels(result!.fillColor), [1, 1, 1])
     }
 
     func test_asymmetricMargins_detectsTopLeftContent() {
@@ -43,8 +57,8 @@ final class ContentBoundsDetectorTests: XCTestCase {
         let img = image(size: CGSize(width: 200, height: 200),
                         background: .white, content: .blue, contentRect: rect)
 
-        let box = detector.detect(in: img, region: fullRegion(img))
-        XCTAssertEqual(box, rect)
+        let result = detector.detect(in: img, region: fullRegion(img))
+        XCTAssertEqual(result?.box, rect)
     }
 
     func test_detectsWithinSubRegion_offsetsBackToImagePx() {
@@ -54,8 +68,8 @@ final class ContentBoundsDetectorTests: XCTestCase {
                         background: .white, content: .black, contentRect: rect)
         let region = CGRect(x: 100, y: 100, width: 200, height: 200)
 
-        let box = detector.detect(in: img, region: region)
-        XCTAssertEqual(box, rect)
+        let result = detector.detect(in: img, region: region)
+        XCTAssertEqual(result?.box, rect)
     }
 
     func test_uniformImage_returnsNil() {
@@ -76,5 +90,25 @@ final class ContentBoundsDetectorTests: XCTestCase {
                         contentRect: CGRect(x: 40, y: 40, width: 4, height: 4))
 
         XCTAssertNil(detector.detect(in: img, region: fullRegion(img)))
+    }
+
+    private func pixel(_ buffer: PixelBuffer.Buffer, _ x: Int, _ y: Int) -> [Int] {
+        let offset = y * buffer.bytesPerRow + x * 4
+        return [Int(buffer.pixels[offset]), Int(buffer.pixels[offset + 1]), Int(buffer.pixels[offset + 2])]
+    }
+
+    func test_composer_wrapsContentInEqualFillBand() {
+        let content = CGRect(x: 60, y: 40, width: 120, height: 90)
+        let img = image(size: CGSize(width: 300, height: 300),
+                        background: .white, content: .black, contentRect: content)
+        let fill = CGColor(srgbRed: 1, green: 0, blue: 0, alpha: 1)
+
+        let card = ContentInsetComposer.compose(screenshot: img, content: content, inset: 20, fill: fill)!
+        XCTAssertEqual(card.width, 160)   // 120 + 2*20
+        XCTAssertEqual(card.height, 130)  // 90 + 2*20
+
+        let buffer = PixelBuffer.decode(card)!
+        XCTAssertEqual(pixel(buffer, 2, 2), [255, 0, 0])     // inset band = fill
+        XCTAssertEqual(pixel(buffer, 80, 65), [0, 0, 0])     // centered content = black
     }
 }

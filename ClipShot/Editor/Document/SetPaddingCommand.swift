@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 struct SetPaddingCommand: EditorCommand {
@@ -20,31 +21,36 @@ struct SetPaddingCommand: EditorCommand {
     }
 }
 
-/// Crops the screenshot to the detected content bbox and equalizes the four
-/// margins. Annotations are translated by the crop-origin delta so they stay
-/// glued to the same content pixels; revert restores everything exactly.
+/// Replaces the card with a composited image — the detected content surrounded by
+/// an equal band of synthesized background-colored whitespace — and equalizes the
+/// outer padding. Annotations are translated to stay glued to the content; revert
+/// restores the original card, selection, padding, and annotations exactly.
 struct ApplyAutoCenterCommand: EditorCommand {
+    let fromScreenshot: CGImage
+    let toScreenshot: CGImage
     let fromSelection: CGRect
     let toSelection: CGRect
     let fromPadding: PaddingConfig
     let toPadding: PaddingConfig
+    let annotationDelta: CGSize
 
     var displayName: String { "Auto-center" }
 
     func apply(to document: inout EditorDocument) {
+        document.screenshot = toScreenshot
         document.baseSelection = toSelection
         document.padding = toPadding
-        translateAnnotations(&document, from: fromSelection, to: toSelection)
+        translateAnnotations(&document, by: annotationDelta)
     }
 
     func revert(to document: inout EditorDocument) {
+        document.screenshot = fromScreenshot
         document.baseSelection = fromSelection
         document.padding = fromPadding
-        translateAnnotations(&document, from: toSelection, to: fromSelection)
+        translateAnnotations(&document, by: CGSize(width: -annotationDelta.width, height: -annotationDelta.height))
     }
 
-    private func translateAnnotations(_ document: inout EditorDocument, from: CGRect, to: CGRect) {
-        let delta = CGSize(width: from.minX - to.minX, height: from.minY - to.minY)
+    private func translateAnnotations(_ document: inout EditorDocument, by delta: CGSize) {
         guard delta != .zero else { return }
         for index in document.annotations.indices {
             document.annotations[index].kind = AnnotationGeometry.translated(document.annotations[index].kind, by: delta)

@@ -63,7 +63,7 @@ struct PaddingToolView: View {
                 systemName: isCentering ? "circle.dotted" : "rectangle.center.inset.filled",
                 isOn: true,
                 isMomentary: true,
-                help: "Crop to content and center with equal margins"
+                help: "Trim to content and center with equal whitespace"
             ) { applyAutoCenter() }
             ChipToggle(
                 systemName: linked ? "link" : "link.slash",
@@ -453,33 +453,55 @@ struct PaddingToolView: View {
         let image = state.document.screenshot
         let region = state.document.baseSelection
         let fromPadding = state.document.padding
-        Task.detached(priority: .userInitiated) {
-            let bbox = ContentBoundsDetector().detect(in: image, region: region)
-            await MainActor.run {
-                isCentering = false
-                guard let bbox else { return }
-                let toPadding = resolvedUniformPadding(fromPadding, bboxSize: bbox.size)
-                guard bbox != region || toPadding != fromPadding else { return }
-                linked = true
-                state.performCommand(
-                    ApplyAutoCenterCommand(
-                        fromSelection: region,
-                        toSelection: bbox,
-                        fromPadding: fromPadding,
-                        toPadding: toPadding
-                    )
+        Task {
+            let command: ApplyAutoCenterCommand? = await Task.detached(priority: .userInitiated) { () -> ApplyAutoCenterCommand? in
+                guard let content = ContentBoundsDetector().detect(in: image, region: region) else { return nil }
+                let inset = Self.contentInset(forContentSize: content.box.size)
+                guard let card = ContentInsetComposer.compose(
+                    screenshot: image, content: content.box, inset: inset, fill: content.fillColor
+                ) else { return nil }
+
+                let toSelection = CGRect(x: 0, y: 0, width: card.width, height: card.height)
+                let toPadding = Self.resolvedUniformPadding(fromPadding, cardSize: toSelection.size)
+                // Glue annotations: shift by the content's new origin minus its old one.
+                let delta = CGSize(
+                    width: region.minX - content.box.minX + inset,
+                    height: region.minY - content.box.minY + inset
                 )
-            }
+                return ApplyAutoCenterCommand(
+                    fromScreenshot: image,
+                    toScreenshot: card,
+                    fromSelection: region,
+                    toSelection: toSelection,
+                    fromPadding: fromPadding,
+                    toPadding: toPadding,
+                    annotationDelta: delta
+                )
+            }.value
+
+            isCentering = false
+            guard let command,
+                  state.document.screenshot === image,
+                  state.document.baseSelection == region else { return }
+            linked = true
+            state.performCommand(command)
         }
     }
 
-    /// Equal margins on all sides: keep the user's uniform amount if they set one,
-    /// otherwise fall back to the size-derived sweet spot.
-    private func resolvedUniformPadding(_ current: PaddingConfig, bboxSize: CGSize) -> PaddingConfig {
+    /// Equal outer margins: keep the user's uniform amount if they set one, else
+    /// the size-derived sweet spot.
+    nonisolated private static func resolvedUniformPadding(_ current: PaddingConfig, cardSize: CGSize) -> PaddingConfig {
         if let uniform = current.uniform, uniform > 0 {
             return current
         }
-        return PaddingConfig.autoSweetSpot(forSelection: bboxSize).clamped()
+        return PaddingConfig.autoSweetSpot(forSelection: cardSize).clamped()
+    }
+
+    /// Synthesized whitespace band inside the card: ~6% of the content's longer
+    /// side, clamped so small shots get room and large shots aren't drowned.
+    nonisolated private static func contentInset(forContentSize size: CGSize) -> CGFloat {
+        let maxSide = max(size.width, size.height)
+        return min(max((0.06 * maxSide).rounded(), 24), 96)
     }
 
     private func commitDrag() {
