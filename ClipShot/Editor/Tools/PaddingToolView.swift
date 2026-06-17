@@ -1,11 +1,10 @@
 import AppKit
 import SwiftUI
 
-/// Padding detail panel with linked and per-side box-model controls.
+/// Padding detail panel with per-side box-model controls.
 struct PaddingToolView: View {
     @ObservedObject var state: EditorState
     @State private var editStart: PaddingConfig?
-    @State private var linked: Bool = true
     @State private var cornerEditing: Bool = false
     @State private var cornerStart: CGFloat?
     @State private var shotCornerEditing: Bool = false
@@ -42,7 +41,6 @@ struct PaddingToolView: View {
             shadowSection
         }
         .onAppear {
-            linked = padding.isLinked
             shadowColor = Color(cgColor: state.document.shadow.color)
         }
         .onChange(of: state.document.shadow) { _, newShadow in
@@ -57,29 +55,12 @@ struct PaddingToolView: View {
     private var header: some View {
         HStack {
             ChipToggle(
-                label: "Auto",
-                systemName: "wand.and.stars",
-                isOn: true,
-                isMomentary: true,
-                help: "Auto padding + background"
-            ) { applyAuto() }
-            ChipToggle(
                 label: "Center",
                 systemName: isCentering ? "circle.dotted" : "rectangle.center.inset.filled",
                 isOn: true,
                 isMomentary: true,
                 help: "Trim to content and center with equal inset"
             ) { applyAutoCenter() }
-            ChipToggle(
-                systemName: linked ? "link" : "link.slash",
-                isOn: linked,
-                help: linked ? "Sides linked" : "Sides independent"
-            ) {
-                linked.toggle()
-                if linked {
-                    commit(.uniform(padding.top))
-                }
-            }
             Spacer()
         }
     }
@@ -148,7 +129,6 @@ struct PaddingToolView: View {
                 value: Binding(
                     get: { Double(padding.uniform ?? padding.top) },
                     set: { value in
-                        linked = true
                         setLive(.uniform(CGFloat(value.rounded())))
                     }
                 ),
@@ -497,8 +477,7 @@ struct PaddingToolView: View {
     }
 
     private func setSide(_ side: PaddingSide, to value: CGFloat) {
-        let next = linked ? PaddingConfig.uniform(value) : padding.setting(side, to: value)
-        commit(next)
+        commit(padding.setting(side, to: value))
     }
 
     private func parsePadding(_ rawValue: String) -> Int? {
@@ -517,21 +496,6 @@ struct PaddingToolView: View {
     private func commit(_ next: PaddingConfig) {
         let from = padding
         state.performCommand(SetPaddingCommand(from: from, to: next.clamped()))
-    }
-
-    private func applyAuto() {
-        let auto = PaddingConfig.autoSweetSpot(forSelection: state.document.baseSelection.size)
-        let currentBackground = state.document.background
-        let autoBackground = currentBackground == .none ? .dynamic : currentBackground
-        linked = true
-        state.performCommand(
-            ApplyAutoPaddingCommand(
-                fromPadding: padding,
-                toPadding: auto.clamped(),
-                fromBackground: currentBackground,
-                toBackground: autoBackground
-            )
-        )
     }
 
     private func applyAutoCenter() {
@@ -575,7 +539,6 @@ struct PaddingToolView: View {
             guard let (command, context) = result,
                   state.document.screenshot === image,
                   state.document.baseSelection == region else { return }
-            linked = true
             state.performCommand(command)
             state.autoCenter = context
         }

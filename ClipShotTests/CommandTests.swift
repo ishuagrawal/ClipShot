@@ -129,40 +129,6 @@ final class CommandTests: XCTestCase {
         XCTAssertEqual(doc.annotations, annotations)
     }
 
-    func test_applyAutoPadding_isOneUndoableActionThatDoesNotMutateAnnotations() {
-        var doc = makeDoc()
-        doc.annotations = [
-            Annotation(kind: .text(
-                origin: CGPoint(x: 6, y: 8),
-                string: "Pinned",
-                fontSize: 14,
-                color: CGColor(gray: 0, alpha: 1)
-            ))
-        ]
-        let beforePadding = doc.padding
-        let beforeBackground = doc.background
-        let beforeAnnotations = doc.annotations
-        let stack = UndoStack()
-        let command = ApplyAutoPaddingCommand(
-            fromPadding: doc.padding,
-            toPadding: .uniform(40),
-            fromBackground: doc.background,
-            toBackground: .defaultGradient
-        )
-
-        stack.push(command, apply: { $0.apply(to: &doc) })
-
-        XCTAssertEqual(stack.undoCount, 1)
-        XCTAssertEqual(doc.padding, .uniform(40))
-        XCTAssertEqual(doc.background, .defaultGradient)
-        XCTAssertEqual(doc.annotations, beforeAnnotations)
-
-        stack.undo(revert: { $0.revert(to: &doc) })
-        XCTAssertEqual(doc.padding, beforePadding)
-        XCTAssertEqual(doc.background, beforeBackground)
-        XCTAssertEqual(doc.annotations, beforeAnnotations)
-    }
-
     func test_applyAutoCenter_applyThenRevert_restoresImageSelectionPaddingAnnotations() {
         var doc = makeDoc()
         doc.annotations = [
