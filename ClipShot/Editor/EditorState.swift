@@ -87,6 +87,11 @@ final class EditorState: ObservableObject {
         var fill: CGColor
         var inset: CGFloat
         var card: CGImage
+        // Original→trimmed annotation shift (excl. inset), and the shift currently
+        // applied to annotations. Lets the inset slider compose from scratch even
+        // before an explicit center, gluing annotations correctly.
+        var baseShift: CGSize = .zero
+        var appliedShift: CGSize = .zero
     }
 
     struct ToolStyle {

@@ -182,7 +182,8 @@ final class CanvasContentView: NSView {
             return
         }
 
-        dynamicBackgroundLayer.contents = nil
+        // Keep the previous mesh visible until the new one is ready (no flicker /
+        // vanishing band during inset drags that swap the screenshot each frame).
         guard pendingDynamicSource !== screenshot || pendingDynamicSelection != selection else { return }
         pendingDynamicSource = screenshot
         pendingDynamicSelection = selection
