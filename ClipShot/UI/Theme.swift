@@ -1031,25 +1031,40 @@ private struct ChipButtonStyle: ButtonStyle {
 /// top edge, soft glow. The squarer geometry keeps it distinct from the dock's
 /// capsule; the only saturated button in the chrome.
 struct AccentButtonStyle: ButtonStyle {
-    private static let shape = RoundedRectangle(cornerRadius: 7, style: .continuous)
-
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(Theme.label(12, .semibold))
-            .foregroundStyle(Theme.accentInk)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 7)
-            .background(
-                Self.shape.fill(
-                    LinearGradient(
-                        colors: [Theme.accentText, Theme.accent],
-                        startPoint: .top, endPoint: .bottom
+        AccentBody(configuration: configuration)
+    }
+
+    private struct AccentBody: View {
+        let configuration: ButtonStyleConfiguration
+        @State private var hovering = false
+        private static let shape = RoundedRectangle(cornerRadius: 7, style: .continuous)
+
+        var body: some View {
+            configuration.label
+                .font(Theme.label(12, .semibold))
+                .foregroundStyle(Theme.accentInk)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 7)
+                .background(
+                    Self.shape.fill(
+                        LinearGradient(
+                            colors: [Theme.accentText, Theme.accent],
+                            startPoint: .top, endPoint: .bottom
+                        )
                     )
+                    .brightness(hovering ? 0.12 : 0)
                 )
-            )
-            .overlay(Self.shape.stroke(Color.white.opacity(0.3), lineWidth: 1))
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+                .overlay(Self.shape.stroke(Color.white.opacity(hovering ? 0.55 : 0.3), lineWidth: 1))
+                .scaleEffect(configuration.isPressed ? 0.97 : 1)
+                .onHover { hovering = $0; pushCursor($0) }
+                .animation(.easeOut(duration: 0.12), value: hovering)
+                .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+        }
+
+        private func pushCursor(_ inside: Bool) {
+            if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
     }
 }
 
@@ -1078,7 +1093,7 @@ struct BareButtonStyle: ButtonStyle {
                         .stroke(Color.white.opacity(hovering ? 0.28 : 0.16), lineWidth: 1)
                 )
                 .scaleEffect(configuration.isPressed ? 0.98 : 1)
-                .onHover { hovering = $0 }
+                .onHover { hovering = $0; if $0 { NSCursor.pointingHand.push() } else { NSCursor.pop() } }
                 .animation(.easeOut(duration: 0.12), value: hovering)
                 .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
         }
