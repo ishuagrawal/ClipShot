@@ -33,8 +33,49 @@ struct ApplyAutoCenterCommand: EditorCommand {
     let fromPadding: PaddingConfig
     let toPadding: PaddingConfig
     let annotationDelta: CGSize
+    let fromAutoCenter: EditorState.AutoCenterContext?
+    let toAutoCenter: EditorState.AutoCenterContext?
 
     var displayName: String { "Auto-center" }
+
+    init(
+        fromScreenshot: CGImage,
+        toScreenshot: CGImage,
+        fromSelection: CGRect,
+        toSelection: CGRect,
+        fromPadding: PaddingConfig,
+        toPadding: PaddingConfig,
+        annotationDelta: CGSize,
+        fromAutoCenter: EditorState.AutoCenterContext? = nil,
+        toAutoCenter: EditorState.AutoCenterContext? = nil
+    ) {
+        self.fromScreenshot = fromScreenshot
+        self.toScreenshot = toScreenshot
+        self.fromSelection = fromSelection
+        self.toSelection = toSelection
+        self.fromPadding = fromPadding
+        self.toPadding = toPadding
+        self.annotationDelta = annotationDelta
+        self.fromAutoCenter = fromAutoCenter
+        self.toAutoCenter = toAutoCenter
+    }
+
+    func withAutoCenterContexts(
+        from: EditorState.AutoCenterContext?,
+        to: EditorState.AutoCenterContext?
+    ) -> ApplyAutoCenterCommand {
+        ApplyAutoCenterCommand(
+            fromScreenshot: fromScreenshot,
+            toScreenshot: toScreenshot,
+            fromSelection: fromSelection,
+            toSelection: toSelection,
+            fromPadding: fromPadding,
+            toPadding: toPadding,
+            annotationDelta: annotationDelta,
+            fromAutoCenter: from,
+            toAutoCenter: to
+        )
+    }
 
     func apply(to document: inout EditorDocument) {
         document.screenshot = toScreenshot

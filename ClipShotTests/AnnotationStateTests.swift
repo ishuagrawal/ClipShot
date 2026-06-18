@@ -75,6 +75,73 @@ final class AnnotationStateTests: XCTestCase {
         XCTAssertEqual(state.document.annotations.count, 1)
     }
 
+    func test_autoCenterHistoryRestoresInsetContextOnUndoRedo() {
+        let state = makeState()
+        let fromImage = state.document.screenshot
+        let toImage = TestImage.solid(.blue, size: CGSize(width: 72, height: 64))
+        let fill = CGColor(gray: 1, alpha: 1)
+        let contentImage = TestImage.solid(.green, size: CGSize(width: 40, height: 32))
+        let toContext = EditorState.AutoCenterContext(
+            content: contentImage,
+            fill: fill,
+            inset: 16,
+            card: toImage,
+            baseShift: CGSize(width: -4, height: -6),
+            appliedShift: CGSize(width: 12, height: 10)
+        )
+        let command = ApplyAutoCenterCommand(
+            fromScreenshot: fromImage,
+            toScreenshot: toImage,
+            fromSelection: state.document.baseSelection,
+            toSelection: CGRect(x: 0, y: 0, width: 72, height: 64),
+            fromPadding: state.document.padding,
+            toPadding: .uniform(24),
+            annotationDelta: toContext.appliedShift,
+            fromAutoCenter: nil,
+            toAutoCenter: toContext
+        )
+
+        state.performCommand(command)
+        XCTAssertEqual(state.autoCenter?.inset, 16)
+        XCTAssertTrue(state.autoCenter?.card === state.document.screenshot)
+
+        state.performUndo()
+        XCTAssertNil(state.autoCenter)
+
+        state.performRedo()
+        XCTAssertEqual(state.autoCenter?.inset, 16)
+        XCTAssertTrue(state.autoCenter?.card === state.document.screenshot)
+    }
+
+    func test_resetClearsAutoCenterContext() {
+        let state = makeState()
+        let centeredImage = TestImage.solid(.blue, size: CGSize(width: 72, height: 64))
+        let context = EditorState.AutoCenterContext(
+            content: TestImage.solid(.green, size: CGSize(width: 40, height: 32)),
+            fill: CGColor(gray: 1, alpha: 1),
+            inset: 16,
+            card: centeredImage,
+            baseShift: .zero,
+            appliedShift: CGSize(width: 16, height: 16)
+        )
+        state.performCommand(ApplyAutoCenterCommand(
+            fromScreenshot: state.document.screenshot,
+            toScreenshot: centeredImage,
+            fromSelection: state.document.baseSelection,
+            toSelection: CGRect(x: 0, y: 0, width: 72, height: 64),
+            fromPadding: state.document.padding,
+            toPadding: .uniform(24),
+            annotationDelta: context.appliedShift,
+            fromAutoCenter: nil,
+            toAutoCenter: context
+        ))
+        XCTAssertNotNil(state.autoCenter)
+
+        state.resetToOriginal()
+
+        XCTAssertNil(state.autoCenter)
+    }
+
     func test_move_commitsSingleUndoEntry() {
         let state = makeState()
         state.activeTool = .arrow

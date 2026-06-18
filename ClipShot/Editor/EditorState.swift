@@ -97,6 +97,12 @@ final class EditorState: ObservableObject {
         // before an explicit center, gluing annotations correctly.
         var baseShift: CGSize = .zero
         var appliedShift: CGSize = .zero
+
+        func bound(toCard card: CGImage) -> AutoCenterContext {
+            var copy = self
+            copy.card = card
+            return copy
+        }
     }
 
     struct ToolStyle {
@@ -140,18 +146,49 @@ final class EditorState: ObservableObject {
     }
 
     func performUndo() {
-        undoStack.undo(revert: { $0.revert(to: &document) })
+        undoStack.undo(revert: { command in
+            command.revert(to: &document)
+            syncAutoCenter(afterReverting: command)
+        })
         validateSelectedAnnotation()
     }
 
     func performRedo() {
-        undoStack.redo(apply: { $0.apply(to: &document) })
+        undoStack.redo(apply: { command in
+            command.apply(to: &document)
+            syncAutoCenter(afterApplying: command)
+        })
         validateSelectedAnnotation()
     }
 
     func performCommand(_ command: EditorCommand) {
-        undoStack.push(command, apply: { $0.apply(to: &document) })
+        undoStack.push(command, apply: { command in
+            command.apply(to: &document)
+            syncAutoCenter(afterApplying: command)
+        })
         validateSelectedAnnotation()
+    }
+
+    private func syncAutoCenter(afterApplying command: EditorCommand) {
+        if let command = command as? ApplyAutoCenterCommand {
+            autoCenter = command.toAutoCenter?.bound(toCard: document.screenshot)
+        } else {
+            clearStaleAutoCenterContext()
+        }
+    }
+
+    private func syncAutoCenter(afterReverting command: EditorCommand) {
+        if let command = command as? ApplyAutoCenterCommand {
+            autoCenter = command.fromAutoCenter?.bound(toCard: document.screenshot)
+        } else {
+            clearStaleAutoCenterContext()
+        }
+    }
+
+    private func clearStaleAutoCenterContext() {
+        if let autoCenter, autoCenter.card !== document.screenshot {
+            self.autoCenter = nil
+        }
     }
 
     /// Pick a canvas cursor mode (select / arrow / rectangle / text). Closes any pinned

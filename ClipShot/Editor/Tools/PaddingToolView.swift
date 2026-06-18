@@ -12,7 +12,13 @@ struct PaddingToolView: View {
     @State private var shadowColor = Color(cgColor: ShadowConfig.default.color)
     @State private var syncingShadow = false
     @State private var isCentering = false
-    @State private var insetDragStart: (screenshot: CGImage, selection: CGRect, padding: PaddingConfig, shift: CGSize)?
+    @State private var insetDragStart: (
+        screenshot: CGImage,
+        selection: CGRect,
+        padding: PaddingConfig,
+        shift: CGSize,
+        context: EditorState.AutoCenterContext
+    )?
 
     private let paddingRange: ClosedRange<Double> = 0...Double(PaddingConfig.maximum)
 
@@ -207,7 +213,13 @@ struct PaddingToolView: View {
     private func setLiveInset(_ newInset: CGFloat) {
         guard let context = ensureInsetContext() else { return }
         if insetDragStart == nil {
-            insetDragStart = (state.document.screenshot, state.document.baseSelection, state.document.padding, context.appliedShift)
+            insetDragStart = (
+                state.document.screenshot,
+                state.document.baseSelection,
+                state.document.padding,
+                context.appliedShift,
+                context
+            )
         }
         let rect = CGRect(x: 0, y: 0, width: context.content.width, height: context.content.height)
         guard let card = ContentInsetComposer.compose(
@@ -241,10 +253,10 @@ struct PaddingToolView: View {
                 toSelection: toSelection,
                 fromPadding: start.padding,
                 toPadding: start.padding,
-                annotationDelta: net
+                annotationDelta: net,
+                fromAutoCenter: start.context.bound(toCard: start.screenshot),
+                toAutoCenter: state.autoCenter?.bound(toCard: toScreenshot)
             ))
-            state.autoCenter?.card = state.document.screenshot
-            state.autoCenter?.appliedShift = endShift
         }
         insetDragStart = nil
     }
@@ -569,8 +581,10 @@ struct PaddingToolView: View {
             guard let (command, context) = result,
                   state.document.screenshot === image,
                   state.document.baseSelection == region else { return }
-            state.performCommand(command)
-            state.autoCenter = context
+            state.performCommand(command.withAutoCenterContexts(
+                from: activeInsetContext,
+                to: context.bound(toCard: command.toScreenshot)
+            ))
         }
     }
 
