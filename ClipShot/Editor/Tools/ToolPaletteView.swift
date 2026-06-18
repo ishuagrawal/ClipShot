@@ -17,24 +17,28 @@ struct DockView: View {
 
     var body: some View {
         HStack(spacing: 4) {
+            let undoEnabled = state.undoStack.canUndo && !state.previewingOriginal
+            let redoEnabled = state.undoStack.canRedo && !state.previewingOriginal
+            let resetEnabled = state.canReset && !state.previewingOriginal
+
             IconButton(systemName: "arrow.uturn.backward") { state.performUndo() }
                 .accessibilityLabel("Undo")
-                .disabled(!state.undoStack.canUndo)
-                .opacity(state.undoStack.canUndo ? 1 : 0.35)
+                .disabled(!undoEnabled)
+                .opacity(undoEnabled ? 1 : 0.35)
                 .help("Undo")
 
             IconButton(systemName: "arrow.uturn.forward") { state.performRedo() }
                 .accessibilityLabel("Redo")
-                .disabled(!state.undoStack.canRedo)
-                .opacity(state.undoStack.canRedo ? 1 : 0.35)
+                .disabled(!redoEnabled)
+                .opacity(redoEnabled ? 1 : 0.35)
                 .help("Redo")
 
             subDivider
 
             IconButton(systemName: "arrow.counterclockwise") { state.resetToOriginal() }
                 .accessibilityLabel("Reset to Original")
-                .disabled(!state.canReset)
-                .opacity(state.canReset ? 1 : 0.35)
+                .disabled(!resetEnabled)
+                .opacity(resetEnabled ? 1 : 0.35)
                 .help("Reset to Original")
 
             ToolRailButton(
@@ -59,6 +63,8 @@ struct DockView: View {
                 ) {
                     state.selectCursorTool(tool)
                 }
+                .disabled(state.previewingOriginal)
+                .opacity(state.previewingOriginal ? 0.35 : 1)
             }
 
             divider
