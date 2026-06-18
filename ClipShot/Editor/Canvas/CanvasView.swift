@@ -36,6 +36,7 @@ final class CanvasFocusProxy: ObservableObject {
               event.window === window,
               window.isKeyWindow,
               !window.firstResponderAcceptsTextInput,
+              !state.previewingOriginal,
               state.activeTool == .select,
               state.selectedAnnotationID != nil,
               let delta = CanvasInteractionView.keyboardNudgeDelta(for: event) else {

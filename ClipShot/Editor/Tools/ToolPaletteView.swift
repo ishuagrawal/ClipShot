@@ -29,6 +29,25 @@ struct DockView: View {
                 .opacity(state.undoStack.canRedo ? 1 : 0.35)
                 .help("Redo")
 
+            subDivider
+
+            IconButton(systemName: "arrow.counterclockwise") { state.resetToOriginal() }
+                .accessibilityLabel("Reset to Original")
+                .disabled(!state.canReset)
+                .opacity(state.canReset ? 1 : 0.35)
+                .help("Reset to Original")
+
+            ToolRailButton(
+                systemName: "eye",
+                label: "Preview Original",
+                shortcut: nil,
+                isActive: state.previewingOriginal
+            ) {
+                state.togglePreviewOriginal()
+            }
+            .disabled(!state.canReset && !state.previewingOriginal)
+            .opacity(state.canReset || state.previewingOriginal ? 1 : 0.35)
+
             divider
 
             ForEach(tools, id: \.0) { tool, shortcut in
@@ -58,5 +77,12 @@ struct DockView: View {
             .fill(Theme.hairlineStrong)
             .frame(width: 1, height: 18)
             .padding(.horizontal, 7)
+    }
+
+    private var subDivider: some View {
+        Rectangle()
+            .fill(Theme.hairline)
+            .frame(width: 1, height: 14)
+            .padding(.horizontal, 6)
     }
 }

@@ -65,7 +65,7 @@ final class CanvasInteractionView: NSView {
         // space, not image-pixel space), which broke annotation dragging once the canvas was
         // offset by the zoom-to-selection fit. `mouseDown` decides what the click means.
         // An active text field is a later sibling (higher z-order) and still wins its own area.
-        guard state != nil else { return nil }
+        guard let state, !state.previewingOriginal else { return nil }
         return self
     }
 
@@ -188,6 +188,10 @@ final class CanvasInteractionView: NSView {
 
     override func keyDown(with event: NSEvent) {
         guard let state else {
+            super.keyDown(with: event)
+            return
+        }
+        guard !state.previewingOriginal else {
             super.keyDown(with: event)
             return
         }

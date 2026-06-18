@@ -109,7 +109,7 @@ final class CanvasCoordinator {
 
     /// Push the latest document into the view tree. Called on every SwiftUI update.
     func update(state: EditorState) {
-        let document = state.document
+        let document = state.displayDocument
         // Toggling the background on/off changes what the fit frames (padded card
         // vs bare screenshot), so reframe — a deliberate restyle, not a pan.
         let backgroundVisibilityChanged = latestDocument.map {

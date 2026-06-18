@@ -73,6 +73,11 @@ enum InspectorRoute: Equatable {
 @MainActor
 final class EditorState: ObservableObject {
     @Published var document: EditorDocument
+    /// The initial loaded state (post auto-process), captured at init. Reset reverts
+    /// to this; preview shows it without committing.
+    let originalDocument: EditorDocument
+    /// When true the canvas shows `originalDocument` instead of `document` (compare-only).
+    @Published var previewingOriginal = false
     @Published var activeTool: EditorTool = .select          // cursor mode: select/arrow/rectangle/text
     @Published var documentPanel: DocumentPanel = .none
     @Published var inProgressAnnotation: Annotation? = nil
@@ -111,7 +116,27 @@ final class EditorState: ObservableObject {
 
     init(document: EditorDocument, openingPanel: DocumentPanel = .none) {
         self.document = document
+        self.originalDocument = document
         self.documentPanel = openingPanel
+    }
+
+    /// What the canvas renders: the original snapshot while previewing, else live edits.
+    var displayDocument: EditorDocument { previewingOriginal ? originalDocument : document }
+
+    /// True when edits differ from the original — enables reset/preview.
+    var canReset: Bool { !document.hasSameEdits(as: originalDocument) }
+
+    /// Revert all edits to the original, undoably, and exit preview.
+    func resetToOriginal() {
+        previewingOriginal = false
+        guard canReset else { return }
+        performCommand(ResetDocumentCommand(before: document, original: originalDocument))
+    }
+
+    /// Flip the compare-only preview of the original state.
+    func togglePreviewOriginal() {
+        guard canReset || previewingOriginal else { return }
+        previewingOriginal.toggle()
     }
 
     func performUndo() {

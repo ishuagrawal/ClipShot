@@ -20,6 +20,48 @@ struct NoOpCommand: EditorCommand {
     func revert(to document: inout EditorDocument) {}
 }
 
+/// Reverts every editable field to a snapshot. Resets to the original loaded state
+/// while staying undoable through the normal command stack.
+struct ResetDocumentCommand: EditorCommand {
+    let before: EditorDocument
+    let original: EditorDocument
+
+    var displayName: String { "Reset to Original" }
+
+    func apply(to document: inout EditorDocument) { restore(original, into: &document) }
+    func revert(to document: inout EditorDocument) { restore(before, into: &document) }
+
+    private func restore(_ s: EditorDocument, into d: inout EditorDocument) {
+        d.screenshot = s.screenshot
+        d.baseSelection = s.baseSelection
+        d.padding = s.padding
+        d.background = s.background
+        d.annotations = s.annotations
+        d.cardCornerOverride = s.cardCornerOverride
+        d.shadow = s.shadow
+        d.backgroundEffects = s.backgroundEffects
+        d.screenshotCornerOverride = s.screenshotCornerOverride
+        d.lockCornersToCard = s.lockCornersToCard
+    }
+}
+
+extension EditorDocument {
+    /// True when user-editable state matches `other`, ignoring the version token.
+    /// `screenshot` compared by identity (never reassigned in normal editing).
+    func hasSameEdits(as other: EditorDocument) -> Bool {
+        screenshot === other.screenshot &&
+        baseSelection == other.baseSelection &&
+        padding == other.padding &&
+        background == other.background &&
+        annotations == other.annotations &&
+        cardCornerOverride == other.cardCornerOverride &&
+        shadow == other.shadow &&
+        backgroundEffects == other.backgroundEffects &&
+        screenshotCornerOverride == other.screenshotCornerOverride &&
+        lockCornersToCard == other.lockCornersToCard
+    }
+}
+
 protocol Clock: AnyObject {
     func currentTime() -> TimeInterval
 }
