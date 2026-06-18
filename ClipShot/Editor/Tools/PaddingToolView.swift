@@ -1,17 +1,18 @@
 import AppKit
 import SwiftUI
 
-/// Padding detail panel with linked and per-side box-model controls.
+/// Padding detail panel with per-side box-model controls.
 struct PaddingToolView: View {
     @ObservedObject var state: EditorState
     @State private var editStart: PaddingConfig?
-    @State private var linked: Bool = true
     @State private var cornerEditing: Bool = false
     @State private var cornerStart: CGFloat?
     @State private var shotCornerEditing: Bool = false
     @State private var shotCornerStart: CGFloat?
     @State private var shadowColor = Color(cgColor: ShadowConfig.default.color)
     @State private var syncingShadow = false
+    @State private var isCentering = false
+    @State private var insetDragStart: (screenshot: CGImage, selection: CGRect, padding: PaddingConfig, shift: CGSize)?
 
     private let paddingRange: ClosedRange<Double> = 0...Double(PaddingConfig.maximum)
 
@@ -31,12 +32,12 @@ struct PaddingToolView: View {
                 boxModel
             }
             uniformRow
+            insetRow
             cornerRow
             screenshotCornerRow
             shadowSection
         }
         .onAppear {
-            linked = padding.isLinked
             shadowColor = Color(cgColor: state.document.shadow.color)
         }
         .onChange(of: state.document.shadow) { _, newShadow in
@@ -51,22 +52,13 @@ struct PaddingToolView: View {
     private var header: some View {
         HStack {
             ChipToggle(
-                label: "Auto",
-                systemName: "wand.and.stars",
-                isOn: true,
+                label: "Center",
+                systemName: isCentering ? "circle.dotted" : "rectangle.center.inset.filled",
+                isOn: false,
                 isMomentary: true,
-                help: "Auto padding + background"
-            ) { applyAuto() }
-            ChipToggle(
-                systemName: linked ? "link" : "link.slash",
-                isOn: linked,
-                help: linked ? "Sides linked" : "Sides independent"
-            ) {
-                linked.toggle()
-                if linked {
-                    commit(.uniform(padding.top))
-                }
-            }
+                ghostAccent: true,
+                help: "Trim to content and center with equal inset"
+            ) { applyAutoCenter() }
             Spacer()
         }
     }
@@ -135,7 +127,6 @@ struct PaddingToolView: View {
                 value: Binding(
                     get: { Double(padding.uniform ?? padding.top) },
                     set: { value in
-                        linked = true
                         setLive(.uniform(CGFloat(value.rounded())))
                     }
                 ),
@@ -152,6 +143,118 @@ struct PaddingToolView: View {
             )
                 InspectorValueLabel(text: "\(Int(padding.uniform ?? padding.top))")
             }
+        }
+    }
+
+    /// The auto-center context, but only while it still matches the on-screen card.
+    /// A screenshot swapped by undo or another tool invalidates it.
+    private var activeInsetContext: EditorState.AutoCenterContext? {
+        guard let context = state.autoCenter,
+              state.document.screenshot === context.card else { return nil }
+        return context
+    }
+
+    private var insetRange: ClosedRange<Double> {
+        guard let context = activeInsetContext else { return 0...96 }
+        let maxSide = Double(max(context.content.width, context.content.height))
+        return 0...max(96, (maxSide * 0.5).rounded())
+    }
+
+    /// Inset band inside the centered card. Drags recompose the card live from
+    /// the trimmed content; the original screenshot is never re-trimmed.
+    private var insetRow: some View {
+        PanelSection("Inset") {
+            HStack(spacing: 10) {
+                GlassSlider(
+                    value: Binding(
+                        get: { Double(activeInsetContext?.inset ?? 0) },
+                        set: { setLiveInset(CGFloat($0.rounded())) }
+                    ),
+                    range: insetRange,
+                    accessibilityLabel: "Inset",
+                    accessibilityValue: { "\(Int($0.rounded())) pixels" },
+                    onEditingChanged: { editing in
+                        if !editing { commitInsetDrag() }
+                    }
+                )
+                InspectorValueLabel(text: "\(Int(activeInsetContext?.inset ?? 0))")
+            }
+        }
+    }
+
+    /// Seed an inset context that adds an equal band around the screenshot as-is —
+    /// no trim, no recenter (that is the center button's job). Detection supplies
+    /// only the band fill color so the whitespace blends with the background.
+    private func ensureInsetContext() -> EditorState.AutoCenterContext? {
+        if let context = activeInsetContext { return context }
+        let image = state.document.screenshot
+        let region = state.document.baseSelection
+        guard let contentImage = image.cropping(to: region.integral) else { return nil }
+        let fill = ContentBoundsDetector().detect(in: image, region: region)?.fillColor
+            ?? CGColor(gray: 1, alpha: 1)
+        let context = EditorState.AutoCenterContext(
+            content: contentImage,
+            fill: fill,
+            inset: 0,
+            card: image,
+            baseShift: .zero,
+            appliedShift: .zero
+        )
+        state.autoCenter = context
+        return context
+    }
+
+    private func setLiveInset(_ newInset: CGFloat) {
+        guard let context = ensureInsetContext() else { return }
+        if insetDragStart == nil {
+            insetDragStart = (state.document.screenshot, state.document.baseSelection, state.document.padding, context.appliedShift)
+        }
+        let rect = CGRect(x: 0, y: 0, width: context.content.width, height: context.content.height)
+        guard let card = ContentInsetComposer.compose(
+            screenshot: context.content, content: rect, inset: newInset, fill: context.fill
+        ) else { return }
+        let targetShift = CGSize(width: context.baseShift.width + newInset, height: context.baseShift.height + newInset)
+        let delta = CGSize(width: targetShift.width - context.appliedShift.width, height: targetShift.height - context.appliedShift.height)
+        state.document.screenshot = card
+        state.document.baseSelection = CGRect(x: 0, y: 0, width: card.width, height: card.height)
+        translateAnnotations(by: delta)
+        state.autoCenter?.inset = newInset
+        state.autoCenter?.card = card
+        state.autoCenter?.appliedShift = targetShift
+    }
+
+    private func commitInsetDrag() {
+        guard let start = insetDragStart else { return }
+        let toScreenshot = state.document.screenshot
+        let toSelection = state.document.baseSelection
+        let endShift = state.autoCenter?.appliedShift ?? start.shift
+        let net = CGSize(width: endShift.width - start.shift.width, height: endShift.height - start.shift.height)
+        // Rewind to the drag start, then record one undoable step covering the whole drag.
+        state.document.screenshot = start.screenshot
+        state.document.baseSelection = start.selection
+        translateAnnotations(by: CGSize(width: -net.width, height: -net.height))
+        if toScreenshot !== start.screenshot {
+            state.performCommand(ApplyAutoCenterCommand(
+                fromScreenshot: start.screenshot,
+                toScreenshot: toScreenshot,
+                fromSelection: start.selection,
+                toSelection: toSelection,
+                fromPadding: start.padding,
+                toPadding: start.padding,
+                annotationDelta: net
+            ))
+            state.autoCenter?.card = state.document.screenshot
+            state.autoCenter?.appliedShift = endShift
+        }
+        insetDragStart = nil
+    }
+
+    private func translateAnnotations(by delta: CGSize) {
+        guard delta != .zero else { return }
+        for index in state.document.annotations.indices {
+            state.document.annotations[index].kind = AnnotationGeometry.translated(
+                state.document.annotations[index].kind, by: delta
+            )
         }
     }
 
@@ -402,8 +505,7 @@ struct PaddingToolView: View {
     }
 
     private func setSide(_ side: PaddingSide, to value: CGFloat) {
-        let next = linked ? PaddingConfig.uniform(value) : padding.setting(side, to: value)
-        commit(next)
+        commit(padding.setting(side, to: value))
     }
 
     private func parsePadding(_ rawValue: String) -> Int? {
@@ -424,19 +526,68 @@ struct PaddingToolView: View {
         state.performCommand(SetPaddingCommand(from: from, to: next.clamped()))
     }
 
-    private func applyAuto() {
-        let auto = PaddingConfig.autoSweetSpot(forSelection: state.document.baseSelection.size)
-        let currentBackground = state.document.background
-        let autoBackground = currentBackground == .none ? .dynamic : currentBackground
-        linked = true
-        state.performCommand(
-            ApplyAutoPaddingCommand(
-                fromPadding: padding,
-                toPadding: auto.clamped(),
-                fromBackground: currentBackground,
-                toBackground: autoBackground
-            )
-        )
+    private func applyAutoCenter() {
+        guard !isCentering else { return }
+        isCentering = true
+        let image = state.document.screenshot
+        let region = state.document.baseSelection
+        let fromPadding = state.document.padding
+        Task {
+            let result = await Task.detached(priority: .userInitiated) { () -> (ApplyAutoCenterCommand, EditorState.AutoCenterContext)? in
+                guard let content = ContentBoundsDetector().detect(in: image, region: region),
+                      let contentImage = image.cropping(to: content.box.integral) else { return nil }
+                let inset = Self.contentInset(forContentSize: content.box.size)
+                guard let card = ContentInsetComposer.compose(
+                    screenshot: image, content: content.box, inset: inset, fill: content.fillColor
+                ) else { return nil }
+
+                let toSelection = CGRect(x: 0, y: 0, width: card.width, height: card.height)
+                let toPadding = Self.resolvedUniformPadding(fromPadding, cardSize: toSelection.size)
+                // Glue annotations: shift by the content's new origin minus its old one.
+                let delta = CGSize(
+                    width: region.minX - content.box.minX + inset,
+                    height: region.minY - content.box.minY + inset
+                )
+                let command = ApplyAutoCenterCommand(
+                    fromScreenshot: image,
+                    toScreenshot: card,
+                    fromSelection: region,
+                    toSelection: toSelection,
+                    fromPadding: fromPadding,
+                    toPadding: toPadding,
+                    annotationDelta: delta
+                )
+                let baseShift = CGSize(width: region.minX - content.box.minX, height: region.minY - content.box.minY)
+                let context = EditorState.AutoCenterContext(
+                    content: contentImage, fill: content.fillColor, inset: inset, card: card,
+                    baseShift: baseShift, appliedShift: delta
+                )
+                return (command, context)
+            }.value
+
+            isCentering = false
+            guard let (command, context) = result,
+                  state.document.screenshot === image,
+                  state.document.baseSelection == region else { return }
+            state.performCommand(command)
+            state.autoCenter = context
+        }
+    }
+
+    /// Equal outer margins: keep the user's uniform amount if they set one, else
+    /// the size-derived sweet spot.
+    nonisolated private static func resolvedUniformPadding(_ current: PaddingConfig, cardSize: CGSize) -> PaddingConfig {
+        if let uniform = current.uniform, uniform > 0 {
+            return current
+        }
+        return PaddingConfig.autoSweetSpot(forSelection: cardSize).clamped()
+    }
+
+    /// Synthesized whitespace band inside the card: ~6% of the content's longer
+    /// side, clamped so small shots get room and large shots aren't drowned.
+    nonisolated private static func contentInset(forContentSize size: CGSize) -> CGFloat {
+        let maxSide = max(size.width, size.height)
+        return min(max((0.06 * maxSide).rounded(), 24), 96)
     }
 
     private func commitDrag() {

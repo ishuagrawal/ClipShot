@@ -78,6 +78,21 @@ final class EditorState: ObservableObject {
     @Published var inProgressAnnotation: Annotation? = nil
     @Published var selectedAnnotationID: UUID? = nil
     @Published var toolStyle = ToolStyle()
+    /// Live context for the inset slider shown after an auto-center: the trimmed
+    /// content (no whitespace), its synthesized fill, and the card on screen.
+    @Published var autoCenter: AutoCenterContext?
+
+    struct AutoCenterContext {
+        var content: CGImage
+        var fill: CGColor
+        var inset: CGFloat
+        var card: CGImage
+        // Original→trimmed annotation shift (excl. inset), and the shift currently
+        // applied to annotations. Lets the inset slider compose from scratch even
+        // before an explicit center, gluing annotations correctly.
+        var baseShift: CGSize = .zero
+        var appliedShift: CGSize = .zero
+    }
 
     struct ToolStyle {
         var arrowColor: CGColor = CGColor(red: 1, green: 0.23, blue: 0.19, alpha: 1)

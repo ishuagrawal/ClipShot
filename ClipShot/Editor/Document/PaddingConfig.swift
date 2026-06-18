@@ -39,7 +39,6 @@ extension PaddingConfig {
         return .uniform(pad)
     }
 
-    var isLinked: Bool { uniform != nil }
     var isZero: Bool { self == .zero }
 
     func setting(_ side: PaddingSide, to value: CGFloat) -> PaddingConfig {

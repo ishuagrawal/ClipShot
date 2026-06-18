@@ -8,16 +8,11 @@
 
 /* Begin PBXBuildFile section */
 		01A000000000000000000001 /* ClipShotApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000001 /* ClipShotApp.swift */; };
-		01A000000000000000000501 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000501 /* AppIcon.icon */; };
-		01A000000000000000000502 /* MenuBarIcon.png in Resources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000502 /* MenuBarIcon.png */; };
-		01A000000000000000000503 /* MenuBarIcon@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000503 /* MenuBarIcon@2x.png */; };
 		01A000000000000000000002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000002 /* AppDelegate.swift */; };
 		01A000000000000000000003 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000003 /* AppState.swift */; };
 		01A000000000000000000006 /* CaptureCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000006 /* CaptureCoordinator.swift */; };
 		01A00000000000000000000C /* MenuContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000000C /* MenuContentView.swift */; };
 		01A000000000000000000011 /* CaptureModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000011 /* CaptureModels.swift */; };
-		01A000000000000000000310 /* RecentsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000310 /* RecentsStoreTests.swift */; };
-		01A000000000000000000601 /* RecentsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000601 /* RecentsStore.swift */; };
 		01A000000000000000000012 /* EditorWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000012 /* EditorWindowController.swift */; };
 		01A000000000000000000013 /* EditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000013 /* EditorView.swift */; };
 		01A000000000000000000101 /* PixelBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000101 /* PixelBuffer.swift */; };
@@ -41,7 +36,6 @@
 		01A000000000000000000212 /* PaddingToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000212 /* PaddingToolView.swift */; };
 		01A000000000000000000213 /* BackgroundToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000213 /* BackgroundToolView.swift */; };
 		01A000000000000000000214 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000214 /* Theme.swift */; };
-		01A000000000000000000500 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000500 /* HomeView.swift */; };
 		01A000000000000000000215 /* TopToolBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000215 /* TopToolBarView.swift */; };
 		01A000000000000000000216 /* CanvasGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000216 /* CanvasGeometry.swift */; };
 		01A000000000000000000217 /* AnnotationGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000217 /* AnnotationGeometry.swift */; };
@@ -72,10 +66,18 @@
 		01A00000000000000000030A /* AnnotationStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000030A /* AnnotationStateTests.swift */; };
 		01A00000000000000000030B /* ZoomMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000030B /* ZoomMathTests.swift */; };
 		01A00000000000000000030C /* NativeWindowMatcherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000030C /* NativeWindowMatcherTests.swift */; };
+		01A000000000000000000310 /* RecentsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000310 /* RecentsStoreTests.swift */; };
 		01A000000000000000000400 /* NativeCaptureRegionOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000400 /* NativeCaptureRegionOverlay.swift */; };
 		01A000000000000000000401 /* NativeScreenCapturer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000401 /* NativeScreenCapturer.swift */; };
 		01A000000000000000000402 /* NativeCaptureShortcut.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000402 /* NativeCaptureShortcut.swift */; };
+		01A000000000000000000500 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000500 /* HomeView.swift */; };
+		01A000000000000000000501 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000501 /* AppIcon.icon */; };
+		01A000000000000000000502 /* MenuBarIcon.png in Resources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000502 /* MenuBarIcon.png */; };
+		01A000000000000000000503 /* MenuBarIcon@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000503 /* MenuBarIcon@2x.png */; };
+		01A000000000000000000601 /* RecentsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000601 /* RecentsStore.swift */; };
 		1BA944B9B0F0C1F9C43EF01B /* MeshGradientGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA9393E6113E2EEE8E5FE7E6 /* MeshGradientGenerator.swift */; };
+		4AE6726D86D36938DDD57DF4 /* ContentBoundsDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8845A676CEB200FC3C0AD70E /* ContentBoundsDetectorTests.swift */; };
+		775F677B581250353BE09E0E /* ContentBoundsDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4814D67D6F978873045C5635 /* ContentBoundsDetector.swift */; };
 		876F3B6F8742365424087997 /* DynamicMeshCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = D99D9E0BDD5C3B8BAB17EF4C /* DynamicMeshCache.swift */; };
 		97FCDDE7D93682B011548524 /* DynamicMeshCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56154F05608FA48C1096BB93 /* DynamicMeshCacheTests.swift */; };
 		A4A1E0ED3BFA78B1BF42D926 /* MeshGradientGeneratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53E6D10A95528AC36DD4CA1A /* MeshGradientGeneratorTests.swift */; };
@@ -101,12 +103,7 @@
 		01B000000000000000000006 /* CaptureCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureCoordinator.swift; sourceTree = "<group>"; };
 		01B00000000000000000000C /* MenuContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuContentView.swift; sourceTree = "<group>"; };
 		01B00000000000000000000F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		01B000000000000000000501 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
-		01B000000000000000000502 /* MenuBarIcon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = MenuBarIcon.png; sourceTree = "<group>"; };
-		01B000000000000000000503 /* MenuBarIcon@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "MenuBarIcon@2x.png"; sourceTree = "<group>"; };
 		01B000000000000000000011 /* CaptureModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureModels.swift; sourceTree = "<group>"; };
-		01B000000000000000000310 /* RecentsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentsStoreTests.swift; sourceTree = "<group>"; };
-		01B000000000000000000601 /* RecentsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentsStore.swift; sourceTree = "<group>"; };
 		01B000000000000000000012 /* EditorWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorWindowController.swift; sourceTree = "<group>"; };
 		01B000000000000000000013 /* EditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorView.swift; sourceTree = "<group>"; };
 		01B000000000000000000100 /* ClipShotTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClipShotTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -131,7 +128,6 @@
 		01B000000000000000000212 /* PaddingToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaddingToolView.swift; sourceTree = "<group>"; };
 		01B000000000000000000213 /* BackgroundToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundToolView.swift; sourceTree = "<group>"; };
 		01B000000000000000000214 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
-		01B000000000000000000500 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		01B000000000000000000215 /* TopToolBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopToolBarView.swift; sourceTree = "<group>"; };
 		01B000000000000000000216 /* CanvasGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasGeometry.swift; sourceTree = "<group>"; };
 		01B000000000000000000217 /* AnnotationGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnotationGeometry.swift; sourceTree = "<group>"; };
@@ -162,13 +158,21 @@
 		01B00000000000000000030A /* AnnotationStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnotationStateTests.swift; sourceTree = "<group>"; };
 		01B00000000000000000030B /* ZoomMathTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomMathTests.swift; sourceTree = "<group>"; };
 		01B00000000000000000030C /* NativeWindowMatcherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeWindowMatcherTests.swift; sourceTree = "<group>"; };
+		01B000000000000000000310 /* RecentsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentsStoreTests.swift; sourceTree = "<group>"; };
 		01B000000000000000000400 /* NativeCaptureRegionOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCaptureRegionOverlay.swift; sourceTree = "<group>"; };
 		01B000000000000000000401 /* NativeScreenCapturer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeScreenCapturer.swift; sourceTree = "<group>"; };
 		01B000000000000000000402 /* NativeCaptureShortcut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCaptureShortcut.swift; sourceTree = "<group>"; };
+		01B000000000000000000500 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		01B000000000000000000501 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
+		01B000000000000000000502 /* MenuBarIcon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = MenuBarIcon.png; sourceTree = "<group>"; };
+		01B000000000000000000503 /* MenuBarIcon@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "MenuBarIcon@2x.png"; sourceTree = "<group>"; };
+		01B000000000000000000601 /* RecentsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentsStore.swift; sourceTree = "<group>"; };
 		090C58A15E485322374C6255 /* MeshSpecTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MeshSpecTests.swift; path = ClipShotTests/MeshSpecTests.swift; sourceTree = "<group>"; };
+		4814D67D6F978873045C5635 /* ContentBoundsDetector.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ContentBoundsDetector.swift; sourceTree = "<group>"; };
 		53E6D10A95528AC36DD4CA1A /* MeshGradientGeneratorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MeshGradientGeneratorTests.swift; path = ClipShotTests/MeshGradientGeneratorTests.swift; sourceTree = "<group>"; };
 		56154F05608FA48C1096BB93 /* DynamicMeshCacheTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DynamicMeshCacheTests.swift; path = ClipShotTests/DynamicMeshCacheTests.swift; sourceTree = "<group>"; };
 		6498582A10FFBBAB8A685137 /* MeshSpec.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MeshSpec.swift; path = ClipShot/Editor/Background/MeshSpec.swift; sourceTree = "<group>"; };
+		8845A676CEB200FC3C0AD70E /* ContentBoundsDetectorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ContentBoundsDetectorTests.swift; sourceTree = "<group>"; };
 		BA9393E6113E2EEE8E5FE7E6 /* MeshGradientGenerator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MeshGradientGenerator.swift; path = ClipShot/Editor/Background/MeshGradientGenerator.swift; sourceTree = "<group>"; };
 		D99D9E0BDD5C3B8BAB17EF4C /* DynamicMeshCache.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DynamicMeshCache.swift; path = ClipShot/Editor/Background/DynamicMeshCache.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -248,14 +252,6 @@
 			path = Capture;
 			sourceTree = "<group>";
 		};
-		01D000000000000000000600 /* Recents */ = {
-			isa = PBXGroup;
-			children = (
-				01B000000000000000000601 /* RecentsStore.swift */,
-			);
-			path = Recents;
-			sourceTree = "<group>";
-		};
 		01D000000000000000000100 /* ClipShotTests */ = {
 			isa = PBXGroup;
 			children = (
@@ -273,6 +269,7 @@
 				01B00000000000000000030B /* ZoomMathTests.swift */,
 				01B00000000000000000030C /* NativeWindowMatcherTests.swift */,
 				01B000000000000000000310 /* RecentsStoreTests.swift */,
+				8845A676CEB200FC3C0AD70E /* ContentBoundsDetectorTests.swift */,
 			);
 			path = ClipShotTests;
 			sourceTree = "<group>";
@@ -315,6 +312,7 @@
 				01B000000000000000000218 /* AddAnnotationCommand.swift */,
 				01B000000000000000000219 /* RemoveAnnotationCommand.swift */,
 				01B00000000000000000021A /* MoveAnnotationCommand.swift */,
+				4814D67D6F978873045C5635 /* ContentBoundsDetector.swift */,
 			);
 			path = Document;
 			sourceTree = "<group>";
@@ -377,6 +375,14 @@
 				01B000000000000000000402 /* NativeCaptureShortcut.swift */,
 			);
 			path = Native;
+			sourceTree = "<group>";
+		};
+		01D000000000000000000600 /* Recents */ = {
+			isa = PBXGroup;
+			children = (
+				01B000000000000000000601 /* RecentsStore.swift */,
+			);
+			path = Recents;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -524,6 +530,7 @@
 				D941DE371CF3851E414EB2D6 /* MeshSpec.swift in Sources */,
 				1BA944B9B0F0C1F9C43EF01B /* MeshGradientGenerator.swift in Sources */,
 				876F3B6F8742365424087997 /* DynamicMeshCache.swift in Sources */,
+				775F677B581250353BE09E0E /* ContentBoundsDetector.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -549,6 +556,7 @@
 				C4803FCDD1EF6B9F8142D09E /* MeshSpecTests.swift in Sources */,
 				A4A1E0ED3BFA78B1BF42D926 /* MeshGradientGeneratorTests.swift in Sources */,
 				97FCDDE7D93682B011548524 /* DynamicMeshCacheTests.swift in Sources */,
+				4AE6726D86D36938DDD57DF4 /* ContentBoundsDetectorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

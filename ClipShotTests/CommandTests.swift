@@ -129,7 +129,7 @@ final class CommandTests: XCTestCase {
         XCTAssertEqual(doc.annotations, annotations)
     }
 
-    func test_applyAutoPadding_isOneUndoableActionThatDoesNotMutateAnnotations() {
+    func test_applyAutoCenter_applyThenRevert_restoresImageSelectionPaddingAnnotations() {
         var doc = makeDoc()
         doc.annotations = [
             Annotation(kind: .text(
@@ -139,27 +139,55 @@ final class CommandTests: XCTestCase {
                 color: CGColor(gray: 0, alpha: 1)
             ))
         ]
-        let beforePadding = doc.padding
-        let beforeBackground = doc.background
+        let fromImage = doc.screenshot
+        let toImage = TestImage.solid(.blue, size: CGSize(width: 60, height: 50))
+        let fromSelection = doc.baseSelection
+        let fromPadding = doc.padding
         let beforeAnnotations = doc.annotations
+        let command = ApplyAutoCenterCommand(
+            fromScreenshot: fromImage,
+            toScreenshot: toImage,
+            fromSelection: fromSelection,
+            toSelection: CGRect(x: 0, y: 0, width: 60, height: 50),
+            fromPadding: fromPadding,
+            toPadding: .uniform(30),
+            annotationDelta: CGSize(width: 5, height: 7)
+        )
+
+        command.apply(to: &doc)
+        XCTAssertTrue(doc.screenshot === toImage)
+        XCTAssertEqual(doc.baseSelection, CGRect(x: 0, y: 0, width: 60, height: 50))
+        XCTAssertEqual(doc.padding, .uniform(30))
+        guard case let .text(origin, _, _, _) = doc.annotations[0].kind else {
+            return XCTFail("expected text annotation")
+        }
+        XCTAssertEqual(origin, CGPoint(x: 11, y: 15))   // 6+5, 8+7
+
+        command.revert(to: &doc)
+        XCTAssertTrue(doc.screenshot === fromImage)
+        XCTAssertEqual(doc.baseSelection, fromSelection)
+        XCTAssertEqual(doc.padding, fromPadding)
+        XCTAssertEqual(doc.annotations, beforeAnnotations)
+    }
+
+    func test_applyAutoCenter_isOneUndoableAction() {
+        var doc = makeDoc()
         let stack = UndoStack()
-        let command = ApplyAutoPaddingCommand(
+        let toImage = TestImage.solid(.blue, size: CGSize(width: 60, height: 50))
+        let command = ApplyAutoCenterCommand(
+            fromScreenshot: doc.screenshot,
+            toScreenshot: toImage,
+            fromSelection: doc.baseSelection,
+            toSelection: CGRect(x: 0, y: 0, width: 60, height: 50),
             fromPadding: doc.padding,
-            toPadding: .uniform(40),
-            fromBackground: doc.background,
-            toBackground: .defaultGradient
+            toPadding: .uniform(24),
+            annotationDelta: .zero
         )
 
         stack.push(command, apply: { $0.apply(to: &doc) })
 
         XCTAssertEqual(stack.undoCount, 1)
-        XCTAssertEqual(doc.padding, .uniform(40))
-        XCTAssertEqual(doc.background, .defaultGradient)
-        XCTAssertEqual(doc.annotations, beforeAnnotations)
-
-        stack.undo(revert: { $0.revert(to: &doc) })
-        XCTAssertEqual(doc.padding, beforePadding)
-        XCTAssertEqual(doc.background, beforeBackground)
-        XCTAssertEqual(doc.annotations, beforeAnnotations)
+        XCTAssertTrue(doc.screenshot === toImage)
+        XCTAssertEqual(doc.baseSelection, CGRect(x: 0, y: 0, width: 60, height: 50))
     }
 }

@@ -12,9 +12,9 @@ final class SidebarModelTests: XCTestCase {
         XCTAssertEqual(padding, PaddingConfig(top: 20, right: 20, bottom: 20, left: 20))
     }
 
-    func testIsLinkedWhenAllSidesEqual() {
-        XCTAssertTrue(PaddingConfig.uniform(12).isLinked)
-        XCTAssertFalse(PaddingConfig(top: 12, right: 0, bottom: 12, left: 12).isLinked)
+    func testUniformValueOnlyExistsWhenAllSidesEqual() {
+        XCTAssertEqual(PaddingConfig.uniform(12).uniform, 12)
+        XCTAssertNil(PaddingConfig(top: 12, right: 0, bottom: 12, left: 12).uniform)
     }
 
     func testSettingChangesOnlyOneSide() {
