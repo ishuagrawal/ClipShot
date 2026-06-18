@@ -54,8 +54,9 @@ struct PaddingToolView: View {
             ChipToggle(
                 label: "Center",
                 systemName: isCentering ? "circle.dotted" : "rectangle.center.inset.filled",
-                isOn: true,
+                isOn: false,
                 isMomentary: true,
+                ghostAccent: true,
                 help: "Trim to content and center with equal inset"
             ) { applyAutoCenter() }
             Spacer()

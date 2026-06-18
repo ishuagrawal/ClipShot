@@ -960,6 +960,9 @@ struct ChipToggle: View {
     /// Momentary chips are accent-styled actions (e.g. "Auto"), not states — they keep
     /// the accent look from `isOn` but never report a selected trait.
     var isMomentary: Bool = false
+    /// Ghost action: outlined accent by default, fills accent on hover/press. Reads
+    /// as an actionable accent button, not a stuck-on toggle.
+    var ghostAccent: Bool = false
     var help: String = ""
     var action: () -> Void
     @State private var hovering = false
@@ -974,29 +977,53 @@ struct ChipToggle: View {
                     Text(label).font(.system(size: 10.5, weight: .semibold))
                 }
             }
-            .foregroundStyle(isOn ? Theme.accentInk : (hovering ? Theme.textPrimary : Theme.textTertiary))
-            .padding(.horizontal, 9)
-            .frame(height: 22)
-            .background(
-                Capsule().fill(
-                    isOn
-                        ? AnyShapeStyle(LinearGradient(
-                            colors: [Theme.accent, Theme.accentText],
-                            startPoint: .top, endPoint: .bottom))
-                        : AnyShapeStyle(Color.white.opacity(hovering ? 0.10 : 0.04))
-                )
-            )
-            .overlay(
-                Capsule().stroke(isOn ? Color.white.opacity(0.25) : Theme.hairlineStrong, lineWidth: 1)
-            )
-            .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ChipButtonStyle(isOn: isOn, ghostAccent: ghostAccent, hovering: hovering))
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
         .help(help)
         .accessibilityLabel(help.isEmpty ? (label ?? "") : help)
         .accessibilityAddTraits(isOn && !isMomentary ? [.isSelected] : [])
+    }
+}
+
+private struct ChipButtonStyle: ButtonStyle {
+    let isOn: Bool
+    let ghostAccent: Bool
+    let hovering: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        let active = ghostAccent && (hovering || configuration.isPressed)
+        let accentFill = isOn || active
+        configuration.label
+            .foregroundStyle(
+                accentFill ? Theme.accentInk
+                    : ghostAccent ? Theme.accentText
+                    : (hovering ? Theme.textPrimary : Theme.textTertiary)
+            )
+            .padding(.horizontal, 9)
+            .frame(height: 22)
+            .background(
+                Capsule().fill(
+                    accentFill
+                        ? AnyShapeStyle(LinearGradient(
+                            colors: [Theme.accent, Theme.accentText],
+                            startPoint: .top, endPoint: .bottom))
+                        : ghostAccent
+                            ? AnyShapeStyle(Color.clear)
+                            : AnyShapeStyle(Color.white.opacity(hovering ? 0.10 : 0.04))
+                )
+            )
+            .overlay(
+                Capsule().stroke(
+                    accentFill ? Color.white.opacity(0.25)
+                        : ghostAccent ? Theme.accentText.opacity(0.45)
+                        : Theme.hairlineStrong,
+                    lineWidth: 1
+                )
+            )
+            .contentShape(Capsule())
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 
