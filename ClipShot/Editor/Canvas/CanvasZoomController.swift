@@ -26,17 +26,38 @@ enum ZoomMath {
     /// Next "nice" magnification when stepping. `direction > 0` zooms in, `< 0` out.
     /// Snaps to the nearest stop strictly past `current` in that direction.
     static func stepped(_ current: CGFloat, direction: Int) -> CGFloat {
-        guard direction != 0 else { return clamp(current) }
-        let c = clamp(current)
+        stepped(current, direction: direction, limits: minMagnification...maxMagnification)
+    }
+
+    static func stepped(_ current: CGFloat, direction: Int, limits: ClosedRange<CGFloat>) -> CGFloat {
+        guard direction != 0 else { return current.clamped(to: limits) }
+        let c = current.clamped(to: limits)
+        let stops = zoomStops
+            .filter { limits.contains($0) }
+            .including(limits.lowerBound)
+            .including(limits.upperBound)
+            .sorted()
         if direction > 0 {
-            return zoomStops.first(where: { $0 > c + 0.0001 }) ?? maxMagnification
+            return stops.first(where: { $0 > c + 0.0001 }) ?? limits.upperBound
         } else {
-            return zoomStops.last(where: { $0 < c - 0.0001 }) ?? minMagnification
+            return stops.last(where: { $0 < c - 0.0001 }) ?? limits.lowerBound
         }
     }
 
     static func percentLabel(_ magnification: CGFloat) -> String {
         "\(Int((magnification * 100).rounded()))%"
+    }
+}
+
+private extension Array where Element == CGFloat {
+    func including(_ value: CGFloat) -> [CGFloat] {
+        contains(where: { abs($0 - value) <= 0.0001 }) ? self : self + [value]
+    }
+}
+
+private extension Comparable {
+    func clamped(to range: ClosedRange<Self>) -> Self {
+        min(max(self, range.lowerBound), range.upperBound)
     }
 }
 
@@ -51,8 +72,16 @@ final class CanvasZoomController: ObservableObject {
 
     var presets: [CGFloat] { ZoomMath.presets }
     var percentLabel: String { ZoomMath.percentLabel(magnification) }
-    var canZoomIn: Bool { magnification < ZoomMath.maxMagnification - 0.0001 }
-    var canZoomOut: Bool { magnification > ZoomMath.minMagnification + 0.0001 }
+    var canZoomIn: Bool { magnification < maximumMagnification - 0.0001 }
+    var canZoomOut: Bool { magnification > minimumMagnification + 0.0001 }
+
+    private var minimumMagnification: CGFloat {
+        coordinator?.minimumMagnification ?? ZoomMath.minMagnification
+    }
+
+    private var maximumMagnification: CGFloat {
+        coordinator?.maximumMagnification ?? ZoomMath.maxMagnification
+    }
 
     func attach(_ coordinator: CanvasCoordinator) {
         // CanvasView.updateNSView calls this on every SwiftUI update. Wire the callback
@@ -78,8 +107,21 @@ final class CanvasZoomController: ObservableObject {
         }
     }
 
-    func zoomIn()  { coordinator?.controlZoom(to: ZoomMath.stepped(magnification, direction: 1)) }
-    func zoomOut() { coordinator?.controlZoom(to: ZoomMath.stepped(magnification, direction: -1)) }
+    func zoomIn() {
+        coordinator?.controlZoom(to: ZoomMath.stepped(
+            magnification,
+            direction: 1,
+            limits: minimumMagnification...maximumMagnification
+        ))
+    }
+
+    func zoomOut() {
+        coordinator?.controlZoom(to: ZoomMath.stepped(
+            magnification,
+            direction: -1,
+            limits: minimumMagnification...maximumMagnification
+        ))
+    }
     func setZoom(_ value: CGFloat) { coordinator?.controlZoom(to: value) }
 
     /// Restore the framing the canvas shows on first load (selection centered with margin).

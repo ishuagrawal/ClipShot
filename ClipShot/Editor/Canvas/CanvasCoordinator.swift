@@ -24,7 +24,9 @@ final class CanvasCoordinator {
 
     /// Forwarded to the zoom controller so the SwiftUI readout tracks the live zoom.
     var onMagnificationChange: ((CGFloat) -> Void)?
-    var currentMagnification: CGFloat { scrollView.magnification }
+    var currentMagnification: CGFloat { scrollView.logicalMagnification }
+    var minimumMagnification: CGFloat { scrollView.logicalMinMagnification }
+    var maximumMagnification: CGFloat { scrollView.logicalMaxMagnification }
 
     init() {
         scrollView = CanvasScrollView()
@@ -110,10 +112,15 @@ final class CanvasCoordinator {
     /// Push the latest document into the view tree. Called on every SwiftUI update.
     func update(state: EditorState) {
         let document = state.displayDocument
+        let previousDocument = latestDocument
         // Toggling the background on/off changes what the fit frames (padded card
         // vs bare screenshot), so reframe — a deliberate restyle, not a pan.
-        let backgroundVisibilityChanged = latestDocument.map {
+        let backgroundVisibilityChanged = previousDocument.map {
             ($0.background.kind == .none) != (document.background.kind == .none)
+        } ?? false
+        let fitTargetChanged = previousDocument.map {
+            Self.fitTargetRect(for: $0, viewportSize: scrollView.viewportSizeForFitting, scrollView: scrollView)
+                != Self.fitTargetRect(for: document, viewportSize: scrollView.viewportSizeForFitting, scrollView: scrollView)
         } ?? false
         latestDocument = document
         let imageBounds = document.imageBounds
@@ -144,6 +151,13 @@ final class CanvasCoordinator {
             }
         } else if backgroundVisibilityChanged {
             resetToInitialFit()
+        } else if fitTargetChanged {
+            let targetRect = Self.fitTargetRect(
+                for: document,
+                viewportSize: scrollView.viewportSizeForFitting,
+                scrollView: scrollView
+            )
+            scrollView.refreshFitBaseline(for: targetRect)
         }
     }
 
@@ -169,22 +183,12 @@ final class CanvasCoordinator {
         }
 
         let imageBounds = document.imageBounds
-        let focusBounds = Self.initialFocusBounds(
-            focus: document.fitFocusRect,
-            imageBounds: imageBounds
-        )
         guard viewportSize.width > 0, viewportSize.height > 0 else { return }
-
-        // Build the fit against the unobstructed region so its aspect matches
-        // what magnify(toFitCenteredOn:) will fit into.
-        var effectiveViewport = viewportSize
-        effectiveViewport.width = max(1, effectiveViewport.width - scrollView.occludedWidth)
-        effectiveViewport.height = max(1, effectiveViewport.height - scrollView.occludedHeight)
-        let fitRect = Self.initialFitRect(
-            for: focusBounds,
-            in: effectiveViewport
+        let targetRect = Self.fitTargetRect(
+            for: document,
+            viewportSize: viewportSize,
+            scrollView: scrollView
         )
-        let targetRect = fitRect.isNull || fitRect.isEmpty ? imageBounds : fitRect
         let placement = CanvasInitialPlacement(
             imageBounds: imageBounds,
             targetRect: targetRect
@@ -192,6 +196,30 @@ final class CanvasCoordinator {
         initialPlacement = placement
         apply(document: document, placement: placement)
         scrollView.magnify(toFitCenteredOn: placement.targetRect)
+    }
+
+    private static func fitTargetRect(
+        for document: EditorDocument,
+        viewportSize: CGSize,
+        scrollView: CanvasScrollView
+    ) -> CGRect {
+        let imageBounds = document.imageBounds
+        let focusBounds = initialFocusBounds(
+            focus: document.fitFocusRect,
+            imageBounds: imageBounds
+        )
+        guard viewportSize.width > 0, viewportSize.height > 0 else { return imageBounds }
+
+        // Build the fit against the unobstructed region so its aspect matches
+        // what magnify(toFitCenteredOn:) will fit into.
+        var effectiveViewport = viewportSize
+        effectiveViewport.width = max(1, effectiveViewport.width - scrollView.occludedWidth)
+        effectiveViewport.height = max(1, effectiveViewport.height - scrollView.occludedHeight)
+        let fitRect = initialFitRect(
+            for: focusBounds,
+            in: effectiveViewport
+        )
+        return fitRect.isNull || fitRect.isEmpty ? imageBounds : fitRect
     }
 
     /// Spec: open centered on the padded card, with a comfortable viewport

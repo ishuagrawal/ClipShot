@@ -186,6 +186,40 @@ final class EditorDocumentTests: XCTestCase {
         XCTAssertFalse(scrollView.hasVerticalScroller)
     }
 
+    @MainActor
+    func test_canvasScrollViewRefreshingFitBaselinePreservesPhysicalZoom() {
+        let scrollView = CanvasScrollView(frame: CGRect(x: 0, y: 0, width: 800, height: 600))
+        var reportedZoom: CGFloat = 0
+        scrollView.magnificationDidChange = { reportedZoom = $0 }
+
+        scrollView.magnify(toFitCenteredOn: CGRect(x: 0, y: 0, width: 400, height: 300))
+        XCTAssertEqual(scrollView.magnification, 2, accuracy: 0.001)
+        XCTAssertEqual(scrollView.logicalMagnification, 1, accuracy: 0.001)
+
+        scrollView.refreshFitBaseline(for: CGRect(x: 0, y: 0, width: 800, height: 600))
+
+        XCTAssertEqual(scrollView.magnification, 2, accuracy: 0.001)
+        XCTAssertEqual(scrollView.baselineMagnification, 1, accuracy: 0.001)
+        XCTAssertEqual(scrollView.logicalMagnification, 2, accuracy: 0.001)
+        XCTAssertEqual(reportedZoom, 2, accuracy: 0.001)
+    }
+
+    @MainActor
+    func test_zoomControllerDisablesZoomInAtLogicalPhysicalMaximum() {
+        let coordinator = CanvasCoordinator()
+        coordinator.scrollView.frame = CGRect(x: 0, y: 0, width: 800, height: 600)
+        coordinator.scrollView.magnify(toFitCenteredOn: CGRect(x: 0, y: 0, width: 400, height: 300))
+        let logicalMaximum = coordinator.maximumMagnification
+        coordinator.controlZoom(to: logicalMaximum)
+
+        let zoom = CanvasZoomController()
+        zoom.attach(coordinator)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+
+        XCTAssertEqual(zoom.magnification, logicalMaximum, accuracy: 0.001)
+        XCTAssertFalse(zoom.canZoomIn)
+    }
+
     func test_effectiveCrop_expandsByPaddingPerSide() {
         let doc = makeDoc(padding: PaddingConfig(top: 10, right: 20, bottom: 30, left: 40))
         XCTAssertEqual(doc.effectiveCrop, CGRect(x: 60, y: 90, width: 260, height: 190))

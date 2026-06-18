@@ -34,6 +34,29 @@ final class CanvasScrollView: NSScrollView {
     private var pendingInitialFit: (() -> Void)?
     private var lastReportedViewportSize: CGSize = .zero
 
+    /// The physical magnification at which the document fits the viewport on load
+    /// and reset-view. That framing is the user-facing "100%" baseline: the zoom
+    /// readout reports `magnification / baselineMagnification`, so a freshly fit
+    /// image reads 100% while keeping the size the fit gave it.
+    private(set) var baselineMagnification: CGFloat = 1
+
+    /// Magnification relative to the fit baseline. 1.0 == the load/reset framing.
+    var logicalMagnification: CGFloat {
+        baselineMagnification > 0 ? magnification / baselineMagnification : magnification
+    }
+
+    var logicalMinMagnification: CGFloat {
+        baselineMagnification > 0 ? minMagnification / baselineMagnification : minMagnification
+    }
+
+    var logicalMaxMagnification: CGFloat {
+        baselineMagnification > 0 ? maxMagnification / baselineMagnification : maxMagnification
+    }
+
+    private func notifyMagnification() {
+        magnificationDidChange?(logicalMagnification)
+    }
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         configure()
@@ -79,15 +102,16 @@ final class CanvasScrollView: NSScrollView {
     }
 
     @objc private func liveMagnifyDidEnd() {
-        magnificationDidChange?(magnification)
+        notifyMagnification()
     }
 
-    /// Set zoom from the control bar, centered on the current viewport center.
+    /// Set zoom from the control bar. `value` is a logical zoom (1.0 == fit
+    /// baseline); convert to physical magnification, centered on the viewport.
     func setMagnificationFromControl(_ value: CGFloat) {
-        let clamped = value.clamped(to: minMagnification...maxMagnification)
+        let physical = (value * baselineMagnification).clamped(to: minMagnification...maxMagnification)
         let center = CGPoint(x: contentView.bounds.midX, y: contentView.bounds.midY)
-        setMagnification(clamped, centeredAt: center)
-        magnificationDidChange?(clamped)
+        setMagnification(physical, centeredAt: center)
+        notifyMagnification()
     }
 
     /// Register a fit to run once the scroll view has a valid size. If a size is
@@ -99,16 +123,10 @@ final class CanvasScrollView: NSScrollView {
 
     func magnify(toFitCenteredOn rect: CGRect) {
         guard !rect.isNull, !rect.isEmpty else { return }
-        var viewportSize = viewportSizeForFitting
-        guard viewportSize.width > 0, viewportSize.height > 0 else { return }
-        viewportSize.width = max(1, viewportSize.width - occludedWidth)
-        viewportSize.height = max(1, viewportSize.height - occludedHeight)
-
-        let targetMagnification = Self.fitMagnification(
-            for: rect,
-            in: viewportSize,
-            limits: minMagnification...maxMagnification
-        )
+        let targetMagnification = fitMagnification(for: rect)
+        guard targetMagnification > 0 else { return }
+        // This fit framing is the user-facing 100% from here on.
+        baselineMagnification = targetMagnification
         let center = CGPoint(x: rect.midX, y: rect.midY)
 
         setMagnification(targetMagnification, centeredAt: center)
@@ -122,7 +140,31 @@ final class CanvasScrollView: NSScrollView {
             y: center.y + (occlusionInsets.bottom - occlusionInsets.top) / 2 / targetMagnification
         )
         centerDocumentPoint(shifted)
-        magnificationDidChange?(targetMagnification)
+        notifyMagnification()
+    }
+
+    /// Refresh only the logical 100% baseline for the current fit target. This is
+    /// used while editing padding/background geometry so the percentage readout
+    /// tracks what reset-view would use without moving the user's current view.
+    func refreshFitBaseline(for rect: CGRect) {
+        guard !rect.isNull, !rect.isEmpty else { return }
+        let targetMagnification = fitMagnification(for: rect)
+        guard targetMagnification > 0 else { return }
+        baselineMagnification = targetMagnification
+        notifyMagnification()
+    }
+
+    private func fitMagnification(for rect: CGRect) -> CGFloat {
+        var viewportSize = viewportSizeForFitting
+        guard viewportSize.width > 0, viewportSize.height > 0 else { return 0 }
+        viewportSize.width = max(1, viewportSize.width - occludedWidth)
+        viewportSize.height = max(1, viewportSize.height - occludedHeight)
+
+        return Self.fitMagnification(
+            for: rect,
+            in: viewportSize,
+            limits: minMagnification...maxMagnification
+        )
     }
 
     nonisolated static func fitMagnification(
@@ -178,19 +220,19 @@ final class CanvasScrollView: NSScrollView {
         let pointInDocument = documentView?.convert(event.locationInWindow, from: nil)
             ?? convert(event.locationInWindow, from: nil)
         setMagnification(newMag, centeredAt: pointInDocument)
-        magnificationDidChange?(newMag)
+        notifyMagnification()
     }
 
     override func magnify(with event: NSEvent) {
         userInteractionDidStart?()
         super.magnify(with: event)
-        magnificationDidChange?(magnification)
+        notifyMagnification()
     }
 
     override func smartMagnify(with event: NSEvent) {
         userInteractionDidStart?()
         super.smartMagnify(with: event)
-        magnificationDidChange?(magnification)
+        notifyMagnification()
     }
 
     /// Manual pan: translate the clip bounds origin by the event delta and let
