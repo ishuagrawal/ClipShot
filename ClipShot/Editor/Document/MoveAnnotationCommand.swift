@@ -3,6 +3,7 @@ import Foundation
 enum AnnotationEditCoalescingKey: Equatable {
     case style
     case keyboardNudge
+    case resize
 }
 
 struct MoveAnnotationCommand: EditorCommand {

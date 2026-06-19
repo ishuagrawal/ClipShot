@@ -152,6 +152,61 @@ final class AnnotationGeometryTests: XCTestCase {
         XCTAssertEqual(frame.width, 300)
     }
 
+    func test_resized_shiftSnappedArrowEndpointStaysInsideBounds() {
+        let bounds = CGRect(x: 0, y: 0, width: 100, height: 100)
+        let kind = Annotation.Kind.arrow(
+            from: CGPoint(x: 5, y: 50),
+            to: CGPoint(x: 20, y: 50),
+            color: CGColor(gray: 0, alpha: 1),
+            weight: 2
+        )
+
+        guard case let .arrow(from, to, _, _) = AnnotationGeometry.resized(
+            kind,
+            handle: .end,
+            to: CGPoint(x: 100, y: 80),
+            shiftLock: true,
+            bounds: bounds
+        ) else {
+            return XCTFail("expected arrow")
+        }
+
+        XCTAssertGreaterThanOrEqual(from.x, bounds.minX)
+        XCTAssertGreaterThanOrEqual(from.y, bounds.minY)
+        XCTAssertLessThanOrEqual(from.x, bounds.maxX)
+        XCTAssertLessThanOrEqual(from.y, bounds.maxY)
+        XCTAssertGreaterThanOrEqual(to.x, bounds.minX)
+        XCTAssertGreaterThanOrEqual(to.y, bounds.minY)
+        XCTAssertLessThanOrEqual(to.x, bounds.maxX)
+        XCTAssertLessThanOrEqual(to.y, bounds.maxY)
+    }
+
+    func test_resizedTextDoesNotExceedBounds() {
+        let bounds = CGRect(x: 0, y: 0, width: 120, height: 120)
+        let kind = Annotation.Kind.text(
+            origin: CGPoint(x: 10, y: 10),
+            string: "Long text that should stay inside bounds",
+            fontSize: 18,
+            color: CGColor(gray: 0, alpha: 1)
+        )
+
+        let resized = AnnotationGeometry.resized(
+            kind,
+            handle: .scaleBottomRight,
+            to: CGPoint(x: 500, y: 500),
+            shiftLock: false,
+            bounds: bounds
+        )
+        let frame = AnnotationGeometry.boundingBox(resized)
+
+        XCTAssertLessThanOrEqual(frame.width, bounds.width)
+        XCTAssertLessThanOrEqual(frame.height, bounds.height)
+        XCTAssertGreaterThanOrEqual(frame.minX, bounds.minX)
+        XCTAssertGreaterThanOrEqual(frame.minY, bounds.minY)
+        XCTAssertLessThanOrEqual(frame.maxX, bounds.maxX)
+        XCTAssertLessThanOrEqual(frame.maxY, bounds.maxY)
+    }
+
     func test_textFrame_emptyStringHasSelectableSize() {
         let frame = AnnotationGeometry.textFrame(origin: .zero, string: "", fontSize: 20)
 

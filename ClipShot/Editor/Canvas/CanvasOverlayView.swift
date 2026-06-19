@@ -40,6 +40,25 @@ final class CanvasOverlayView: NSView {
         }
     }
 
+    /// Physical canvas magnification. Resize handles divide by it so they stay a
+    /// constant on-screen size regardless of zoom.
+    var zoomScale: CGFloat = 1 {
+        didSet {
+            if oldValue != zoomScale {
+                updateAnnotations()
+            }
+        }
+    }
+
+    /// Hide resize handles while the selected annotation is being dragged/resized.
+    var suppressResizeHandles = false {
+        didSet {
+            if oldValue != suppressResizeHandles {
+                updateAnnotations()
+            }
+        }
+    }
+
     private let annotationsLayer: CALayer
     private let annotationContentLayer: CALayer
     private let annotationsOuterMaskLayer: CAShapeLayer
@@ -137,7 +156,10 @@ final class CanvasOverlayView: NSView {
                 selected: annotation.id == selectedAnnotationID
                     || annotation.id == hoveredAnnotationID
                     || editingAnnotation != nil,
-                rendersContent: editingAnnotation == nil
+                rendersContent: editingAnnotation == nil,
+                showsResizeHandles: annotation.id == selectedAnnotationID
+                    && editingAnnotation == nil
+                    && !suppressResizeHandles
             )
         }
 
@@ -173,7 +195,8 @@ final class CanvasOverlayView: NSView {
         _ container: CALayer,
         with kind: Annotation.Kind,
         selected: Bool,
-        rendersContent: Bool = true
+        rendersContent: Bool = true,
+        showsResizeHandles: Bool = false
     ) {
         container.sublayers?.forEach { $0.removeFromSuperlayer() }
         container.sublayers = nil
@@ -239,6 +262,22 @@ final class CanvasOverlayView: NSView {
             halo.lineWidth = 1.5
             halo.lineDashPattern = [4, 3]
             container.addSublayer(halo)
+        }
+
+        if showsResizeHandles {
+            let scale = max(zoomScale, 0.0001)
+            let side = 8 / scale
+            for (_, point) in AnnotationGeometry.resizeHandles(kind) {
+                let dot = CAShapeLayer()
+                dot.path = CGPath(
+                    rect: CGRect(x: point.x - side / 2, y: point.y - side / 2, width: side, height: side),
+                    transform: nil
+                )
+                dot.fillColor = NSColor.white.cgColor
+                dot.strokeColor = Theme.accentCG
+                dot.lineWidth = 1 / scale
+                container.addSublayer(dot)
+            }
         }
     }
 

@@ -66,6 +66,9 @@ final class CanvasCoordinator {
         interactionView.onHoverAnnotationChanged = { [weak self] id in
             self?.overlayView.hoveredAnnotationID = id
         }
+        interactionView.onDraggingChanged = { [weak self] dragging in
+            self?.overlayView.suppressResizeHandles = dragging
+        }
         scrollView.documentView = container
         // The top bar, dock, and inspector column cover these slices of the
         // viewport; fits fill and center the document in the clear space inside.
@@ -82,8 +85,18 @@ final class CanvasCoordinator {
             self?.isTrackingInitialSelectionFit = false
         }
         scrollView.magnificationDidChange = { [weak self] mag in
-            self?.onMagnificationChange?(mag)
+            guard let self else { return }
+            self.onMagnificationChange?(mag)
+            self.pushZoomScale()
         }
+    }
+
+    /// Push the physical magnification into the chrome views so resize handles
+    /// and their hit targets stay a constant on-screen size.
+    private func pushZoomScale() {
+        let scale = scrollView.magnification
+        overlayView.zoomScale = scale
+        interactionView.zoomScale = scale
     }
 
     /// The inspector column scales with the window, so the occluded slice on the
@@ -174,6 +187,7 @@ final class CanvasCoordinator {
             dx: placement.imageFrame.minX,
             dy: placement.imageFrame.minY
         )
+        pushZoomScale()
     }
 
     private func refitInitialSelectionIfNeeded(viewportSize: CGSize, force: Bool = false) {

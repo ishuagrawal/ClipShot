@@ -125,6 +125,8 @@ final class EditorState: ObservableObject {
     let undoStack = UndoStack()
     private let hitTolerance: CGFloat = 6
     private var moveStartKind: Annotation.Kind?
+    private var resizeStartKind: Annotation.Kind?
+    private(set) var activeResizeHandle: ResizeHandle?
 
     init(document: EditorDocument, openingPanel: DocumentPanel = .none) {
         self.document = document
@@ -312,10 +314,10 @@ final class EditorState: ObservableObject {
 
         switch current.kind {
         case .arrow(let from, _, let color, let weight):
-            let end = shiftSnap ? snap45(from: from, to: point) : point
+            let end = shiftSnap ? AnnotationGeometry.snap45(from: from, to: point) : point
             inProgressAnnotation?.kind = .arrow(from: from, to: end, color: color, weight: weight)
         case .line(let from, _, let color, let weight, let dash):
-            let end = shiftSnap ? snap45(from: from, to: point) : snapNearAxis(from: from, to: point)
+            let end = shiftSnap ? AnnotationGeometry.snap45(from: from, to: point) : AnnotationGeometry.snapNearAxis(from: from, to: point)
             inProgressAnnotation?.kind = .line(from: from, to: end, color: color, weight: weight, dash: dash)
         case .rect(let frame, let stroke, let fill, let weight, let corner):
             let origin = frame.origin
@@ -478,6 +480,42 @@ final class EditorState: ObservableObject {
         performCommand(MoveAnnotationCommand(id: id, from: start, to: end))
     }
 
+    func beginResize(handle: ResizeHandle) {
+        guard let annotation = selectedAnnotation else { return }
+        resizeStartKind = annotation.kind
+        activeResizeHandle = handle
+    }
+
+    /// Live-resize the selected annotation, dragging `activeResizeHandle` to `point`.
+    func resizeSelected(to point: CGPoint, shiftLock: Bool) {
+        guard let id = selectedAnnotationID,
+              let start = resizeStartKind,
+              let handle = activeResizeHandle,
+              let index = document.annotations.firstIndex(where: { $0.id == id }) else { return }
+
+        document.annotations[index].kind = AnnotationGeometry.resized(
+            start, handle: handle, to: point, shiftLock: shiftLock, bounds: documentBounds
+        )
+    }
+
+    func commitResizeSelected() {
+        guard let id = selectedAnnotationID,
+              let start = resizeStartKind,
+              let index = document.annotations.firstIndex(where: { $0.id == id }) else {
+            resizeStartKind = nil
+            activeResizeHandle = nil
+            return
+        }
+
+        let end = document.annotations[index].kind
+        resizeStartKind = nil
+        activeResizeHandle = nil
+        guard end != start else { return }
+
+        document.annotations[index].kind = start
+        performCommand(MoveAnnotationCommand(id: id, from: start, to: end, coalescingKey: .resize))
+    }
+
     func deleteSelectedAnnotation() {
         guard let id = selectedAnnotationID,
               let index = document.annotations.firstIndex(where: { $0.id == id }) else {
@@ -539,27 +577,6 @@ final class EditorState: ObservableObject {
         }
     }
 
-    /// Auto-lock to horizontal or vertical when the segment is within ~7° of an
-    /// axis — so underlines straighten without holding a modifier.
-    private func snapNearAxis(from: CGPoint, to: CGPoint) -> CGPoint {
-        let dx = to.x - from.x
-        let dy = to.y - from.y
-        guard hypot(dx, dy) > 0.0001 else { return to }
-        let threshold = 7.0 * .pi / 180
-        let angle = atan2(abs(dy), abs(dx))
-        if angle <= threshold { return CGPoint(x: to.x, y: from.y) }
-        if angle >= .pi / 2 - threshold { return CGPoint(x: from.x, y: to.y) }
-        return to
-    }
-
-    private func snap45(from: CGPoint, to: CGPoint) -> CGPoint {
-        let dx = to.x - from.x
-        let dy = to.y - from.y
-        let angle = atan2(dy, dx)
-        let snapped = (angle / (.pi / 4)).rounded() * (.pi / 4)
-        let length = hypot(dx, dy)
-        return CGPoint(x: from.x + cos(snapped) * length, y: from.y + sin(snapped) * length)
-    }
 }
 
 private extension CGPoint {

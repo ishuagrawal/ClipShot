@@ -13,6 +13,7 @@ final class CanvasInteractionView: NSView {
     private nonisolated static let selectionDragActivationDistance: CGFloat = 3
     private nonisolated static let shapeDragHitTolerance: CGFloat = 10
     private nonisolated static let keyboardNudgeDistance: CGFloat = 8
+    private nonisolated static let resizeHandleHitRadius: CGFloat = 9
 
     weak var state: EditorState? {
         didSet { invalidateCursorRectsIfPossible() }
@@ -21,6 +22,9 @@ final class CanvasInteractionView: NSView {
     var onEditText: ((Annotation) -> Void)?
     var onCommitActiveText: (() -> Bool)?
     var onHoverAnnotationChanged: ((UUID?) -> Void)?
+    /// Fires true once a selected annotation actually starts moving/resizing and
+    /// false on release, so the overlay can hide resize handles mid-drag.
+    var onDraggingChanged: ((Bool) -> Void)?
     var editingTextAnnotation: Annotation? {
         didSet { invalidateCursorRectsIfPossible() }
     }
@@ -39,10 +43,19 @@ final class CanvasInteractionView: NSView {
         }
     }
 
+    /// Physical canvas magnification. Resize-handle hit targets divide by it so
+    /// they stay a constant on-screen size regardless of zoom.
+    var zoomScale: CGFloat = 1 {
+        didSet {
+            if oldValue != zoomScale { invalidateCursorRectsIfPossible() }
+        }
+    }
+
     private var moveStartPoint: CGPoint?
     private var movingTextDraftID: UUID?
     private var isMoving = false
     private var didMoveSelected = false
+    private var activeResizeHandle: ResizeHandle?
     private var hoveredAnnotationID: UUID? {
         didSet {
             guard oldValue != hoveredAnnotationID else { return }
@@ -81,6 +94,7 @@ final class CanvasInteractionView: NSView {
         case .select:
             addTextBorderCursorRects()
             addShapeCursorRects()
+            addResizeHandleCursorRects()
         case .padding, .background, .blur:
             break
         }
@@ -121,6 +135,13 @@ final class CanvasInteractionView: NSView {
 
         switch state.activeTool {
         case .select, .padding, .background:
+            if let handle = resizeHandleHit(at: point) {
+                state.activeTool = .select
+                state.beginResize(handle: handle)
+                activeResizeHandle = handle
+                isMoving = false
+                return
+            }
             if let annotation = annotationInteractionTarget(at: point) {
                 if event.clickCount >= 2 {
                     activateEditingTool(for: annotation)
@@ -148,12 +169,16 @@ final class CanvasInteractionView: NSView {
         let point = documentPoint(for: event)
         let shift = event.modifierFlags.contains(.shift)
 
-        if isMoving, let start = moveStartPoint {
+        if activeResizeHandle != nil {
+            onDraggingChanged?(true)
+            state.resizeSelected(to: point, shiftLock: shift)
+        } else if isMoving, let start = moveStartPoint {
             let delta = CGSize(width: point.x - start.x, height: point.y - start.y)
             if !didMoveSelected,
                hypot(delta.width, delta.height) < Self.selectionDragActivationDistance {
                 return
             }
+            if !didMoveSelected { onDraggingChanged?(true) }
             didMoveSelected = true
             if movingTextDraftID != nil {
                 state.moveTextDraft(by: delta)
@@ -168,7 +193,10 @@ final class CanvasInteractionView: NSView {
     override func mouseUp(with event: NSEvent) {
         guard let state else { return }
 
-        if isMoving {
+        if activeResizeHandle != nil {
+            state.commitResizeSelected()
+            invalidateCursorRectsIfPossible()
+        } else if isMoving {
             if movingTextDraftID != nil {
                 state.commitMoveTextDraft()
             } else {
@@ -184,6 +212,8 @@ final class CanvasInteractionView: NSView {
         didMoveSelected = false
         movingTextDraftID = nil
         moveStartPoint = nil
+        activeResizeHandle = nil
+        onDraggingChanged?(false)
     }
 
     override func keyDown(with event: NSEvent) {
@@ -308,6 +338,41 @@ final class CanvasInteractionView: NSView {
             for frame in textBorderHitFrames(for: annotation) {
                 addCursorRect(viewFrame(forDocumentFrame: frame), cursor: .openHand)
             }
+        }
+    }
+
+    /// The resize handle under `point`, in annotation coords. Picks the closest
+    /// within a zoom-independent screen radius. Only the selected annotation has
+    /// handles.
+    private func resizeHandleHit(at point: CGPoint) -> ResizeHandle? {
+        guard let state, let selected = state.selectedAnnotation else { return nil }
+        let tolerance = Self.resizeHandleHitRadius / max(zoomScale, 0.0001)
+        var best: (handle: ResizeHandle, distance: CGFloat)?
+        for (handle, anchor) in AnnotationGeometry.resizeHandles(selected.kind) {
+            let d = hypot(point.x - anchor.x, point.y - anchor.y)
+            if d <= tolerance, best == nil || d < best!.distance {
+                best = (handle, d)
+            }
+        }
+        return best?.handle
+    }
+
+    private func addResizeHandleCursorRects() {
+        guard let state, let selected = state.selectedAnnotation else { return }
+        let r = Self.resizeHandleHitRadius / max(zoomScale, 0.0001)
+        for (handle, anchor) in AnnotationGeometry.resizeHandles(selected.kind) {
+            let docFrame = CGRect(x: anchor.x - r, y: anchor.y - r, width: r * 2, height: r * 2)
+            addCursorRect(viewFrame(forDocumentFrame: docFrame), cursor: Self.cursor(for: handle))
+        }
+    }
+
+    private nonisolated static func cursor(for handle: ResizeHandle) -> NSCursor {
+        switch handle {
+        case .left, .right: return .resizeLeftRight
+        case .top, .bottom: return .resizeUpDown
+        case .topLeft, .bottomRight, .scaleTopLeft, .scaleBottomRight: return diagonalResizeCursor(mirrored: false)
+        case .topRight, .bottomLeft, .scaleTopRight, .scaleBottomLeft: return diagonalResizeCursor(mirrored: true)
+        case .start, .end: return .crosshair
         }
     }
 
@@ -488,6 +553,12 @@ final class CanvasInteractionView: NSView {
             canvasOriginInImage: imageSpaceOrigin,
             baseSelection: baseSelection
         )
+
+        if let handle = resizeHandleHit(at: documentPoint) {
+            Self.cursor(for: handle).set()
+            return
+        }
+
         let annotation = annotationInteractionTarget(at: documentPoint)
         hoveredAnnotationID = annotation?.id
 
@@ -508,6 +579,64 @@ final class CanvasInteractionView: NSView {
         default:
             return .arrow
         }
+    }
+
+    // macOS has no public diagonal resize cursor, so draw a double-headed arrow.
+    // Cached; only ever built/read on the main thread.
+    nonisolated(unsafe) private static var diagNWSE: NSCursor?
+    nonisolated(unsafe) private static var diagNESW: NSCursor?
+
+    private nonisolated static func diagonalResizeCursor(mirrored: Bool) -> NSCursor {
+        if mirrored, let c = diagNESW { return c }
+        if !mirrored, let c = diagNWSE { return c }
+        let selectorName = mirrored
+            ? "_windowResizeNorthEastSouthWestCursor"
+            : "_windowResizeNorthWestSouthEastCursor"
+        let cursor = systemCursor(named: selectorName) ?? makeDiagonalResizeCursor(mirrored: mirrored)
+        if mirrored { diagNESW = cursor } else { diagNWSE = cursor }
+        return cursor
+    }
+
+    /// Resolve a built-in cursor exposed only as a private NSCursor class method.
+    /// Returns nil if the selector is gone in a future OS, so callers fall back.
+    private nonisolated static func systemCursor(named name: String) -> NSCursor? {
+        let selector = NSSelectorFromString(name)
+        guard NSCursor.responds(to: selector),
+              let cursor = NSCursor.perform(selector)?.takeUnretainedValue() as? NSCursor else {
+            return nil
+        }
+        return cursor
+    }
+
+    private nonisolated static func makeDiagonalResizeCursor(mirrored: Bool) -> NSCursor {
+        let image = NSImage(size: NSSize(width: 24, height: 24))
+        image.lockFocus()
+
+        let a = NSPoint(x: 5, y: mirrored ? 19 : 5)
+        let b = NSPoint(x: 19, y: mirrored ? 5 : 19)
+        let angle = atan2(b.y - a.y, b.x - a.x)
+        let head: CGFloat = 5
+
+        let path = NSBezierPath()
+        path.move(to: a)
+        path.line(to: b)
+        for (tip, dir) in [(a, angle), (b, angle + .pi)] {
+            for delta in [CGFloat.pi * 0.8, -CGFloat.pi * 0.8] {
+                path.move(to: tip)
+                path.line(to: NSPoint(x: tip.x + cos(dir + delta) * head, y: tip.y + sin(dir + delta) * head))
+            }
+        }
+
+        path.lineWidth = 4
+        path.lineCapStyle = .round
+        NSColor.white.setStroke()
+        path.stroke()
+        path.lineWidth = 2
+        NSColor.black.setStroke()
+        path.stroke()
+
+        image.unlockFocus()
+        return NSCursor(image: image, hotSpot: NSPoint(x: 12, y: 12))
     }
 }
 
