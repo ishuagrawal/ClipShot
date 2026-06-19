@@ -8,7 +8,10 @@ import UniformTypeIdentifiers
 /// filename; the app name itself lives in the titlebar strip with the stoplights.
 struct TitleBarView: View {
     @ObservedObject var state: EditorState
+    /// Returns to the home page, keeping the capture in recents.
+    var onGoHome: () -> Void = {}
     @FocusState private var titleFocused: Bool
+    @State private var brandHovered = false
 
     var body: some View {
         // Top-aligned so a wrapped (two-line) title grows downward while the
@@ -18,8 +21,25 @@ struct TitleBarView: View {
             // tick, fading to nothing toward the right, so the long field
             // never reads as a box.
             HStack(spacing: 9) {
-                BrandMarkGlyph()
-                    .frame(width: 34, height: 34)
+                Button(action: onGoHome) {
+                    BrandMarkGlyph()
+                        .frame(width: 34, height: 34)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .strokeBorder(Theme.accent, lineWidth: 1.5)
+                                .padding(3)
+                                .opacity(brandHovered ? 1 : 0)
+                        )
+                        .scaleEffect(brandHovered ? 1.12 : 1)
+                        .animation(.spring(response: 0.32, dampingFraction: 0.55), value: brandHovered)
+                }
+                .buttonStyle(.plain)
+                .onHover { hovering in
+                    brandHovered = hovering
+                    if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+                }
+                .help("Back to home")
+                .accessibilityLabel("Back to home")
                 titleField
             }
             // The icon sets the plate's visual register: equal 8pt breathing

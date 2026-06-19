@@ -12,7 +12,10 @@ struct EditorView: View {
     var body: some View {
         Group {
             if let session = store.session {
-                EditorShell(document: EditorDocument(session: session))
+                // Clearing the session flips this Group back to HomeView in the
+                // same window; the capture stays in recents (recorded on open).
+                EditorShell(document: EditorDocument(session: session),
+                            onGoHome: { store.session = nil })
                     // A new capture produces a new session id; .id() forces a fresh
                     // EditorShell (and fresh EditorState) so a second capture replaces
                     // the document instead of being ignored by @StateObject.
@@ -37,9 +40,11 @@ private struct EditorShell: View {
     @StateObject private var zoomController = CanvasZoomController()
     /// Mesh palette is derived from the (immutable) screenshot once, not per render.
     @State private var meshPalette: [Color] = []
+    private let onGoHome: () -> Void
 
-    init(document: EditorDocument) {
+    init(document: EditorDocument, onGoHome: @escaping () -> Void = {}) {
         _state = StateObject(wrappedValue: EditorState(document: document, openingPanel: .canvas))
+        self.onGoHome = onGoHome
     }
 
     var body: some View {
@@ -101,7 +106,7 @@ private struct EditorShell: View {
                     // The export pod pins to the clear-space right edge so it stays
                     // put when the screenshot resizes; the title plate keeps the
                     // window-margin alignment on the left.
-                    TitleBarView(state: state)
+                    TitleBarView(state: state, onGoHome: onGoHome)
                         .padding(.leading, Theme.chromeMargin + Theme.panelInset)
                         .padding(.trailing, rightChrome + Theme.canvasFitMargin)
                 }
