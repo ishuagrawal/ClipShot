@@ -194,6 +194,17 @@ final class CanvasOverlayView: NSView {
                 head.fillColor = color
                 container.addSublayer(head)
 
+            case .line(let from, let to, let color, let weight, let dash):
+                let line = CAShapeLayer()
+                line.path = AnnotationGeometry.linePath(from: from, to: to)
+                line.strokeColor = color
+                line.fillColor = nil
+                line.lineWidth = weight
+                let style = AnnotationGeometry.dashStyle(dash, weight: weight)
+                line.lineCap = style.cap == .round ? .round : .butt
+                line.lineDashPattern = style.pattern?.map { NSNumber(value: Double($0)) }
+                container.addSublayer(line)
+
             case .rect(let frame, let stroke, let fill, let weight, let corner):
                 let shape = CAShapeLayer()
                 shape.path = AnnotationGeometry.rectPath(frame: frame, cornerRadius: corner)

@@ -45,6 +45,23 @@ enum AnnotationGeometry {
         return path
     }
 
+    static func linePath(from: CGPoint, to: CGPoint) -> CGPath {
+        let path = CGMutablePath()
+        path.move(to: from)
+        path.addLine(to: to)
+        return path
+    }
+
+    /// Stroke dash pattern + line cap for a `LineDash` at a given weight. Dotted
+    /// uses a near-zero dash with a round cap so each dab renders as a circle.
+    static func dashStyle(_ dash: Annotation.LineDash, weight: CGFloat) -> (pattern: [CGFloat]?, cap: CGLineCap) {
+        switch dash {
+        case .solid:  return (nil, .butt)
+        case .dashed: return ([weight * 3, weight * 2], .butt)
+        case .dotted: return ([weight * 0.01, weight * 2], .round)
+        }
+    }
+
     static func rectPath(frame: CGRect, cornerRadius: CGFloat) -> CGPath {
         let rect = frame.standardized
         let radius = max(0, min(cornerRadius, min(rect.width, rect.height) / 2))
@@ -83,6 +100,14 @@ enum AnnotationGeometry {
             )
             let pad = arrowHeadLength(weight: weight) * 0.6 + weight
             return line.insetBy(dx: -pad, dy: -pad)
+        case .line(let from, let to, _, let weight, _):
+            let line = CGRect(
+                x: min(from.x, to.x),
+                y: min(from.y, to.y),
+                width: abs(to.x - from.x),
+                height: abs(to.y - from.y)
+            )
+            return line.insetBy(dx: -weight, dy: -weight)
         case .rect(let frame, _, _, let weight, _):
             return frame.standardized.insetBy(dx: -weight, dy: -weight)
         case .text(let origin, let string, let fontSize, _):
@@ -95,6 +120,8 @@ enum AnnotationGeometry {
     static func hitTest(_ kind: Annotation.Kind, point: CGPoint, tolerance: CGFloat) -> Bool {
         switch kind {
         case .arrow(let from, let to, _, let weight):
+            return distance(point, segmentStart: from, segmentEnd: to) <= tolerance + weight / 2
+        case .line(let from, let to, _, let weight, _):
             return distance(point, segmentStart: from, segmentEnd: to) <= tolerance + weight / 2
         case .rect(let frame, _, _, let weight, _):
             return frame.standardized
@@ -113,6 +140,8 @@ enum AnnotationGeometry {
         switch kind {
         case .arrow(let from, let to, let color, let weight):
             return .arrow(from: from.offset(delta), to: to.offset(delta), color: color, weight: weight)
+        case .line(let from, let to, let color, let weight, let dash):
+            return .line(from: from.offset(delta), to: to.offset(delta), color: color, weight: weight, dash: dash)
         case .rect(let frame, let stroke, let fill, let weight, let corner):
             return .rect(
                 frame: frame.offsetBy(dx: delta.width, dy: delta.height),
@@ -137,7 +166,7 @@ enum AnnotationGeometry {
     /// so a shape already touching the border isn't nudged on an orthogonal axis.
     static func geometryExtent(_ kind: Annotation.Kind) -> CGRect {
         switch kind {
-        case .arrow(let from, let to, _, _):
+        case .arrow(let from, let to, _, _), .line(let from, let to, _, _, _):
             return CGRect(
                 x: min(from.x, to.x),
                 y: min(from.y, to.y),
@@ -180,6 +209,8 @@ enum AnnotationGeometry {
         switch kind {
         case .arrow(let from, let to, let color, let weight):
             return .arrow(from: from.clamped(to: bounds), to: to.clamped(to: bounds), color: color, weight: weight)
+        case .line(let from, let to, let color, let weight, let dash):
+            return .line(from: from.clamped(to: bounds), to: to.clamped(to: bounds), color: color, weight: weight, dash: dash)
         case .rect(let frame, let stroke, let fill, let weight, let corner):
             return .rect(
                 frame: frame.standardized.clamped(to: bounds),

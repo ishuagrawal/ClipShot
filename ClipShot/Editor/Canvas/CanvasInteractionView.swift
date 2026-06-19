@@ -74,7 +74,7 @@ final class CanvasInteractionView: NSView {
         guard let state else { return }
 
         switch state.activeTool {
-        case .arrow, .rectangle:
+        case .arrow, .line, .rectangle:
             addCursorRect(bounds, cursor: .crosshair)
         case .text:
             addCursorRect(bounds, cursor: .iBeam)
@@ -138,7 +138,7 @@ final class CanvasInteractionView: NSView {
                 onEditText?(draft)
             }
 
-        case .arrow, .rectangle, .blur:
+        case .arrow, .line, .rectangle, .blur:
             state.beginDraw(at: point)
         }
     }
@@ -160,7 +160,7 @@ final class CanvasInteractionView: NSView {
             } else {
                 state.moveSelected(by: delta)
             }
-        } else if state.activeTool == .arrow || state.activeTool == .rectangle {
+        } else if state.activeTool == .arrow || state.activeTool == .line || state.activeTool == .rectangle {
             state.updateDraw(to: point, shiftSnap: shift)
         }
     }
@@ -175,7 +175,7 @@ final class CanvasInteractionView: NSView {
                 state.commitMoveSelected()
             }
             invalidateCursorRectsIfPossible()
-        } else if state.activeTool == .arrow || state.activeTool == .rectangle {
+        } else if state.activeTool == .arrow || state.activeTool == .line || state.activeTool == .rectangle {
             if state.commitDraw() != nil {
                 invalidateCursorRectsIfPossible()
             }
@@ -220,7 +220,7 @@ final class CanvasInteractionView: NSView {
         )
     }
 
-    /// Single-letter tool shortcuts (V/A/R/T), matching the tool-rail tooltips.
+    /// Single-letter tool shortcuts (V/A/L/R/T), matching the tool-rail tooltips.
     /// Only fires with no modifiers so it never shadows menu commands; text editing
     /// is unaffected because the in-canvas text editor is first responder then.
     nonisolated static func toolShortcut(for event: NSEvent) -> EditorTool? {
@@ -229,6 +229,7 @@ final class CanvasInteractionView: NSView {
         switch chars {
         case "v": return .select
         case "a": return .arrow
+        case "l": return .line
         case "r": return .rectangle
         case "t": return .text
         default:  return nil
@@ -276,7 +277,7 @@ final class CanvasInteractionView: NSView {
         switch state.activeTool {
         case .select, .padding, .background:
             return selectableAnnotation(at: point)
-        case .arrow, .rectangle, .text, .blur:
+        case .arrow, .line, .rectangle, .text, .blur:
             return nil
         }
     }
@@ -500,7 +501,7 @@ final class CanvasInteractionView: NSView {
     private var baseCursor: NSCursor {
         guard let state else { return .arrow }
         switch state.activeTool {
-        case .arrow, .rectangle:
+        case .arrow, .line, .rectangle:
             return .crosshair
         case .text:
             return .iBeam

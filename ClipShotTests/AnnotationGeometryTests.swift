@@ -159,6 +159,40 @@ final class AnnotationGeometryTests: XCTestCase {
         XCTAssertGreaterThan(frame.height, 0)
     }
 
+    func test_hitTest_pointOnLineSegment_hits() {
+        let kind = Annotation.Kind.line(
+            from: CGPoint(x: 0, y: 0),
+            to: CGPoint(x: 100, y: 0),
+            color: CGColor(gray: 0, alpha: 1),
+            weight: 4,
+            dash: .solid
+        )
+
+        XCTAssertTrue(AnnotationGeometry.hitTest(kind, point: CGPoint(x: 50, y: 1), tolerance: 4))
+        XCTAssertFalse(AnnotationGeometry.hitTest(kind, point: CGPoint(x: 50, y: 40), tolerance: 4))
+    }
+
+    func test_boundingBox_lineCoversSegment() {
+        let kind = Annotation.Kind.line(
+            from: CGPoint(x: 10, y: 20),
+            to: CGPoint(x: 60, y: 20),
+            color: CGColor(gray: 0, alpha: 1),
+            weight: 4,
+            dash: .dashed
+        )
+
+        let box = AnnotationGeometry.boundingBox(kind)
+        XCTAssertLessThanOrEqual(box.minX, 10)
+        XCTAssertGreaterThanOrEqual(box.maxX, 60)
+    }
+
+    func test_dashStyle_dottedUsesRoundCap() {
+        XCTAssertEqual(AnnotationGeometry.dashStyle(.solid, weight: 4).cap, .butt)
+        XCTAssertNil(AnnotationGeometry.dashStyle(.solid, weight: 4).pattern)
+        XCTAssertEqual(AnnotationGeometry.dashStyle(.dotted, weight: 4).cap, .round)
+        XCTAssertNotNil(AnnotationGeometry.dashStyle(.dashed, weight: 4).pattern)
+    }
+
     func test_arrowPathsAreNonEmpty() {
         let line = AnnotationGeometry.arrowLinePath(from: .zero, to: CGPoint(x: 50, y: 0), weight: 4)
         let head = AnnotationGeometry.arrowHeadPath(from: .zero, to: CGPoint(x: 50, y: 0), weight: 4)

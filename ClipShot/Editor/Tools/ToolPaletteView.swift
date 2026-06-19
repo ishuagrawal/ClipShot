@@ -11,6 +11,7 @@ struct DockView: View {
     private let tools: [(EditorTool, String?)] = [
         (.select, "V"),
         (.arrow, "A"),
+        (.line, "L"),
         (.rectangle, "R"),
         (.text, "T")
     ]

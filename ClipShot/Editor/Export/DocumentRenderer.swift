@@ -82,6 +82,8 @@ enum DocumentRenderer {
             switch annotation.kind {
             case .arrow(let from, let to, let color, let weight):
                 drawArrow(from: from, to: to, color: color, weight: weight, in: ctx)
+            case .line(let from, let to, let color, let weight, let dash):
+                drawLine(from: from, to: to, color: color, weight: weight, dash: dash, in: ctx)
             case .rect(let frame, let stroke, let fill, let weight, let corner):
                 drawRect(frame: frame, stroke: stroke, fill: fill, weight: weight, corner: corner, in: ctx)
             case .text(let origin, let string, let fontSize, let color):
@@ -108,6 +110,27 @@ enum DocumentRenderer {
         ctx.strokePath()
         ctx.addPath(AnnotationGeometry.arrowHeadPath(from: from, to: to, weight: weight))
         ctx.fillPath()
+        ctx.restoreGState()
+    }
+
+    private static func drawLine(
+        from: CGPoint,
+        to: CGPoint,
+        color: CGColor,
+        weight: CGFloat,
+        dash: Annotation.LineDash,
+        in ctx: CGContext
+    ) {
+        ctx.saveGState()
+        ctx.setStrokeColor(color)
+        ctx.setLineWidth(weight)
+        let style = AnnotationGeometry.dashStyle(dash, weight: weight)
+        ctx.setLineCap(style.cap)
+        if let pattern = style.pattern {
+            ctx.setLineDash(phase: 0, lengths: pattern)
+        }
+        ctx.addPath(AnnotationGeometry.linePath(from: from, to: to))
+        ctx.strokePath()
         ctx.restoreGState()
     }
 

@@ -188,6 +188,7 @@ struct InspectorView: View {
         return GlassCard(tool.displayName, glass: false) {
             switch tool {
             case .arrow:     ArrowToolView(state: state)
+            case .line:      LineToolView(state: state)
             case .rectangle: RectangleToolView(state: state)
             case .text:      TextToolView(state: state)
             default:         EmptyView()
@@ -198,6 +199,7 @@ struct InspectorView: View {
     private var selectionTitle: String {
         switch state.selectedAnnotation?.kind {
         case .arrow: return "Arrow"
+        case .line:  return "Line"
         case .rect:  return "Rectangle"
         case .text:  return "Text"
         case .blur:  return "Blur"

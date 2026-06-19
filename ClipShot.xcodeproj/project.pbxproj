@@ -46,6 +46,7 @@
 		01A00000000000000000021C /* CanvasTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000021C /* CanvasTextEditor.swift */; };
 		01A00000000000000000021D /* SelectToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000021D /* SelectToolView.swift */; };
 		01A00000000000000000021E /* ArrowToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000021E /* ArrowToolView.swift */; };
+		01A0000000000000000002F1 /* LineToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B0000000000000000002F1 /* LineToolView.swift */; };
 		01A00000000000000000021F /* RectangleToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B00000000000000000021F /* RectangleToolView.swift */; };
 		01A000000000000000000220 /* TextToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000220 /* TextToolView.swift */; };
 		01A000000000000000000221 /* ToolPaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000221 /* ToolPaletteView.swift */; };
@@ -138,6 +139,7 @@
 		01B00000000000000000021C /* CanvasTextEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasTextEditor.swift; sourceTree = "<group>"; };
 		01B00000000000000000021D /* SelectToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectToolView.swift; sourceTree = "<group>"; };
 		01B00000000000000000021E /* ArrowToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArrowToolView.swift; sourceTree = "<group>"; };
+		01B0000000000000000002F1 /* LineToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineToolView.swift; sourceTree = "<group>"; };
 		01B00000000000000000021F /* RectangleToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RectangleToolView.swift; sourceTree = "<group>"; };
 		01B000000000000000000220 /* TextToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextToolView.swift; sourceTree = "<group>"; };
 		01B000000000000000000221 /* ToolPaletteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolPaletteView.swift; sourceTree = "<group>"; };
@@ -352,6 +354,7 @@
 				01B000000000000000000213 /* BackgroundToolView.swift */,
 				01B00000000000000000021D /* SelectToolView.swift */,
 				01B00000000000000000021E /* ArrowToolView.swift */,
+				01B0000000000000000002F1 /* LineToolView.swift */,
 				01B00000000000000000021F /* RectangleToolView.swift */,
 				01B000000000000000000220 /* TextToolView.swift */,
 			);
@@ -525,6 +528,7 @@
 				01A000000000000000000213 /* BackgroundToolView.swift in Sources */,
 				01A00000000000000000021D /* SelectToolView.swift in Sources */,
 				01A00000000000000000021E /* ArrowToolView.swift in Sources */,
+				01A0000000000000000002F1 /* LineToolView.swift in Sources */,
 				01A00000000000000000021F /* RectangleToolView.swift in Sources */,
 				01A000000000000000000220 /* TextToolView.swift in Sources */,
 				D941DE371CF3851E414EB2D6 /* MeshSpec.swift in Sources */,

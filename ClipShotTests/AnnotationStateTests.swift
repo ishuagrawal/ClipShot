@@ -45,6 +45,63 @@ final class AnnotationStateTests: XCTestCase {
         XCTAssertEqual(state.document.annotations.count, 0)
     }
 
+    func test_drawLine_commitProducesLine() {
+        let state = makeState()
+        state.activeTool = .line
+
+        state.beginDraw(at: CGPoint(x: 15, y: 15))
+        state.updateDraw(to: CGPoint(x: 40, y: 30), shiftSnap: false)
+        let committed = state.commitDraw()
+
+        XCTAssertNotNil(committed)
+        if case .line = state.document.annotations.first?.kind {} else {
+            XCTFail("expected line")
+        }
+    }
+
+    func test_drawLine_autoSnapsNearHorizontal() {
+        let state = makeState()
+        state.activeTool = .line
+
+        state.beginDraw(at: CGPoint(x: 15, y: 15))
+        state.updateDraw(to: CGPoint(x: 45, y: 17), shiftSnap: false)
+
+        if case let .line(from, to, _, _, _) = state.inProgressAnnotation?.kind {
+            XCTAssertEqual(to.y, from.y, accuracy: 0.001)
+        } else {
+            XCTFail("expected line")
+        }
+    }
+
+    func test_drawLine_autoSnapsNearVertical() {
+        let state = makeState()
+        state.activeTool = .line
+
+        state.beginDraw(at: CGPoint(x: 15, y: 15))
+        state.updateDraw(to: CGPoint(x: 17, y: 45), shiftSnap: false)
+
+        if case let .line(from, to, _, _, _) = state.inProgressAnnotation?.kind {
+            XCTAssertEqual(to.x, from.x, accuracy: 0.001)
+        } else {
+            XCTFail("expected line")
+        }
+    }
+
+    func test_drawLine_keepsFreeAngleWhenNotNearAxis() {
+        let state = makeState()
+        state.activeTool = .line
+
+        state.beginDraw(at: CGPoint(x: 15, y: 15))
+        state.updateDraw(to: CGPoint(x: 45, y: 45), shiftSnap: false)
+
+        if case let .line(from, to, _, _, _) = state.inProgressAnnotation?.kind {
+            XCTAssertGreaterThan(abs(to.y - from.y), 0.001)
+            XCTAssertGreaterThan(abs(to.x - from.x), 0.001)
+        } else {
+            XCTFail("expected line")
+        }
+    }
+
     func test_drawRect_clampsToDocumentBounds() {
         let state = makeState()
         state.activeTool = .rectangle
@@ -1469,7 +1526,7 @@ final class CanvasInteractionViewTests: XCTestCase {
         switch tool {
         case .select:
             break // default
-        case .arrow, .rectangle, .text, .blur:
+        case .arrow, .line, .rectangle, .text, .blur:
             state.selectCursorTool(tool)
         case .padding:
             state.toggleDocumentPanel(.canvas)

@@ -73,6 +73,7 @@ private extension Annotation.Kind {
     var symbolName: String {
         switch self {
         case .arrow: return "arrow.up.right"
+        case .line:  return "line.diagonal"
         case .rect:  return "rectangle"
         case .text:  return "textformat"
         case .blur:  return "drop.halffull"
@@ -82,6 +83,7 @@ private extension Annotation.Kind {
     var listLabel: String {
         switch self {
         case .arrow: return "Arrow"
+        case .line:  return "Line"
         case .rect:  return "Rectangle"
         case .blur:  return "Blur"
         case .text(_, let string, _, _):

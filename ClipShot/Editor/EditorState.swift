@@ -7,16 +7,17 @@ enum EditorTool: String, CaseIterable, Identifiable {
     case padding
     case background
     case arrow
+    case line
     case rectangle
     case text
     case blur
 
     var id: String { rawValue }
 
-    /// Tools shipped so far: Select (P0), Padding + Background (P1), Arrow/Rect/Text (P2).
+    /// Tools shipped so far: Select (P0), Padding + Background (P1), Arrow/Line/Rect/Text (P2).
     var isEnabled: Bool {
         switch self {
-        case .select, .padding, .background, .arrow, .rectangle, .text:
+        case .select, .padding, .background, .arrow, .line, .rectangle, .text:
             return true
         case .blur:
             return false
@@ -25,7 +26,7 @@ enum EditorTool: String, CaseIterable, Identifiable {
 
     var isDrawTool: Bool {
         switch self {
-        case .arrow, .rectangle, .text, .blur:
+        case .arrow, .line, .rectangle, .text, .blur:
             return true
         case .select, .padding, .background:
             return false
@@ -38,6 +39,7 @@ enum EditorTool: String, CaseIterable, Identifiable {
         case .padding:    return "square.dashed"
         case .background: return "paintpalette"
         case .arrow:      return "arrow.up.right"
+        case .line:       return "line.diagonal"
         case .rectangle:  return "rectangle"
         case .text:       return "textformat"
         case .blur:       return "drop.halffull"
@@ -50,6 +52,7 @@ enum EditorTool: String, CaseIterable, Identifiable {
         case .padding:    return "Padding"
         case .background: return "Background"
         case .arrow:      return "Arrow"
+        case .line:       return "Line"
         case .rectangle:  return "Rectangle"
         case .text:       return "Text"
         case .blur:       return "Blur / Redact"
@@ -108,6 +111,9 @@ final class EditorState: ObservableObject {
     struct ToolStyle {
         var arrowColor: CGColor = CGColor(red: 1, green: 0.23, blue: 0.19, alpha: 1)
         var arrowWeight: CGFloat = 4
+        var lineColor: CGColor = CGColor(red: 1, green: 0.23, blue: 0.19, alpha: 1)
+        var lineWeight: CGFloat = 4
+        var lineDash: Annotation.LineDash = .solid
         var rectStroke: CGColor? = CGColor(red: 1, green: 0.23, blue: 0.19, alpha: 1)
         var rectFill: CGColor? = nil
         var rectWeight: CGFloat = 3
@@ -246,6 +252,7 @@ final class EditorState: ObservableObject {
         case .annotation:
             switch selectedAnnotation?.kind {
             case .arrow: return "Arrow"
+            case .line: return "Line"
             case .rect: return "Rectangle"
             case .text: return "Text"
             case .blur: return "Blur"
@@ -262,6 +269,8 @@ final class EditorState: ObservableObject {
         switch activeTool {
         case .arrow:
             kind = .arrow(from: point, to: point, color: toolStyle.arrowColor, weight: toolStyle.arrowWeight)
+        case .line:
+            kind = .line(from: point, to: point, color: toolStyle.lineColor, weight: toolStyle.lineWeight, dash: toolStyle.lineDash)
         case .rectangle:
             kind = .rect(
                 frame: CGRect(origin: point, size: .zero),
@@ -305,6 +314,9 @@ final class EditorState: ObservableObject {
         case .arrow(let from, _, let color, let weight):
             let end = shiftSnap ? snap45(from: from, to: point) : point
             inProgressAnnotation?.kind = .arrow(from: from, to: end, color: color, weight: weight)
+        case .line(let from, _, let color, let weight, let dash):
+            let end = shiftSnap ? snap45(from: from, to: point) : snapNearAxis(from: from, to: point)
+            inProgressAnnotation?.kind = .line(from: from, to: end, color: color, weight: weight, dash: dash)
         case .rect(let frame, let stroke, let fill, let weight, let corner):
             let origin = frame.origin
             var width = point.x - origin.x
@@ -518,13 +530,26 @@ final class EditorState: ObservableObject {
 
     private func isDegenerate(_ kind: Annotation.Kind) -> Bool {
         switch kind {
-        case .arrow(let from, let to, _, _):
+        case .arrow(let from, let to, _, _), .line(let from, let to, _, _, _):
             return hypot(to.x - from.x, to.y - from.y) < 3
         case .rect(let frame, _, _, _, _):
             return frame.width < 3 || frame.height < 3
         default:
             return false
         }
+    }
+
+    /// Auto-lock to horizontal or vertical when the segment is within ~7° of an
+    /// axis — so underlines straighten without holding a modifier.
+    private func snapNearAxis(from: CGPoint, to: CGPoint) -> CGPoint {
+        let dx = to.x - from.x
+        let dy = to.y - from.y
+        guard hypot(dx, dy) > 0.0001 else { return to }
+        let threshold = 7.0 * .pi / 180
+        let angle = atan2(abs(dy), abs(dx))
+        if angle <= threshold { return CGPoint(x: to.x, y: from.y) }
+        if angle >= .pi / 2 - threshold { return CGPoint(x: from.x, y: to.y) }
+        return to
     }
 
     private func snap45(from: CGPoint, to: CGPoint) -> CGPoint {
