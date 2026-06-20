@@ -418,6 +418,23 @@ final class DocumentRendererTests: XCTestCase {
         XCTAssertEqual(noisyHSV.saturation, baseHSV.saturation, accuracy: 0.04)
     }
 
+    func test_composedBackground_noiseIsSubtleMaterialGrain() throws {
+        var doc = paddedDoc(
+            padding: 20,
+            background: .solidColor(CGColor(gray: 0.45, alpha: 1))
+        )
+        doc.backgroundEffects = BackgroundEffects(blurRadius: 0, noiseOpacity: 0.20)
+
+        let buffer = try XCTUnwrap(PixelBuffer.decode(
+            try XCTUnwrap(DocumentRenderer.composedBackgroundImage(for: doc))
+        ))
+        let averageDelta = averageHorizontalLuminanceDelta(buffer)
+        let maxDelta = maximumHorizontalLuminanceDelta(buffer)
+
+        XCTAssertGreaterThan(averageDelta, 0.35, "noise should remain visible as material grain")
+        XCTAssertLessThan(maxDelta, 28, "grain should avoid harsh single-pixel contrast spikes")
+    }
+
     func test_composedBackground_blurSoftensNoise() throws {
         var sharpDoc = paddedDoc(
             padding: 20,
@@ -604,6 +621,21 @@ final class DocumentRendererTests: XCTestCase {
             }
         }
         return total / Double(max(1, count))
+    }
+
+    private func maximumHorizontalLuminanceDelta(_ buffer: PixelBuffer.Buffer) -> Double {
+        var maximum = 0.0
+        for y in 0..<buffer.height {
+            for x in 1..<buffer.width {
+                let previous = y * buffer.bytesPerRow + (x - 1) * 4
+                let current = y * buffer.bytesPerRow + x * 4
+                maximum = max(
+                    maximum,
+                    abs(luminance(buffer.pixels, at: current) - luminance(buffer.pixels, at: previous))
+                )
+            }
+        }
+        return maximum
     }
 
     private func averageLuminance(

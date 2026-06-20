@@ -12,9 +12,9 @@ final class CanvasContentView: NSView {
     private let solidBackgroundLayer: CALayer
     private let gradientBackgroundLayer: CAGradientLayer
     private let dynamicBackgroundLayer: CALayer
+    private let noiseBackgroundLayer: CALayer
     private let selectionLayer: CALayer
     private let selectionMaskLayer: CAShapeLayer
-    private let backgroundMaskLayer: CAShapeLayer
     private let composedBackgroundQueue: OperationQueue
     private var pendingDynamicSource: CGImage?
     private var pendingDynamicSelection: CGRect = .null
@@ -34,9 +34,9 @@ final class CanvasContentView: NSView {
         self.solidBackgroundLayer = CALayer()
         self.gradientBackgroundLayer = CAGradientLayer()
         self.dynamicBackgroundLayer = CALayer()
+        self.noiseBackgroundLayer = CALayer()
         self.selectionLayer = CALayer()
         self.selectionMaskLayer = CAShapeLayer()
-        self.backgroundMaskLayer = CAShapeLayer()
         self.composedBackgroundQueue = OperationQueue()
         super.init(frame: frameRect)
         composedBackgroundQueue.name = "com.ishu.ClipShot.composed-background"
@@ -52,10 +52,17 @@ final class CanvasContentView: NSView {
         selectionLayer.contentsGravity = .resize
         selectionLayer.magnificationFilter = .trilinear
         selectionLayer.minificationFilter = .trilinear
+        noiseBackgroundLayer.contents = Self.noiseTexture
+        noiseBackgroundLayer.contentsGravity = .resize
+        noiseBackgroundLayer.magnificationFilter = .linear
+        noiseBackgroundLayer.minificationFilter = .linear
+        noiseBackgroundLayer.compositingFilter = "softLightBlendMode"
+        noiseBackgroundLayer.isHidden = true
 
         layer?.addSublayer(solidBackgroundLayer)
         layer?.addSublayer(gradientBackgroundLayer)
         layer?.addSublayer(dynamicBackgroundLayer)
+        layer?.addSublayer(noiseBackgroundLayer)
         layer?.addSublayer(selectionLayer)
     }
 
@@ -70,6 +77,7 @@ final class CanvasContentView: NSView {
             solidBackgroundLayer.isHidden = true
             gradientBackgroundLayer.isHidden = true
             dynamicBackgroundLayer.isHidden = true
+            noiseBackgroundLayer.isHidden = true
             dynamicBackgroundLayer.contents = nil
             selectionLayer.contents = nil
             selectionLayer.mask = nil
@@ -117,12 +125,14 @@ final class CanvasContentView: NSView {
         solidBackgroundLayer.frame = backgroundFrame
         gradientBackgroundLayer.frame = backgroundFrame
         dynamicBackgroundLayer.frame = backgroundFrame
+        noiseBackgroundLayer.frame = backgroundFrame
 
         solidBackgroundLayer.isHidden = true
         gradientBackgroundLayer.isHidden = true
         dynamicBackgroundLayer.isHidden = true
+        noiseBackgroundLayer.isHidden = true
 
-        for layer in [solidBackgroundLayer, gradientBackgroundLayer, dynamicBackgroundLayer] {
+        for layer in [solidBackgroundLayer, gradientBackgroundLayer, dynamicBackgroundLayer, noiseBackgroundLayer] {
             layer.mask = nil
             layer.cornerRadius = 0
             layer.masksToBounds = false
@@ -134,17 +144,20 @@ final class CanvasContentView: NSView {
             pendingBGToken = nil
             pendingBGOperation?.cancel()
             pendingBGOperation = nil
+            noiseBackgroundLayer.opacity = 0
             return
         }
 
-        // Effects active → one composed image (fill + blur + noise) drawn into the
-        // image layer, matching DocumentRenderer exactly. Cancel any plain-mesh job.
-        if doc.backgroundEffects.isActive {
+        updateNoiseOverlay(for: doc, size: backgroundFrame.size)
+
+        // Blur needs a composed base image. Noise stays as a lightweight overlay
+        // so slider drags only adjust layer opacity instead of re-rendering.
+        if doc.backgroundEffects.clamped.blurRadius > 0 {
             pendingDynamicSource = nil
             pendingDynamicSelection = .null
             dynamicBackgroundLayer.isHidden = false
             applyOuterMask(to: dynamicBackgroundLayer, doc: doc, size: backgroundFrame.size)
-            updateComposedBackground(for: doc, size: backgroundFrame.size)
+            updateComposedBackground(for: doc.withoutPreviewNoise, size: backgroundFrame.size)
             return
         }
         pendingBGToken = nil
@@ -170,6 +183,18 @@ final class CanvasContentView: NSView {
             dynamicBackgroundLayer.isHidden = false
             applyOuterMask(to: dynamicBackgroundLayer, doc: doc, size: backgroundFrame.size)
         }
+    }
+
+    private func updateNoiseOverlay(for doc: EditorDocument, size: CGSize) {
+        let opacity = Self.previewNoiseOpacity(for: doc.backgroundEffects.clamped.noiseOpacity)
+        guard opacity > 0 else {
+            noiseBackgroundLayer.opacity = 0
+            noiseBackgroundLayer.isHidden = true
+            return
+        }
+        noiseBackgroundLayer.opacity = opacity
+        noiseBackgroundLayer.isHidden = false
+        applyOuterMask(to: noiseBackgroundLayer, doc: doc, size: size)
     }
 
     private func updateDynamicBackground(for doc: EditorDocument) {
@@ -252,11 +277,60 @@ final class CanvasContentView: NSView {
             layer.masksToBounds = true
             layer.mask = nil
         } else if !doc.outerCornerRadii.isZero {
-            backgroundMaskLayer.frame = CGRect(origin: .zero, size: size)
-            backgroundMaskLayer.path = doc.outerCornerRadii.path(in: backgroundMaskLayer.bounds)
-            layer.mask = backgroundMaskLayer
+            let maskLayer = CAShapeLayer()
+            maskLayer.frame = CGRect(origin: .zero, size: size)
+            maskLayer.path = doc.outerCornerRadii.path(in: maskLayer.bounds)
+            layer.mask = maskLayer
         }
     }
+
+    private static func previewNoiseOpacity(for strength: CGFloat) -> Float {
+        let reference: CGFloat = 0.20
+        let maxAmount = BackgroundEffects.maximumNoiseOpacity / reference
+        let amount = min(max(strength / reference, 0), maxAmount)
+        return Float(0.05 + amount * 0.085)
+    }
+
+    private static let noiseTexture: CGImage? = {
+        let width = 1024
+        let height = 1024
+        var state: UInt64 = 0x9E37_79B9_7F4A_7C15
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+
+        func nextByte() -> UInt8 {
+            state &+= 0x9E37_79B9_7F4A_7C15
+            var value = state
+            value = (value ^ (value >> 30)) &* 0xBF58_476D_1CE4_E5B9
+            value = (value ^ (value >> 27)) &* 0x94D0_49BB_1331_11EB
+            return UInt8(truncatingIfNeeded: (value ^ (value >> 31)) >> 56)
+        }
+
+        for i in stride(from: 0, to: pixels.count, by: 4) {
+            let value = nextByte()
+            pixels[i] = value
+            pixels[i + 1] = value
+            pixels[i + 2] = value
+            pixels[i + 3] = 255
+        }
+
+        let data = Data(pixels)
+        let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
+        guard let provider = CGDataProvider(data: data as CFData) else { return nil }
+        return CGImage(
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bitsPerPixel: 32,
+            bytesPerRow: width * 4,
+            space: colorSpace,
+            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue)
+                .union(CGBitmapInfo.byteOrder32Big),
+            provider: provider,
+            decode: nil,
+            shouldInterpolate: true,
+            intent: .defaultIntent
+        )
+    }()
 
     private func updateSelection(for doc: EditorDocument) {
         let selection = doc.baseSelection.integral.intersection(doc.imageBounds)
@@ -312,5 +386,13 @@ final class CanvasContentView: NSView {
             CGPoint(x: 0.5 - x / size.width, y: 0.5 - y / size.height),
             CGPoint(x: 0.5 + x / size.width, y: 0.5 + y / size.height)
         )
+    }
+}
+
+private extension EditorDocument {
+    var withoutPreviewNoise: EditorDocument {
+        var copy = self
+        copy.backgroundEffects.noiseOpacity = 0
+        return copy
     }
 }

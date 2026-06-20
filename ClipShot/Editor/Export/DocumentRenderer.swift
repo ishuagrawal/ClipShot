@@ -317,6 +317,7 @@ enum DocumentRenderer {
     // MARK: - Background composition (blur + noise)
 
     private static let ciContext = CIContext(options: nil)
+    private static let materialNoiseReferenceOpacity: CGFloat = 0.20
 
     /// Draws the document's background into the (already card-clipped) context,
     /// using the composed blur+noise image when effects are active, else the
@@ -377,21 +378,32 @@ enum DocumentRenderer {
         return ctx.makeImage()
     }
 
-    /// Blends monochrome grain through neutral soft light. Mid-grey is a no-op,
-    /// so the texture changes local brightness without washing the background
-    /// toward grey or adding a color cast.
+    /// Blends crisp, fine, monochrome grain through soft light — a 1:1 pixel
+    /// dither (no upscale, no blur) so it reads like a clean Arc-style material
+    /// surface rather than clumpy sensor noise.
     private static func applyingLuminanceNoise(
         to image: CIImage,
         strength: CGFloat,
         extent: CGRect
     ) -> CIImage {
+        let maxAmount = BackgroundEffects.maximumNoiseOpacity / materialNoiseReferenceOpacity
+        let amount = min(max(strength / materialNoiseReferenceOpacity, 0), maxAmount)
+        let alpha = 0.05 + amount * 0.085
+        let contrast = 0.10 + amount * 0.085
+        let bias = 0.5 - contrast * 0.5
         let noise = CIFilter(name: "CIRandomGenerator")?.outputImage
             ?? CIImage(color: CIColor(red: 0.5, green: 0.5, blue: 0.5))
-        let mono = noise.applyingFilter("CIColorControls", parameters: ["inputSaturation": 0])
-        let grain = mono.applyingFilter("CIColorMatrix", parameters: [
-            "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 0),
-            "inputBiasVector": CIVector(x: 0, y: 0, z: 0, w: Double(strength))
-        ]).cropped(to: extent)
+        let grain = noise
+            .cropped(to: extent)
+            .applyingFilter("CIColorControls", parameters: ["inputSaturation": 0])
+            .applyingFilter("CIColorMatrix", parameters: [
+                "inputRVector": CIVector(x: contrast, y: 0, z: 0, w: 0),
+                "inputGVector": CIVector(x: 0, y: contrast, z: 0, w: 0),
+                "inputBVector": CIVector(x: 0, y: 0, z: contrast, w: 0),
+                "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 0),
+                "inputBiasVector": CIVector(x: bias, y: bias, z: bias, w: alpha)
+            ])
+            .cropped(to: extent)
         return grain
             .applyingFilter("CISoftLightBlendMode", parameters: [
                 kCIInputBackgroundImageKey: image

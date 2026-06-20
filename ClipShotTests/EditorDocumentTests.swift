@@ -466,6 +466,12 @@ final class EditorDocumentTests: XCTestCase {
         XCTAssertTrue(BackgroundEffects(blurRadius: 0, noiseOpacity: 0.1).isActive)
     }
 
+    func test_backgroundEffects_clampsNoiseToExpandedMaximum() {
+        let effects = BackgroundEffects(blurRadius: 0, noiseOpacity: 1).clamped
+
+        XCTAssertEqual(effects.noiseOpacity, 1.0, accuracy: 0.0001)
+    }
+
     func test_document_defaults_shadowEnabled_noEffects_noCornerOverride() {
         let doc = makeDoc()
         XCTAssertTrue(doc.shadow.isEnabled)
