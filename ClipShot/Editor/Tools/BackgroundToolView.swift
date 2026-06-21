@@ -13,6 +13,14 @@ struct BackgroundToolView: View {
         case wallpaper = "Wallpaper"
         var id: String { rawValue }
 
+        var icon: String {
+            switch self {
+            case .color: return "paintpalette"
+            case .gradient: return "circle.righthalf.filled"
+            case .wallpaper: return "photo"
+            }
+        }
+
         init(_ kind: BackgroundStyle.Kind) {
             switch kind {
             case .none, .solid: self = .color
@@ -42,6 +50,10 @@ struct BackgroundToolView: View {
     @State private var effectsNaturalHeight: CGFloat = 0
     @State private var effectsHeight: CGFloat = 0
     @State private var effectsOpacity: Double = 1
+    // The section actually rendered below the tabs. Decoupled from `section`
+    // (the picker) so the page only ever swaps while invisible — no flash of
+    // the outgoing page.
+    @State private var visibleSection: Section = .color
     private static let sectionClipInset: CGFloat = 6
 
     private var style: BackgroundStyle { state.document.background }
@@ -49,15 +61,11 @@ struct BackgroundToolView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
           VStack(alignment: .leading, spacing: Theme.panelSectionSpacing) {
-            Picker("", selection: $section) {
-                ForEach(Section.allCases) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
+            sectionTabs
 
             ZStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: Theme.panelRowSpacing) {
-                    switch section {
+                    switch visibleSection {
                     case .color: colorSection
                     case .gradient: gradientSection
                     case .wallpaper: wallpaperSection
@@ -98,24 +106,27 @@ struct BackgroundToolView: View {
             .frame(height: effectsHeight, alignment: .top)
             .clipped()
         }
-        // Match the glass-panel motion: the card resizes on the panel spring while
-        // the swapped section cuts to zero and fades up (plain opacity — blur/scale
-        // on glass content snaps).
-        .animation(Theme.panelSpring, value: section)
         .onChange(of: style.kind == .none) { _, isNone in
             withAnimation(Theme.panelSpring) {
                 effectsHeight = isNone ? 0 : effectsNaturalHeight
                 effectsOpacity = isNone ? 0 : 1
             }
         }
-        .onChange(of: section) { _, _ in
-            var snap = Transaction()
-            snap.disablesAnimations = true
-            withTransaction(snap) { sectionOpacity = 0 }
-            withAnimation(.easeOut(duration: 0.22).delay(0.05)) { sectionOpacity = 1 }
+        // Two-phase swap: fade the current page out, exchange it while invisible,
+        // then fade the new page in. The page is never visible during the swap,
+        // so the outgoing one can't flash. Height springs in the invisible window.
+        .onChange(of: section) { _, newSection in
+            guard newSection != visibleSection else { return }
+            withAnimation(.easeOut(duration: 0.13)) {
+                sectionOpacity = 0
+            } completion: {
+                visibleSection = newSection
+                withAnimation(.easeIn(duration: 0.16)) { sectionOpacity = 1 }
+            }
         }
         .onAppear {
             section = section(for: style)
+            visibleSection = section
             syncControls(from: style)
             syncEffects(state.document.backgroundEffects)
             uploads = WallpaperCatalog.userUploads()
@@ -129,6 +140,73 @@ struct BackgroundToolView: View {
         .onChange(of: state.document.backgroundEffects) { _, fx in
             syncEffects(fx)
         }
+    }
+
+    // MARK: - Section tabs
+
+    /// Color / Gradient / Wallpaper switcher: one accent pill that slides between
+    /// equal segments, nested concentric-flush inside a carved groove track.
+    private var sectionTabs: some View {
+        let segments = Section.allCases
+        let height: CGFloat = 30
+        let shape = RoundedRectangle(cornerRadius: Theme.radiusPill, style: .continuous)
+        return GeometryReader { geo in
+            let segW = geo.size.width / CGFloat(segments.count)
+            let idx = segments.firstIndex(of: section) ?? 0
+            let slide = CGFloat(idx) * segW
+            ZStack(alignment: .leading) {
+                // Resting labels (dim) under the sliding pill.
+                sectionLabelRow(segments, segW: segW, height: height, color: Theme.textSecondary)
+
+                shape
+                    .fill(LinearGradient(colors: [Theme.accentText, Theme.accent],
+                                         startPoint: .top, endPoint: .bottom))
+                    .frame(width: segW, height: height)
+                    .offset(x: slide)
+                    .animation(Theme.panelSpring, value: section)
+
+                // Ink labels shown only through the pill, so the color reveal
+                // tracks the pill exactly — no time-based crossfade flash.
+                sectionLabelRow(segments, segW: segW, height: height, color: Theme.accentInk)
+                    .mask(
+                        shape
+                            .frame(width: segW, height: height)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .offset(x: slide)
+                            .animation(Theme.panelSpring, value: section)
+                    )
+
+                // Transparent hit layer.
+                HStack(spacing: 0) {
+                    ForEach(segments) { seg in
+                        Color.clear
+                            .frame(width: segW, height: height)
+                            .contentShape(Rectangle())
+                            .onTapGesture { section = seg }
+                            .accessibilityLabel(seg.rawValue)
+                            .accessibilityAddTraits(section == seg ? [.isSelected] : [])
+                    }
+                }
+            }
+        }
+        .frame(height: height)
+        .background(shape.fill(Color.black.opacity(0.25)))
+        .overlay(shape.stroke(Color.white.opacity(0.06), lineWidth: 0.5))
+        .clipShape(shape)
+    }
+
+    private func sectionLabelRow(_ segments: [Section], segW: CGFloat, height: CGFloat, color: Color) -> some View {
+        HStack(spacing: 0) {
+            ForEach(segments) { seg in
+                HStack(spacing: 5) {
+                    Image(systemName: seg.icon).font(.system(size: 11, weight: .semibold))
+                    Text(seg.rawValue).font(Theme.label(11.5, .semibold))
+                }
+                .frame(width: segW, height: height)
+            }
+        }
+        .foregroundStyle(color)
+        .allowsHitTesting(false)
     }
 
     // MARK: - Color
