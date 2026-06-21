@@ -25,36 +25,36 @@ final class CommandTests: XCTestCase {
         XCTAssertEqual(doc.padding, before)
     }
 
-    func test_setCardCorner_applyThenRevert_isIdentity() {
+    func test_setScreenshotCorner_applyThenRevert_isIdentity() {
         var doc = makeDoc()
-        let before = doc.cardCornerOverride
-        let command = SetCardCornerCommand(from: before, to: 24)
+        let before = doc.screenshotCornerOverride
+        let command = SetScreenshotCornerCommand(fromRadius: before, toRadius: 24)
 
         command.apply(to: &doc)
-        XCTAssertEqual(doc.cardCornerOverride, 24)
+        XCTAssertEqual(doc.screenshotCornerOverride, 24)
         command.revert(to: &doc)
-        XCTAssertEqual(doc.cardCornerOverride, before)
+        XCTAssertEqual(doc.screenshotCornerOverride, before)
     }
 
-    func test_setCardCorner_revertRestoresAutoNil() {
+    func test_setScreenshotCorner_revertRestoresAutoNil() {
         var doc = makeDoc()
-        doc.cardCornerOverride = 30
-        let command = SetCardCornerCommand(from: 30, to: nil)
+        doc.screenshotCornerOverride = 30
+        let command = SetScreenshotCornerCommand(fromRadius: 30, toRadius: nil)
 
         command.apply(to: &doc)
-        XCTAssertNil(doc.cardCornerOverride)
+        XCTAssertNil(doc.screenshotCornerOverride)
         command.revert(to: &doc)
-        XCTAssertEqual(doc.cardCornerOverride, 30)
+        XCTAssertEqual(doc.screenshotCornerOverride, 30)
     }
 
-    func test_setCardCorner_coalesce_keepsOriginalFrom() {
-        let first = SetCardCornerCommand(from: nil, to: 10)
-        let second = SetCardCornerCommand(from: 10, to: 40)
+    func test_setScreenshotCorner_coalesce_keepsOriginalFrom() {
+        let first = SetScreenshotCornerCommand(fromRadius: nil, toRadius: 10)
+        let second = SetScreenshotCornerCommand(fromRadius: 10, toRadius: 40)
 
-        let merged = first.coalesce(with: second) as? SetCardCornerCommand
+        let merged = first.coalesce(with: second) as? SetScreenshotCornerCommand
         XCTAssertNotNil(merged)
-        XCTAssertEqual(merged?.from, nil)
-        XCTAssertEqual(merged?.to, 40)
+        XCTAssertEqual(merged?.fromRadius, nil)
+        XCTAssertEqual(merged?.toRadius, 40)
     }
 
     func test_setPadding_coalesce_keepsOriginalFrom() {

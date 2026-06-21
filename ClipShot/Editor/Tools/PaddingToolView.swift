@@ -5,8 +5,6 @@ import SwiftUI
 struct PaddingToolView: View {
     @ObservedObject var state: EditorState
     @State private var editStart: PaddingConfig?
-    @State private var cornerEditing: Bool = false
-    @State private var cornerStart: CGFloat?
     @State private var shotCornerEditing: Bool = false
     @State private var shotCornerStart: CGFloat?
     @State private var shadowColor = Color(cgColor: ShadowConfig.default.color)
@@ -22,12 +20,10 @@ struct PaddingToolView: View {
 
     private let paddingRange: ClosedRange<Double> = 0...Double(PaddingConfig.maximum)
 
-    private var cardCornerRange: ClosedRange<Double> {
-        0...max(1, Double(state.document.maxCardCornerRadius.rounded(.down)))
-    }
-
     private var screenshotCornerRange: ClosedRange<Double> {
-        let maximum = min(state.document.baseSelection.width, state.document.baseSelection.height) / 2
+        // Subtle ceiling — a gentle round, never a pill/ellipse.
+        let halfSide = min(state.document.baseSelection.width, state.document.baseSelection.height) / 2
+        let maximum = min(halfSide, 50)
         return 0...max(1, Double(maximum.rounded(.down)))
     }
 
@@ -39,7 +35,6 @@ struct PaddingToolView: View {
             }
             uniformRow
             insetRow
-            cornerRow
             screenshotCornerRow
             shadowSection
         }
@@ -273,74 +268,10 @@ struct PaddingToolView: View {
         }
     }
 
-    private var cornerRow: some View {
-        PanelSection("Corner radius") {
-            ChipToggle(
-                label: "Concentric",
-                isOn: isConcentricCorner,
-                help: "Match the screenshot corners (concentric)"
-            ) { applyConcentricCorner() }
-        } content: {
-            HStack(spacing: 10) {
-                GlassSlider(
-                    value: Binding(
-                        get: { Double(state.document.cardCornerRadius ?? 0) },
-                        set: { setLiveCorner(CGFloat($0.rounded())) }
-                    ),
-                    range: cardCornerRange,
-                    accessibilityLabel: "Corner radius",
-                    accessibilityValue: { "\(Int($0.rounded())) pixels" },
-                    onEditingChanged: { editing in
-                        if editing {
-                            cornerEditing = true
-                            cornerStart = state.document.cardCornerOverride
-                        } else {
-                            commitCornerDrag()
-                        }
-                    }
-                )
-                InspectorValueLabel(text: "\(Int(state.document.cardCornerRadius ?? 0))", suffix: "px")
-            }
-        }
-    }
-
-    private var isConcentricCorner: Bool { state.document.isCardCornerConcentric }
-
-    private func setLiveCorner(_ value: CGFloat) {
-        if !cornerEditing {
-            cornerEditing = true
-            cornerStart = state.document.cardCornerOverride
-        }
-        state.document.cardCornerOverride = value
-    }
-
-    private func commitCornerDrag() {
-        guard cornerEditing else { return }
-        let from = cornerStart
-        let to = state.document.cardCornerOverride
-        state.document.cardCornerOverride = from
-        state.performCommand(SetCardCornerCommand(from: from, to: to))
-        cornerEditing = false
-        cornerStart = nil
-    }
-
-    private func applyConcentricCorner() {
-        guard state.document.cardCornerOverride != nil else { return }
-        state.performCommand(
-            SetCardCornerCommand(from: state.document.cardCornerOverride, to: nil)
-        )
-    }
-
     // MARK: - Screenshot corners
 
     private var screenshotCornerRow: some View {
-        PanelSection("Screenshot corners") {
-            ChipToggle(
-                systemName: isCornerLocked ? "lock" : "lock.open",
-                isOn: isCornerLocked,
-                help: "Lock the screenshot corners to the card radius"
-            ) { toggleCornerLock() }
-        } content: {
+        PanelSection("Corner Radius") {
             HStack(spacing: 10) {
                 GlassSlider(
                     value: Binding(
@@ -359,22 +290,16 @@ struct PaddingToolView: View {
                         }
                     }
                 )
-                .disabled(isCornerLocked)
-                .opacity(isCornerLocked ? 0.45 : 1)
                 InspectorValueLabel(text: "\(Int(screenshotCornerValue))", suffix: "px")
             }
         }
     }
 
-    private var isCornerLocked: Bool { state.document.lockCornersToCard }
-
     private var screenshotCornerValue: CGFloat {
-        if state.document.lockCornersToCard { return state.document.cardCornerRadius ?? 0 }
-        return state.document.effectiveSelectionCornerRadii.uniformRadius ?? 0
+        state.document.effectiveSelectionCornerRadii.uniformRadius ?? 0
     }
 
     private func setLiveShotCorner(_ value: CGFloat) {
-        guard !isCornerLocked else { return }
         if !shotCornerEditing {
             shotCornerEditing = true
             shotCornerStart = state.document.screenshotCornerOverride
@@ -388,30 +313,10 @@ struct PaddingToolView: View {
         let to = state.document.screenshotCornerOverride
         state.document.screenshotCornerOverride = from
         state.performCommand(
-            SetScreenshotCornerCommand(
-                fromRadius: from, toRadius: to,
-                fromLock: state.document.lockCornersToCard,
-                toLock: state.document.lockCornersToCard
-            )
+            SetScreenshotCornerCommand(fromRadius: from, toRadius: to)
         )
         shotCornerEditing = false
         shotCornerStart = nil
-    }
-
-    private func toggleCornerLock() {
-        let doc = state.document
-        let newLock = !doc.lockCornersToCard
-        // Seed the override on unlock to whatever was displayed while locked (the card
-        // radius), so the screenshot corners don't jump back to the captured value.
-        let newOverride: CGFloat? = newLock
-            ? doc.screenshotCornerOverride
-            : (doc.cardCornerRadius ?? doc.screenshotCornerOverride ?? doc.effectiveSelectionCornerRadii.uniformRadius)
-        state.performCommand(
-            SetScreenshotCornerCommand(
-                fromRadius: doc.screenshotCornerOverride, toRadius: newOverride,
-                fromLock: doc.lockCornersToCard, toLock: newLock
-            )
-        )
     }
 
     // MARK: - Shadow

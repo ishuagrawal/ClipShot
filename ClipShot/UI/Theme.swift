@@ -969,7 +969,7 @@ struct IconButton: View {
     }
 }
 
-/// Small accent chip toggle ("Auto", "Concentric", link/lock). One vocabulary for
+/// Small accent chip toggle ("Auto", "Center", link/lock). One vocabulary for
 /// every inline panel action; replaces the per-panel hand-rolled variants.
 struct ChipToggle: View {
     var label: String? = nil

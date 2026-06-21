@@ -37,11 +37,9 @@ struct ResetDocumentCommand: EditorCommand {
         d.padding = s.padding
         d.background = s.background
         d.annotations = s.annotations
-        d.cardCornerOverride = s.cardCornerOverride
         d.shadow = s.shadow
         d.backgroundEffects = s.backgroundEffects
         d.screenshotCornerOverride = s.screenshotCornerOverride
-        d.lockCornersToCard = s.lockCornersToCard
     }
 }
 
@@ -54,11 +52,9 @@ extension EditorDocument {
         padding == other.padding &&
         background == other.background &&
         annotations == other.annotations &&
-        cardCornerOverride == other.cardCornerOverride &&
         shadow == other.shadow &&
         backgroundEffects == other.backgroundEffects &&
-        screenshotCornerOverride == other.screenshotCornerOverride &&
-        lockCornersToCard == other.lockCornersToCard
+        screenshotCornerOverride == other.screenshotCornerOverride
     }
 }
 

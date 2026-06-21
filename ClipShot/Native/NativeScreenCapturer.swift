@@ -11,9 +11,9 @@ struct NativeWindowShot: @unchecked Sendable {
     let image: CGImage
     let pixelScale: CGFloat
     let appName: String
-    /// The measured radius of the baked rounded corners, so concentric padding
-    /// can match it. nil when no rounding was detected, or for non-window
-    /// rectangular captures.
+    /// The measured radius of the baked rounded corners, so the padded card can
+    /// round to the window radius. nil when no rounding was detected, or for
+    /// non-window rectangular captures.
     let cornerRadii: CaptureCornerRadii?
 }
 

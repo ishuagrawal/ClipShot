@@ -45,9 +45,6 @@ enum DocumentRenderer {
         if let radius = doc.cardCornerRadius,
            let mask = ConcentricCardMask.mask(width: width, height: height, radius: radius) {
             ctx.clip(to: outputRect, mask: mask)
-        } else if !doc.outerCornerRadii.isZero {
-            ctx.addPath(doc.outerCornerRadii.path(in: outputRect))
-            ctx.clip()
         }
 
         if !doc.padding.isZero {
@@ -482,7 +479,11 @@ enum DocumentRenderer {
         // re-flip around the destination rect so the screenshot stays upright.
         ctx.saveGState()
         let radii = cornerRadii.clamped(to: dest.size)
-        if !radii.isZero {
+        if let r = radii.uniformRadius,
+           let mask = ConcentricCardMask.mask(width: Int(dest.width), height: Int(dest.height), radius: r) {
+            // Apple continuous-corner (squircle), matching the system window mask.
+            ctx.clip(to: dest, mask: mask)
+        } else if !radii.isZero {
             ctx.addPath(screenshotPath(dest: dest, cornerRadii: radii))
             ctx.clip()
         }

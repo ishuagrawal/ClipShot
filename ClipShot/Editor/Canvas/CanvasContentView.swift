@@ -111,10 +111,8 @@ final class CanvasContentView: NSView {
             || previous?.screenshot !== doc.screenshot
             || previous?.padding != doc.padding
             || previous?.background != doc.background
-            || previous?.cardCornerOverride != doc.cardCornerOverride
             || previous?.backgroundEffects != doc.backgroundEffects
             || previous?.screenshotCornerOverride != doc.screenshotCornerOverride
-            || previous?.lockCornersToCard != doc.lockCornersToCard
             || selectionMovedForDynamic
         if backgroundChanged {
             updateBackground(for: doc)
@@ -126,8 +124,6 @@ final class CanvasContentView: NSView {
             || previous?.selectionCornerRadii != doc.selectionCornerRadii
             || previous?.padding != doc.padding
             || previous?.screenshotCornerOverride != doc.screenshotCornerOverride
-            || previous?.lockCornersToCard != doc.lockCornersToCard
-            || previous?.cardCornerOverride != doc.cardCornerOverride
             || previous?.shadow != doc.shadow
         if selectionChanged {
             updateSelection(for: doc)
@@ -369,11 +365,6 @@ final class CanvasContentView: NSView {
             ]
             layer.masksToBounds = true
             layer.mask = nil
-        } else if !doc.outerCornerRadii.isZero {
-            let maskLayer = CAShapeLayer()
-            maskLayer.frame = CGRect(origin: .zero, size: size)
-            maskLayer.path = doc.outerCornerRadii.path(in: maskLayer.bounds)
-            layer.mask = maskLayer
         }
     }
 
@@ -438,9 +429,19 @@ final class CanvasContentView: NSView {
         selectionLayer.frame = selection
         selectionLayer.contents = doc.screenshot.cropping(to: selection)
         let radii = doc.effectiveSelectionCornerRadii.clamped(to: selection.size)
-        if radii.isZero {
+        if let r = radii.uniformRadius {
+            // Apple continuous-corner (squircle), matching the system window mask.
+            selectionLayer.cornerCurve = .continuous
+            selectionLayer.cornerRadius = r
+            selectionLayer.masksToBounds = true
+            selectionLayer.mask = nil
+        } else if radii.isZero {
+            selectionLayer.cornerRadius = 0
+            selectionLayer.masksToBounds = false
             selectionLayer.mask = nil
         } else {
+            selectionLayer.cornerRadius = 0
+            selectionLayer.masksToBounds = false
             selectionMaskLayer.frame = CGRect(origin: .zero, size: selection.size)
             selectionMaskLayer.path = radii.path(in: selectionMaskLayer.bounds)
             selectionLayer.mask = selectionMaskLayer

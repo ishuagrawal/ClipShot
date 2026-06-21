@@ -61,14 +61,12 @@ final class CanvasOverlayView: NSView {
 
     private let annotationsLayer: CALayer
     private let annotationContentLayer: CALayer
-    private let annotationsOuterMaskLayer: CAShapeLayer
     private var annotationLayers: [UUID: CALayer] = [:]
     private let inProgressLayerKey = UUID()
 
     override init(frame frameRect: NSRect) {
         annotationsLayer = CALayer()
         annotationContentLayer = CALayer()
-        annotationsOuterMaskLayer = CAShapeLayer()
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.backgroundColor = .clear
@@ -114,13 +112,7 @@ final class CanvasOverlayView: NSView {
         } else {
             annotationsLayer.cornerRadius = 0
             annotationsLayer.masksToBounds = false
-            if doc.outerCornerRadii.isZero {
-                annotationsLayer.mask = nil
-            } else {
-                annotationsOuterMaskLayer.frame = annotationsLayer.bounds
-                annotationsOuterMaskLayer.path = doc.outerCornerRadii.path(in: annotationsOuterMaskLayer.bounds)
-                annotationsLayer.mask = annotationsOuterMaskLayer
-            }
+            annotationsLayer.mask = nil
         }
 
         annotationContentLayer.frame = CGRect(

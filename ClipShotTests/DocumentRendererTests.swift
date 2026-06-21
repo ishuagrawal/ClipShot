@@ -238,7 +238,7 @@ final class DocumentRendererTests: XCTestCase {
         XCTAssertEqual(doc.annotations, [annotation])
     }
 
-    func test_render_concentricOuter_clipsCardCorners() throws {
+    func test_render_windowCard_clipsCardCorners() throws {
         let doc = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 200, height: 200)),
             viewport: CGSize(width: 200, height: 200),
@@ -251,8 +251,8 @@ final class DocumentRendererTests: XCTestCase {
         let image = try XCTUnwrap(DocumentRenderer.render(doc))
         let buffer = try XCTUnwrap(PixelBuffer.decode(image))
 
-        // Outer corner is now rounded -> top-left pixel is outside the card -> transparent.
-        XCTAssertEqual(buffer.pixels[3], 0, "concentric outer corner must be transparent")
+        // Card rounds to the window radius -> top-left pixel is outside the card -> transparent.
+        XCTAssertEqual(buffer.pixels[3], 0, "rounded card outer corner must be transparent")
 
         // Center of the padded card is still opaque background (blue).
         let cx = (buffer.width / 2)
@@ -300,7 +300,7 @@ final class DocumentRendererTests: XCTestCase {
         XCTAssertGreaterThan(Int(buf.pixels[i + 0]), Int(buf.pixels[i + 2]) + 30)
     }
 
-    func test_render_concentricOuter_clipsAnnotationsAtCardCorners() throws {
+    func test_render_windowCard_clipsAnnotationsAtCardCorners() throws {
         var doc = EditorDocument(
             screenshot: TestImage.solid(.red, size: CGSize(width: 200, height: 200)),
             viewport: CGSize(width: 200, height: 200),
@@ -344,7 +344,7 @@ final class DocumentRendererTests: XCTestCase {
         return ctx.makeImage()!
     }
 
-    func test_render_nativeBakedCorners_concentricCardRoundsOuterCorner() throws {
+    func test_render_nativeBakedCorners_cardRoundsToWindowRadius() throws {
         let shot = roundedAlphaImage(size: CGSize(width: 120, height: 120), radius: 16,
                                      color: CGColor(red: 1, green: 0, blue: 0, alpha: 1))
         let doc = EditorDocument(
@@ -360,8 +360,8 @@ final class DocumentRendererTests: XCTestCase {
         let image = try XCTUnwrap(DocumentRenderer.render(doc))
         let buffer = try XCTUnwrap(PixelBuffer.decode(image))
 
-        // Outer card corner is rounded by the offset -> top-left pixel transparent.
-        XCTAssertEqual(Int(buffer.pixels[3]), 0, "concentric card must round the outer corner")
+        // Card rounds to the window radius -> top-left pixel transparent.
+        XCTAssertEqual(Int(buffer.pixels[3]), 0, "card must round the outer corner")
 
         // Mid top edge, inside the padding band -> opaque blue background.
         let cx = buffer.width / 2

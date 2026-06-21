@@ -24,23 +24,6 @@ struct SelectionCornerRadii: Equatable {
         )
     }
 
-    /// Radii for a rounded rect offset outward by `padding`. Offsetting a rounded
-    /// corner outward by distance d grows its radius by d, so each corner grows by
-    /// the two adjacent paddings. Square (zero) corners stay square.
-    func concentricOuter(padding: PaddingConfig) -> SelectionCornerRadii {
-        guard !isZero else { return .zero }
-        func grow(_ corner: CGSize, dx: CGFloat, dy: CGFloat) -> CGSize {
-            guard corner.width > 0 || corner.height > 0 else { return .zero }
-            return CGSize(width: corner.width + dx, height: corner.height + dy)
-        }
-        return SelectionCornerRadii(
-            topLeft: grow(topLeft, dx: padding.left, dy: padding.top),
-            topRight: grow(topRight, dx: padding.right, dy: padding.top),
-            bottomRight: grow(bottomRight, dx: padding.right, dy: padding.bottom),
-            bottomLeft: grow(bottomLeft, dx: padding.left, dy: padding.bottom)
-        )
-    }
-
     var isZero: Bool {
         [topLeft, topRight, bottomRight, bottomLeft].allSatisfy { radius in
             radius.width <= 0 && radius.height <= 0
@@ -227,25 +210,19 @@ struct EditorDocument {
     // The screenshot's VISUAL corner radius, separate from selectionCornerRadii (the
     // mask we APPLY to a rectangular shot). Native window shots bake their rounded
     // corners into the pixels and leave selectionCornerRadii zero, but carry the
-    // measured radius here so concentric outer rounding still matches. Defaults to
-    // selectionCornerRadii for masked captures. Drives ONLY outerCornerRadii.
+    // measured radius here so the padded card can round to the window radius.
+    // Defaults to selectionCornerRadii for masked captures. Drives the card radius.
     let contentCornerRadii: SelectionCornerRadii
     // Mutations bump version unconditionally (even no-op writes) so the canvas can
     // treat version as a cheap change token without value-diffing.
     var padding: PaddingConfig      { didSet { bumpVersion() } }
     var background: BackgroundStyle { didSet { bumpVersion() } }
     var annotations: [Annotation]   { didSet { bumpVersion() } }
-    // User-set uniform card corner radius. nil = auto (concentric, derived from
-    // the screenshot's own radius + padding). 0 = explicitly square.
-    var cardCornerOverride: CGFloat? { didSet { bumpVersion() } }
     var shadow: ShadowConfig { didSet { bumpVersion() } }
     var backgroundEffects: BackgroundEffects { didSet { bumpVersion() } }
     // The screenshot's OWN uniform corner radius, user-set. nil = use the captured
-    // selectionCornerRadii. Also feeds concentric card derivation (effectiveContentCornerRadii).
+    // selectionCornerRadii.
     var screenshotCornerOverride: CGFloat? { didSet { bumpVersion() } }
-    // When true, the screenshot's drawn corners mirror the card radius (inner == outer),
-    // overriding screenshotCornerOverride for display.
-    var lockCornersToCard: Bool { didSet { bumpVersion() } }
     private(set) var version: Int
 
     init(
@@ -259,11 +236,9 @@ struct EditorDocument {
         padding: PaddingConfig = .zero,
         background: BackgroundStyle = .none,
         annotations: [Annotation] = [],
-        cardCornerOverride: CGFloat? = nil,
         shadow: ShadowConfig = .default,
         backgroundEffects: BackgroundEffects = .none,
-        screenshotCornerOverride: CGFloat? = nil,
-        lockCornersToCard: Bool = false
+        screenshotCornerOverride: CGFloat? = nil
     ) {
         self.screenshot = screenshot
         self.viewport = viewport
@@ -281,11 +256,9 @@ struct EditorDocument {
         self.padding = padding
         self.background = background
         self.annotations = annotations
-        self.cardCornerOverride = cardCornerOverride
         self.shadow = shadow
         self.backgroundEffects = backgroundEffects
         self.screenshotCornerOverride = screenshotCornerOverride
-        self.lockCornersToCard = lockCornersToCard
         self.version = 0
     }
 
@@ -300,73 +273,26 @@ struct EditorDocument {
         )
     }
 
-    /// Content radii used to derive the concentric card. Reflects the user's
-    /// screenshot-radius override when present, else the captured content radii.
-    var effectiveContentCornerRadii: SelectionCornerRadii {
-        if let override = screenshotCornerOverride {
-            return SelectionCornerRadii.uniform(max(0, override)).clamped(to: baseSelection.size)
-        }
-        return contentCornerRadii
-    }
-
-    /// The screenshot's drawn corner radii. Locked → mirror the card radius
-    /// (inner == outer); else the user override; else the captured mask.
+    /// The screenshot's drawn corner radii: the user override when present, else
+    /// the captured mask.
     var effectiveSelectionCornerRadii: SelectionCornerRadii {
-        if lockCornersToCard, let card = cardCornerRadius {
-            return SelectionCornerRadii.uniform(card).clamped(to: baseSelection.size)
-        }
         if let override = screenshotCornerOverride {
             return SelectionCornerRadii.uniform(max(0, override)).clamped(to: baseSelection.size)
         }
         return selectionCornerRadii
     }
 
-    /// The true outward offset of the screenshot corners. This remains available
-    /// while a manual card override is active so "Concentric" can restore it.
-    var concentricOuterCornerRadii: SelectionCornerRadii {
-        let content = effectiveContentCornerRadii
-        guard !content.isZero, !padding.isZero else { return .zero }
-        return content
-            .concentricOuter(padding: padding)
-            .clamped(to: effectiveCrop.size)
-    }
-
-    /// Concentric outer corner radii for the padded card. Zero when a manual card
-    /// override is active because that override is rendered as a uniform radius.
-    var outerCornerRadii: SelectionCornerRadii {
-        guard cardCornerOverride == nil else { return .zero }
-        return concentricOuterCornerRadii
-    }
-
-    /// Uniform card radius when either a manual override is set or the true
-    /// concentric outer radii are uniform. Non-uniform concentric corners fall
-    /// back to the per-corner `outerCornerRadii` path.
+    /// The padded card's outer corner radius. A window screenshot rounds the card
+    /// to the window's own radius; everything else stays rectangular (nil). Only
+    /// applies with padding, where the card is a distinct artifact from the shot.
     var cardCornerRadius: CGFloat? {
-        if let override = cardCornerOverride {
-            return min(max(0, override), maxCardCornerRadius)
-        }
-        return autoCardCornerRadius
+        guard !padding.isZero, let r = contentCornerRadii.uniformRadius else { return nil }
+        return min(r, maxCardCornerRadius)
     }
 
     /// Largest legal card radius for the current padded card.
     var maxCardCornerRadius: CGFloat {
         min(effectiveCrop.width, effectiveCrop.height) / 2
-    }
-
-    /// The radius the card uses in auto mode, matching the screenshot's effective
-    /// uniform radius exactly. nil when there is no padding or uniform radius.
-    var autoCardCornerRadius: CGFloat? {
-        guard !padding.isZero, let r = effectiveContentCornerRadii.uniformRadius else { return nil }
-        return min(r, maxCardCornerRadius)
-    }
-
-    /// Whether the currently rendered inner and outer components use the same
-    /// uniform radius. A small tolerance absorbs slider and pixel rounding.
-    var isCardCornerConcentric: Bool {
-        guard !padding.isZero, let outer = cardCornerRadius else { return false }
-        let innerRadii = lockCornersToCard ? effectiveSelectionCornerRadii : effectiveContentCornerRadii
-        guard let inner = innerRadii.uniformRadius else { return false }
-        return abs(inner - outer) <= 0.5
     }
 
     var imageBounds: CGRect {
@@ -410,11 +336,9 @@ extension EditorDocument: Equatable {
         && lhs.padding == rhs.padding
         && lhs.background == rhs.background
         && lhs.annotations == rhs.annotations
-        && lhs.cardCornerOverride == rhs.cardCornerOverride
         && lhs.shadow == rhs.shadow
         && lhs.backgroundEffects == rhs.backgroundEffects
         && lhs.screenshotCornerOverride == rhs.screenshotCornerOverride
-        && lhs.lockCornersToCard == rhs.lockCornersToCard
         && lhs.version == rhs.version
     }
 }
