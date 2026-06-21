@@ -133,19 +133,110 @@ struct BackgroundToolView: View {
 
     // MARK: - Color
 
+    private static let solidPresets: [Color] = [
+        .white,
+        Color(white: 0.62),
+        Color(red: 0.11, green: 0.12, blue: 0.15),
+        Color(red: 0.91, green: 0.30, blue: 0.24),
+        Color(red: 0.96, green: 0.55, blue: 0.22),
+        Color(red: 0.97, green: 0.78, blue: 0.30),
+        Color(red: 0.36, green: 0.72, blue: 0.45),
+        Color(red: 0.27, green: 0.60, blue: 0.91),
+        Color(red: 0.55, green: 0.42, blue: 0.85),
+        Color(red: 0.91, green: 0.45, blue: 0.66)
+    ]
+
+    private let solidColumns = [GridItem(.adaptive(minimum: 32), spacing: 10)]
+
     private var colorSection: some View {
-        HStack(spacing: 12) {
-            bead(.none, selected: style.kind == .none) { commit(.none) }
-            bead(.solid, selected: style.kind == .solid) {
+        LazyVGrid(columns: solidColumns, alignment: .leading, spacing: 10) {
+            swatchBead(selected: style.kind == .none) {
+                Circle().fill(Color.black.opacity(0.3))
+                    .overlay(
+                        Image(systemName: "circle.slash").font(.system(size: 11))
+                            .foregroundStyle(Theme.textTertiary)
+                    )
+            } action: { commit(.none) }
+
+            ForEach(Array(Self.solidPresets.enumerated()), id: \.offset) { _, color in
+                swatchBead(selected: isSolidSelected(color)) {
+                    Circle().fill(color)
+                } action: {
+                    solid = color
+                    commit(.solidColor(NSColor(color).cgColor))
+                }
+            }
+
+            // Wildcard well: a rainbow-filled GlassColorWell — same component
+            // and size as the gradient pickers — that opens the system picker.
+            GlassColorWell(
+                selection: $solid,
+                label: "Custom color",
+                fill: AnyShapeStyle(AngularGradient(colors: [
+                    .red, .orange, .yellow, .green, .cyan, .blue, .purple, .pink, .red
+                ], center: .center))
+            )
+            .onChange(of: solid) { _, _ in
+                guard !isSyncingControls else { return }
                 commit(.solidColor(NSColor(solid).cgColor))
             }
-            GlassColorWell(selection: $solid, label: "Background color")
-                .onChange(of: solid) { _, _ in
-                    guard !isSyncingControls else { return }
-                    commit(.solidColor(NSColor(solid).cgColor))
-                }
-            Spacer(minLength: 0)
+            // Stable identity: the lazy grid would otherwise recreate the well's
+            // host on the post-commit re-render, severing its NSColorPanel link
+            // so it only opens once.
+            .id("customColorWell")
         }
+    }
+
+    /// 28pt round glass swatch sharing the bead vocabulary: active wears the
+    /// vermilion ring and lifts.
+    private func swatchBead<S: View>(
+        selected: Bool,
+        @ViewBuilder swatch: () -> S,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            beadFace(selected: selected, swatch: swatch)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
+    }
+
+    private func beadFace<S: View>(
+        selected: Bool,
+        @ViewBuilder swatch: () -> S
+    ) -> some View {
+        swatch()
+            .frame(width: 28, height: 28)
+            .clipShape(Circle())
+            .overlay(
+                Circle().fill(
+                    RadialGradient(colors: [.white.opacity(0.4), .clear],
+                                   center: .init(x: 0.32, y: 0.22),
+                                   startRadius: 0, endRadius: 12)
+                )
+            )
+            .overlay(
+                Circle().stroke(selected ? Theme.accent : Color.white.opacity(0.18),
+                                lineWidth: selected ? 2 : 1)
+            )
+            .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
+            .scaleEffect(selected ? 1.1 : 1)
+            .contentShape(Circle())
+            .animation(.spring(duration: 0.25), value: selected)
+    }
+
+    private func isSolidSelected(_ color: Color) -> Bool {
+        guard case .solidColor(let cg) = style else { return false }
+        return cgColorsEqual(NSColor(color).cgColor, cg)
+    }
+
+    private func cgColorsEqual(_ a: CGColor, _ b: CGColor) -> Bool {
+        guard let na = NSColor(cgColor: a)?.usingColorSpace(.sRGB),
+              let nb = NSColor(cgColor: b)?.usingColorSpace(.sRGB) else { return false }
+        return abs(na.redComponent - nb.redComponent) < 0.02
+            && abs(na.greenComponent - nb.greenComponent) < 0.02
+            && abs(na.blueComponent - nb.blueComponent) < 0.02
+            && abs(na.alphaComponent - nb.alphaComponent) < 0.02
     }
 
     // MARK: - Gradient

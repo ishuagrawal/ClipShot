@@ -885,12 +885,15 @@ struct GlassColorWell: View {
     @Binding var selection: Color
     var supportsOpacity: Bool = false
     var label: String = "Color"
+    /// Optional fill override — e.g. a rainbow gradient to mark a wildcard
+    /// "pick any color" well. Defaults to the current selection.
+    var fill: AnyShapeStyle? = nil
     @State private var hovering = false
 
     var body: some View {
         ZStack {
             Circle()
-                .fill(selection)
+                .fill(fill ?? AnyShapeStyle(selection))
                 .overlay(
                     // Specular arc: the swatch reads as a glass bead, not a chip.
                     Circle().fill(
