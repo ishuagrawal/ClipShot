@@ -200,6 +200,7 @@ struct BackgroundToolView: View {
             ForEach(segments) { seg in
                 HStack(spacing: 5) {
                     Image(systemName: seg.icon).font(.system(size: 11, weight: .semibold))
+                        .frame(width: 16, height: 14)
                     Text(seg.rawValue).font(Theme.label(11.5, .semibold))
                 }
                 .frame(width: segW, height: height)
