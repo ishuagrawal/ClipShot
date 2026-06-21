@@ -54,8 +54,9 @@ struct BackgroundToolView: View {
                     case .wallpaper: wallpaperSection
                     }
                 }
-                // Headroom so the clip doesn't shave the bead ring/lift/shadow.
-                .padding(.vertical, Self.sectionClipInset)
+                // Headroom on all edges so the clip doesn't shave the bead
+                // ring/lift/shadow (vertical) or the edge swatches (horizontal).
+                .padding(Self.sectionClipInset)
                 .opacity(sectionOpacity)
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
                     if sectionHeight != height {
@@ -67,8 +68,8 @@ struct BackgroundToolView: View {
             // grows instead of fading in over empty space.
             .frame(height: sectionHeight, alignment: .top)
             .clipped()
-            // Cancel the clip headroom so row spacing is unchanged.
-            .padding(.vertical, -Self.sectionClipInset)
+            // Cancel the clip headroom so layout/alignment is unchanged.
+            .padding(-Self.sectionClipInset)
             effects
         }
         // Match the glass-panel motion: the card resizes on the panel spring while

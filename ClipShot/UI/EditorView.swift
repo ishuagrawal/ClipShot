@@ -242,7 +242,8 @@ private struct EditorShell: View {
 
         guard samplePaletteKey != request.key else { return }
         samplePaletteKey = request.key
-        samplePalette = []
+        // Keep the previous palette visible until the new sample lands — clearing it
+        // here makes the glow flash to the mesh fallback during a padding drag.
 
         switch document.background {
         case .image(let ref):
