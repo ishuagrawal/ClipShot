@@ -217,10 +217,10 @@ private struct HomeHeroCard: View {
 }
 
 /// Brand lockup above the hero: logo with a warm halo, tracked wordmark, and a
-/// registration-framed tagline — drafting-room styling, not a generic title stack.
+/// quiet sentence-case tagline.
 private struct HomeBrandLockup: View {
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 10) {
             BrandMarkGlyph()
                 .frame(width: 66, height: 66)
                 .shadow(color: Theme.floatShadow, radius: 10, y: 4)
@@ -228,23 +228,13 @@ private struct HomeBrandLockup: View {
                 .font(Theme.title(30, .semibold))
                 .tracking(1.5)
                 .foregroundStyle(Theme.textPrimary)
-            HStack(spacing: 12) {
-                rule
-                Text("Beautiful screenshots, instantly".uppercased())
-                    .font(Theme.section(10.5, .semibold))
-                    .tracking(2.4)
-                    .foregroundStyle(Theme.accentText)
-                rule
-            }
+            Text("Craft clean captures")
+                .font(Theme.title(15, .regular).italic())
+                .tracking(0.4)
+                .foregroundStyle(Theme.accentText)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("ClipShot — beautiful screenshots, instantly")
-    }
-
-    private var rule: some View {
-        Rectangle()
-            .fill(Theme.hairlineStrong)
-            .frame(width: 26, height: 1)
+        .accessibilityLabel("ClipShot — craft clean captures")
     }
 }
 
