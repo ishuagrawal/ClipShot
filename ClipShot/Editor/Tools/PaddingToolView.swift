@@ -81,6 +81,9 @@ struct PaddingToolView: View {
             }
             field(.bottom)
         }
+        // Cap to the base inner width and center, so the glyph stays a compact
+        // diagram on wide panels instead of ballooning with the card.
+        .frame(maxWidth: 240)
         .frame(maxWidth: .infinity)
     }
 
