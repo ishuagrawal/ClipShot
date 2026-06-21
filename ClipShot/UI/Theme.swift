@@ -455,7 +455,9 @@ struct InspectorValueLabel: View {
             Text(suffix)
                 .font(Theme.mono(9.5, .medium))
                 .foregroundStyle(Theme.textTertiary)
-                .frame(width: 10, alignment: .leading)
+                .lineLimit(1)
+                .fixedSize()
+                .frame(width: 14, alignment: .leading)
         }
     }
 }

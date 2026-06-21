@@ -237,9 +237,9 @@ struct BackgroundToolView: View {
                         value: Binding(get: { blur }, set: { blur = $0; commitEffects() }),
                         range: 0...Double(BackgroundEffects.maximumBlurRadius),
                         accessibilityLabel: "Background blur",
-                        accessibilityValue: { "\(Int($0.rounded()))" }
+                        accessibilityValue: { "\(Int($0.rounded())) pixels" }
                     )
-                    InspectorValueLabel(text: "\(Int(blur))")
+                    InspectorValueLabel(text: "\(Int(blur.rounded()))", suffix: "px")
                 }
                 HStack(spacing: 10) {
                     InspectorRowLabel(text: "Noise")
@@ -367,13 +367,16 @@ struct BackgroundToolView: View {
     private func commitEffects() {
         guard !isSyncingEffects else { return }
         let from = state.document.backgroundEffects
-        let to = BackgroundEffects(blurRadius: CGFloat(blur), noiseOpacity: CGFloat(noise / 100))
+        let to = BackgroundEffects(
+            blurRadius: CGFloat(blur),
+            noiseOpacity: CGFloat(noise / 100)
+        ).clamped
         guard to != from else { return }
         state.performCommand(SetBackgroundEffectsCommand(from: from, to: to))
     }
 
     private func syncEffects(_ fx: BackgroundEffects) {
-        let nextBlur = Double(fx.blurRadius)
+        let nextBlur = Double(fx.clamped.blurRadius)
         let nextNoise = Double(fx.noiseOpacity * 100)
         guard blur != nextBlur || noise != nextNoise else { return }
         isSyncingEffects = true

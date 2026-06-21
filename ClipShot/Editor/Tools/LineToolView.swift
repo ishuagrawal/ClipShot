@@ -36,7 +36,7 @@ struct LineToolView: View {
                     accessibilityLabel: "Line weight",
                     accessibilityValue: { "\(Int($0.rounded())) pixels" }
                 )
-                InspectorValueLabel(text: "\(Int(weight.rounded()))")
+                InspectorValueLabel(text: "\(Int(weight.rounded()))", suffix: "px")
             }
             HStack(spacing: 10) {
                 InspectorRowLabel(text: "Style")

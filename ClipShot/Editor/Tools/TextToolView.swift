@@ -29,7 +29,7 @@ struct TextToolView: View {
                     accessibilityLabel: "Font size",
                     accessibilityValue: { "\(Int($0.rounded())) points" }
                 )
-                InspectorValueLabel(text: "\(Int(size.rounded()))")
+                InspectorValueLabel(text: "\(Int(size.rounded()))", suffix: "pt")
             }
         }
         .onAppear { syncFromState() }

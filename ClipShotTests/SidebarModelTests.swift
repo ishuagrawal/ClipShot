@@ -48,6 +48,10 @@ final class SidebarModelTests: XCTestCase {
         XCTAssertEqual(BackgroundStyle.image(.bundled("x.jpg")).kind, .wallpaper)
     }
 
+    func testBlurMaximumUsesPixelScale() {
+        XCTAssertEqual(BackgroundEffects.maximumBlurRadius, 16, accuracy: 0.001)
+    }
+
     // MARK: EditorState inspector model
 
     private func makeState() -> EditorState {

@@ -192,7 +192,7 @@ struct ShadowConfig: Equatable {
 
 /// Post-effects layered on top of any non-empty background style.
 struct BackgroundEffects: Equatable {
-    static let maximumBlurRadius: CGFloat = 24
+    static let maximumBlurRadius: CGFloat = 16
     static let maximumNoiseOpacity: CGFloat = 1.0
 
     var blurRadius: CGFloat    // gaussian sigma, px; 0 = off

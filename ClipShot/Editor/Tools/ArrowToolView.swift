@@ -29,7 +29,7 @@ struct ArrowToolView: View {
                     accessibilityLabel: "Arrow weight",
                     accessibilityValue: { "\(Int($0.rounded())) pixels" }
                 )
-                InspectorValueLabel(text: "\(Int(weight.rounded()))")
+                InspectorValueLabel(text: "\(Int(weight.rounded()))", suffix: "px")
             }
         }
         .onAppear { syncFromState() }

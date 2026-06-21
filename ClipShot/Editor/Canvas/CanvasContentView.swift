@@ -1,4 +1,5 @@
 import AppKit
+import CoreImage
 
 /// Hosts the selected region of the screenshot at 1:1 pixel size. The surrounding
 /// page is not drawn — only the selection layer is visible. The
@@ -12,6 +13,11 @@ final class CanvasContentView: NSView {
     private let solidBackgroundLayer: CALayer
     private let gradientBackgroundLayer: CAGradientLayer
     private let dynamicBackgroundLayer: CALayer
+    /// Oversized child of `dynamicBackgroundLayer` holding the unblurred base, so
+    /// the live-blur gaussian samples real edge pixels (parent clips the overflow).
+    private let blurContentLayer: CALayer
+    /// Overscan per side, in points. Sized for ~3σ of the widest gaussian.
+    static let liveBlurMargin: CGFloat = (BackgroundEffects.maximumBlurRadius * 3).rounded(.up)
     private let noiseBackgroundLayer: CALayer
     private let selectionLayer: CALayer
     private let selectionMaskLayer: CAShapeLayer
@@ -20,6 +26,8 @@ final class CanvasContentView: NSView {
     private var pendingDynamicSelection: CGRect = .null
     private var pendingBGToken: BackgroundToken?
     private var pendingBGOperation: Operation?
+    /// Last radius applied to `blurContentLayer.filters`; -1 when blur is off.
+    private var liveBlurRadius: CGFloat = -1
 
     /// Identity of a composed (blur/noise) background render in flight.
     private struct BackgroundToken: Equatable {
@@ -34,6 +42,7 @@ final class CanvasContentView: NSView {
         self.solidBackgroundLayer = CALayer()
         self.gradientBackgroundLayer = CAGradientLayer()
         self.dynamicBackgroundLayer = CALayer()
+        self.blurContentLayer = CALayer()
         self.noiseBackgroundLayer = CALayer()
         self.selectionLayer = CALayer()
         self.selectionMaskLayer = CAShapeLayer()
@@ -49,6 +58,11 @@ final class CanvasContentView: NSView {
         dynamicBackgroundLayer.contentsGravity = .resize
         dynamicBackgroundLayer.magnificationFilter = .trilinear
         dynamicBackgroundLayer.minificationFilter = .trilinear
+        blurContentLayer.contentsGravity = .resize
+        blurContentLayer.magnificationFilter = .trilinear
+        blurContentLayer.minificationFilter = .trilinear
+        blurContentLayer.isHidden = true
+        dynamicBackgroundLayer.addSublayer(blurContentLayer)
         selectionLayer.contentsGravity = .resize
         selectionLayer.magnificationFilter = .trilinear
         selectionLayer.minificationFilter = .trilinear
@@ -133,6 +147,7 @@ final class CanvasContentView: NSView {
         noiseBackgroundLayer.isHidden = true
 
         for layer in [solidBackgroundLayer, gradientBackgroundLayer, dynamicBackgroundLayer, noiseBackgroundLayer] {
+            layer.filters = nil
             layer.mask = nil
             layer.cornerRadius = 0
             layer.masksToBounds = false
@@ -145,21 +160,35 @@ final class CanvasContentView: NSView {
             pendingBGOperation?.cancel()
             pendingBGOperation = nil
             noiseBackgroundLayer.opacity = 0
+            hideBlurContent()
             return
         }
 
         updateNoiseOverlay(for: doc, size: backgroundFrame.size)
 
-        // Blur needs a composed base image. Noise stays as a lightweight overlay
-        // so slider drags only adjust layer opacity instead of re-rendering.
+        // Live GPU blur: render the unblurred base once into the overscan child,
+        // then a gaussian on that child blurs it so radius drags only swap filters.
         if doc.backgroundEffects.clamped.blurRadius > 0 {
             pendingDynamicSource = nil
             pendingDynamicSelection = .null
             dynamicBackgroundLayer.isHidden = false
             applyOuterMask(to: dynamicBackgroundLayer, doc: doc, size: backgroundFrame.size)
-            updateComposedBackground(for: doc.withoutPreviewNoise, size: backgroundFrame.size)
+            dynamicBackgroundLayer.masksToBounds = true
+            let margin = Self.liveBlurMargin
+            let radius = doc.backgroundEffects.clamped.blurRadius
+            blurContentLayer.isHidden = false
+            blurContentLayer.frame = CGRect(x: -margin, y: -margin,
+                                            width: backgroundFrame.width + margin * 2,
+                                            height: backgroundFrame.height + margin * 2)
+            // Rebuild only on radius change; re-setting each tick flickers.
+            if liveBlurRadius != radius {
+                blurContentLayer.filters = Self.liveBlurFilters(radius: radius)
+                liveBlurRadius = radius
+            }
+            updateBlurSource(for: doc, size: backgroundFrame.size, margin: margin)
             return
         }
+        hideBlurContent()
         pendingBGToken = nil
         pendingBGOperation?.cancel()
         pendingBGOperation = nil
@@ -232,9 +261,67 @@ final class CanvasContentView: NSView {
                       !current.backgroundEffects.isActive,
                       current.screenshot === screenshot,
                       current.baseSelection == selection else { return }
-                self.dynamicBackgroundLayer.contents = image
+                self.setContentsWithoutAnimation(self.dynamicBackgroundLayer, image)
             }
         }
+    }
+
+    private func hideBlurContent() {
+        guard liveBlurRadius >= 0 else { return }
+        blurContentLayer.isHidden = true
+        blurContentLayer.filters = nil
+        liveBlurRadius = -1
+    }
+
+    /// Swaps layer contents without the default cross-fade. Async callbacks land
+    /// outside the layout CATransaction, so the implicit fade would flash on swap.
+    private func setContentsWithoutAnimation(_ layer: CALayer, _ image: CGImage?) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.contents = image
+        CATransaction.commit()
+    }
+
+    /// Gaussian for the overscan child, which supplies the edge pixels it needs.
+    static func liveBlurFilters(radius: CGFloat) -> [CIFilter] {
+        guard radius > 0, let blur = CIFilter(name: "CIGaussianBlur") else { return [] }
+        blur.setValue(radius, forKey: kCIInputRadiusKey)
+        return [blur]
+    }
+
+    /// Renders the unblurred base into the overscan child. Keyed on style/size so
+    /// radius-only drags reuse the in-flight render and blur stays a filter swap.
+    private func updateBlurSource(for doc: EditorDocument, size: CGSize, margin: CGFloat) {
+        let enlarged = CGSize(width: size.width + margin * 2, height: size.height + margin * 2)
+        let token = BackgroundToken(
+            screenshot: ObjectIdentifier(doc.screenshot),
+            selection: doc.baseSelection,
+            style: doc.background,
+            effects: .none,
+            size: enlarged
+        )
+        guard pendingBGToken != token else { return }
+        pendingBGToken = token
+
+        pendingBGOperation?.cancel()
+        let operation = BlockOperation()
+        operation.addExecutionBlock { [weak operation, weak self] in
+            guard operation?.isCancelled == false else { return }
+            let image = DocumentRenderer.overscanBaseBackgroundImage(for: doc, margin: margin)
+            guard operation?.isCancelled == false else { return }
+            DispatchQueue.main.async {
+                guard let self,
+                      operation?.isCancelled == false,
+                      self.pendingBGToken == token,
+                      let image else { return }
+                self.setContentsWithoutAnimation(self.blurContentLayer, image)
+                if self.pendingBGOperation === operation {
+                    self.pendingBGOperation = nil
+                }
+            }
+        }
+        pendingBGOperation = operation
+        composedBackgroundQueue.addOperation(operation)
     }
 
     /// Renders the composed (fill + blur + noise) background off the main thread and
@@ -262,7 +349,7 @@ final class CanvasContentView: NSView {
                       operation?.isCancelled == false,
                       self.pendingBGToken == token,
                       let image else { return }
-                self.dynamicBackgroundLayer.contents = image
+                self.setContentsWithoutAnimation(self.dynamicBackgroundLayer, image)
                 if self.pendingBGOperation === operation {
                     self.pendingBGOperation = nil
                 }

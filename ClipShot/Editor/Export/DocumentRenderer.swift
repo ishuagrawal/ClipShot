@@ -384,6 +384,17 @@ enum DocumentRenderer {
         return ciContext.createCGImage(image, from: extent) ?? base
     }
 
+    /// Unblurred base fill expanded by `margin` per side, edges replicated into the
+    /// overscan. Inner crop stays at export scale; the live canvas blurs it on GPU.
+    static func overscanBaseBackgroundImage(for doc: EditorDocument, margin: CGFloat) -> CGImage? {
+        let crop = doc.effectiveCrop.integral
+        guard let base = baseBackgroundImage(doc, size: crop.size) else { return nil }
+        let image = CIImage(cgImage: base)
+        let extent = image.extent.insetBy(dx: -margin, dy: -margin)
+        let clamped = image.clampedToExtent().cropped(to: extent)
+        return ciContext.createCGImage(clamped, from: extent) ?? base
+    }
+
     /// Rasterizes the plain style fill at crop size. Replicates render()'s y-down
     /// top-left space so the dynamic mesh (and gradients) draw upright/identically.
     private static func baseBackgroundImage(_ doc: EditorDocument, size: CGSize) -> CGImage? {

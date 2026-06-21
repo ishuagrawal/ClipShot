@@ -147,7 +147,7 @@ struct PaddingToolView: View {
                     }
                 }
             )
-                InspectorValueLabel(text: "\(Int(padding.uniform ?? padding.top))")
+                InspectorValueLabel(text: "\(Int(padding.uniform ?? padding.top))", suffix: "px")
             }
         }
     }
@@ -183,7 +183,7 @@ struct PaddingToolView: View {
                         if !editing { commitInsetDrag() }
                     }
                 )
-                InspectorValueLabel(text: "\(Int(activeInsetContext?.inset ?? 0))")
+                InspectorValueLabel(text: "\(Int(activeInsetContext?.inset ?? 0))", suffix: "px")
             }
         }
     }
@@ -296,7 +296,7 @@ struct PaddingToolView: View {
                         }
                     }
                 )
-                InspectorValueLabel(text: "\(Int(state.document.cardCornerRadius ?? 0))")
+                InspectorValueLabel(text: "\(Int(state.document.cardCornerRadius ?? 0))", suffix: "px")
             }
         }
     }
@@ -358,7 +358,7 @@ struct PaddingToolView: View {
                 )
                 .disabled(isCornerLocked)
                 .opacity(isCornerLocked ? 0.45 : 1)
-                InspectorValueLabel(text: "\(Int(screenshotCornerValue))")
+                InspectorValueLabel(text: "\(Int(screenshotCornerValue))", suffix: "px")
             }
         }
     }
@@ -425,20 +425,22 @@ struct PaddingToolView: View {
             .toggleStyle(GlassToggleStyle())
         } content: {
             if shadow.isEnabled {
-                shadowSlider("Blur", value: shadow.blur, range: 0...Double(ShadowConfig.maximumBlur)) {
+                shadowSlider("Blur", value: shadow.blur, range: 0...Double(ShadowConfig.maximumBlur), suffix: "px") {
                     var next = shadow; next.blur = $0; commitShadow(next)
                 }
                 shadowSlider(
                     "Offset X",
                     value: shadow.offsetX,
-                    range: -Double(ShadowConfig.maximumOffset)...Double(ShadowConfig.maximumOffset)
+                    range: -Double(ShadowConfig.maximumOffset)...Double(ShadowConfig.maximumOffset),
+                    suffix: "px"
                 ) {
                     var next = shadow; next.offsetX = $0; commitShadow(next)
                 }
                 shadowSlider(
                     "Offset Y",
                     value: shadow.offsetY,
-                    range: -Double(ShadowConfig.maximumOffset)...Double(ShadowConfig.maximumOffset)
+                    range: -Double(ShadowConfig.maximumOffset)...Double(ShadowConfig.maximumOffset),
+                    suffix: "px"
                 ) {
                     var next = shadow; next.offsetY = $0; commitShadow(next)
                 }
