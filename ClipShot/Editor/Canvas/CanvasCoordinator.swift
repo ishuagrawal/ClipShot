@@ -25,9 +25,17 @@ final class CanvasCoordinator {
     /// Forwarded to the zoom controller so the SwiftUI readout tracks the live zoom.
     var onMagnificationChange: ((CGFloat) -> Void)?
     /// Forwarded to the zoom controller: the card's on-screen frame (top-left
-    /// origin, stage space) so the ambient glow radiates from its edges.
-    var onCardFrameChange: ((CGRect) -> Void)?
+    /// origin, stage space) so the ambient glow radiates from its edges. The Bool
+    /// is `immediate`: true for live user pans (publish synchronously so the glow
+    /// tracks the card in lockstep), false for programmatic layout (must defer off
+    /// the view update that triggered it).
+    var onCardFrameChange: ((CGRect, Bool) -> Void)?
     nonisolated(unsafe) private var cardFrameObserver: NSObjectProtocol?
+    /// Set while we drive scroll/zoom ourselves (initial fit, refit, apply). The
+    /// programmatic magnify/scroll posts the same boundsDidChange a user pan does,
+    /// but here it fires inside a SwiftUI view update — so the card frame must be
+    /// published deferred, not synchronously, during these windows.
+    private var isApplyingLayout = false
     var currentMagnification: CGFloat { scrollView.logicalMagnification }
     var minimumMagnification: CGFloat { scrollView.logicalMinMagnification }
     var maximumMagnification: CGFloat { scrollView.logicalMaxMagnification }
@@ -101,7 +109,10 @@ final class CanvasCoordinator {
             object: scrollView.contentView,
             queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.publishCardFrame() }
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.publishCardFrame(immediate: !self.isApplyingLayout)
+            }
         }
     }
 
@@ -112,14 +123,20 @@ final class CanvasCoordinator {
     }
 
     /// Maps the padded card (interaction view) into the stage's top-left-origin
-    /// space, which is coincident with the full-bleed ambient glow layer.
-    private func publishCardFrame() {
-        let bottomUp = interactionView.convert(interactionView.bounds, to: scrollView)
+    /// space, which is coincident with the full-bleed ambient glow layer. The
+    /// converted rect already honors the scroll view's own orientation: the clip
+    /// view adopts the flipped document view, so it comes back y-down and needs no
+    /// flip. Only flip when the destination is genuinely y-up, otherwise the glow
+    /// tracks the screenshot in the opposite direction on scroll.
+    private func publishCardFrame(immediate: Bool = false) {
+        let rect = interactionView.convert(interactionView.bounds, to: scrollView)
         let h = scrollView.bounds.height
-        guard h > 0, bottomUp.width > 0, bottomUp.height > 0 else { return }
-        let topLeft = CGRect(x: bottomUp.minX, y: h - bottomUp.maxY,
-                             width: bottomUp.width, height: bottomUp.height)
-        onCardFrameChange?(topLeft)
+        guard h > 0, rect.width > 0, rect.height > 0 else { return }
+        let topLeft = scrollView.isFlipped
+            ? rect
+            : CGRect(x: rect.minX, y: h - rect.maxY,
+                     width: rect.width, height: rect.height)
+        onCardFrameChange?(topLeft, immediate)
     }
 
     /// Push the physical magnification into the chrome views so resize handles
@@ -155,6 +172,8 @@ final class CanvasCoordinator {
 
     /// Push the latest document into the view tree. Called on every SwiftUI update.
     func update(state: EditorState) {
+        isApplyingLayout = true
+        defer { isApplyingLayout = false }
         let document = state.displayDocument
         let previousDocument = latestDocument
         // Toggling the background on/off changes what the fit frames (padded card
@@ -227,6 +246,8 @@ final class CanvasCoordinator {
               let document = latestDocument else {
             return
         }
+        isApplyingLayout = true
+        defer { isApplyingLayout = false }
 
         let imageBounds = document.imageBounds
         guard viewportSize.width > 0, viewportSize.height > 0 else { return }

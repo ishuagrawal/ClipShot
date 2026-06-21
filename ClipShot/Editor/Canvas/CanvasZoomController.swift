@@ -96,15 +96,22 @@ final class CanvasZoomController: ObservableObject {
             coordinator.onMagnificationChange = { [weak self] mag in
                 self?.publishMagnification(mag)
             }
-            coordinator.onCardFrameChange = { [weak self] frame in
-                self?.publishCardFrame(frame)
+            coordinator.onCardFrameChange = { [weak self] frame, immediate in
+                self?.publishCardFrame(frame, immediate: immediate)
             }
         }
         publishMagnification(coordinator.currentMagnification)
     }
 
-    private func publishCardFrame(_ frame: CGRect) {
+    /// `immediate` (live user pan): set synchronously so the glow tracks the card
+    /// in lockstep with the scroll, no trailing frame. Otherwise defer off the
+    /// view update that triggered it — mutating @Published mid-update loops.
+    private func publishCardFrame(_ frame: CGRect, immediate: Bool) {
         guard frame != cardFrame else { return }
+        if immediate {
+            cardFrame = frame
+            return
+        }
         DispatchQueue.main.async { [weak self] in
             guard let self, frame != self.cardFrame else { return }
             self.cardFrame = frame
