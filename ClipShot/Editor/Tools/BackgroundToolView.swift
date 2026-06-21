@@ -34,12 +34,21 @@ struct BackgroundToolView: View {
     @State private var isSyncingEffects = false
     @State private var sectionOpacity: Double = 1
     @State private var sectionHeight: CGFloat = 0
+    // Effects slot springs between zero and its measured height when the
+    // background toggles to/from None — same mechanism as the inspector's
+    // contextual card (explicit withAnimation on a measured height so the
+    // glass surface interpolates, not the declarative `.animation(value:)`
+    // that only the inner content frame would follow).
+    @State private var effectsNaturalHeight: CGFloat = 0
+    @State private var effectsHeight: CGFloat = 0
+    @State private var effectsOpacity: Double = 1
     private static let sectionClipInset: CGFloat = 6
 
     private var style: BackgroundStyle { state.document.background }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.panelSectionSpacing) {
+        VStack(alignment: .leading, spacing: 0) {
+          VStack(alignment: .leading, spacing: Theme.panelSectionSpacing) {
             Picker("", selection: $section) {
                 ForEach(Section.allCases) { Text($0.rawValue).tag($0) }
             }
@@ -70,12 +79,35 @@ struct BackgroundToolView: View {
             .clipped()
             // Cancel the clip headroom so layout/alignment is unchanged.
             .padding(-Self.sectionClipInset)
-            effects
+          }
+          // No background = no effects. The slot's height springs to zero and
+          // the glass sliders fade, so the whole Background card shortens on
+          // the panel spring — same as the inspector's contextual card. The
+          // section's inter-row gap is folded into the measured content so it
+          // collapses with the slot.
+          effects
+            .padding(.top, Theme.panelSectionSpacing)
+            .opacity(effectsOpacity)
+            .allowsHitTesting(style.kind != .none)
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { natural in
+                effectsNaturalHeight = natural
+                if style.kind != .none, effectsHeight != natural {
+                    effectsHeight = natural
+                }
+            }
+            .frame(height: effectsHeight, alignment: .top)
+            .clipped()
         }
         // Match the glass-panel motion: the card resizes on the panel spring while
         // the swapped section cuts to zero and fades up (plain opacity — blur/scale
         // on glass content snaps).
         .animation(Theme.panelSpring, value: section)
+        .onChange(of: style.kind == .none) { _, isNone in
+            withAnimation(Theme.panelSpring) {
+                effectsHeight = isNone ? 0 : effectsNaturalHeight
+                effectsOpacity = isNone ? 0 : 1
+            }
+        }
         .onChange(of: section) { _, _ in
             var snap = Transaction()
             snap.disablesAnimations = true
@@ -87,6 +119,8 @@ struct BackgroundToolView: View {
             syncControls(from: style)
             syncEffects(state.document.backgroundEffects)
             uploads = WallpaperCatalog.userUploads()
+            effectsOpacity = style.kind == .none ? 0 : 1
+            effectsHeight = style.kind == .none ? 0 : effectsNaturalHeight
         }
         .onChange(of: style) { _, newStyle in
             section = section(for: newStyle)
@@ -256,31 +290,28 @@ struct BackgroundToolView: View {
 
     // MARK: - Effects
 
-    @ViewBuilder
     private var effects: some View {
-        if style.kind != .none {
-            VStack(alignment: .leading, spacing: Theme.panelRowSpacing) {
-                Rectangle().fill(Theme.hairline).frame(height: 1).padding(.vertical, 2)
-                HStack(spacing: 10) {
-                    InspectorRowLabel(text: "Blur")
-                    GlassSlider(
-                        value: Binding(get: { blur }, set: { blur = $0; commitEffects() }),
-                        range: 0...Double(BackgroundEffects.maximumBlurRadius),
-                        accessibilityLabel: "Background blur",
-                        accessibilityValue: { "\(Int($0.rounded())) pixels" }
-                    )
-                    InspectorValueLabel(text: "\(Int(blur.rounded()))", suffix: "px")
-                }
-                HStack(spacing: 10) {
-                    InspectorRowLabel(text: "Noise")
-                    GlassSlider(
-                        value: Binding(get: { noise }, set: { noise = $0; commitEffects() }),
-                        range: 0...Double(BackgroundEffects.maximumNoiseOpacity * 100),
-                        accessibilityLabel: "Background noise",
-                        accessibilityValue: { "\(Int($0.rounded())) percent" }
-                    )
-                    InspectorValueLabel(text: "\(Int(noise))", suffix: "%")
-                }
+        VStack(alignment: .leading, spacing: Theme.panelRowSpacing) {
+            Rectangle().fill(Theme.hairline).frame(height: 1).padding(.vertical, 2)
+            HStack(spacing: 10) {
+                InspectorRowLabel(text: "Blur")
+                GlassSlider(
+                    value: Binding(get: { blur }, set: { blur = $0; commitEffects() }),
+                    range: 0...Double(BackgroundEffects.maximumBlurRadius),
+                    accessibilityLabel: "Background blur",
+                    accessibilityValue: { "\(Int($0.rounded())) pixels" }
+                )
+                InspectorValueLabel(text: "\(Int(blur.rounded()))", suffix: "px")
+            }
+            HStack(spacing: 10) {
+                InspectorRowLabel(text: "Noise")
+                GlassSlider(
+                    value: Binding(get: { noise }, set: { noise = $0; commitEffects() }),
+                    range: 0...Double(BackgroundEffects.maximumNoiseOpacity * 100),
+                    accessibilityLabel: "Background noise",
+                    accessibilityValue: { "\(Int($0.rounded())) percent" }
+                )
+                InspectorValueLabel(text: "\(Int(noise))", suffix: "%")
             }
         }
     }
