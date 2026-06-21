@@ -166,7 +166,7 @@ private struct EditorShell: View {
             return [Color(cgColor: start), Color(cgColor: end),
                     Color(cgColor: start), Color(cgColor: end),
                     Color(cgColor: start).opacity(0.8), Color(cgColor: end)]
-        case .dynamic, .none:
+        case .dynamic, .none, .image:
             return meshPalette
         }
     }

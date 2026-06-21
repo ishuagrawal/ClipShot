@@ -1,0 +1,83 @@
+import XCTest
+import ImageIO
+import UniformTypeIdentifiers
+@testable import ClipShot
+
+final class WallpaperTests: XCTestCase {
+
+    // MARK: - Model
+
+    func test_imageStyle_kindAndEquality() {
+        let a = BackgroundStyle.image(.bundled("gradient-03.jpg"))
+        XCTAssertEqual(a.kind, .wallpaper)
+        XCTAssertEqual(a, .image(.bundled("gradient-03.jpg")))
+        XCTAssertNotEqual(a, .image(.bundled("nature-01.jpg")))
+    }
+
+    func test_wallpaperRef_keyIsStable() {
+        XCTAssertEqual(WallpaperRef.bundled("a.jpg").key, "bundled:a.jpg")
+        let url = URL(fileURLWithPath: "/tmp/sub/photo.png")
+        XCTAssertEqual(WallpaperRef.user(url).key, "user:photo.png")
+    }
+
+    // MARK: - Aspect fill
+
+    func test_aspectFill_coversAndCenters() {
+        let rect = CGRect(x: 0, y: 0, width: 200, height: 200)
+        let fill = DocumentRenderer.aspectFillRect(CGSize(width: 100, height: 50), in: rect)
+        XCTAssertEqual(fill.width, 400, accuracy: 0.01)
+        XCTAssertEqual(fill.height, 200, accuracy: 0.01)
+        XCTAssertEqual(fill.midX, rect.midX, accuracy: 0.01)
+        XCTAssertEqual(fill.midY, rect.midY, accuracy: 0.01)
+        XCTAssertLessThanOrEqual(fill.minX, rect.minX)
+        XCTAssertLessThanOrEqual(fill.minY, rect.minY)
+    }
+
+    // MARK: - Catalog uploads
+
+    func test_importUpload_rejectsNonImage() throws {
+        let txt = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(UUID().uuidString).txt")
+        try "hi".write(to: txt, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: txt) }
+        XCTAssertThrowsError(try WallpaperCatalog.importUpload(from: txt))
+    }
+
+    // MARK: - Rendering
+
+    func test_render_imageBackground_fillsMarginOpaque() throws {
+        let wallpaper = try writeTempPNG(
+            color: CGColor(srgbRed: 0.9, green: 0.1, blue: 0.1, alpha: 1),
+            size: CGSize(width: 40, height: 40))
+        defer { try? FileManager.default.removeItem(at: wallpaper) }
+
+        let screenshot = FixtureDocument.makeSolidImage(
+            color: CGColor(srgbRed: 0.1, green: 0.2, blue: 0.9, alpha: 1),
+            size: CGSize(width: 60, height: 60))
+        let doc = EditorDocument(
+            screenshot: screenshot,
+            viewport: CGSize(width: 60, height: 60),
+            sourceTitle: "t", sourceURL: "u",
+            baseSelection: CGRect(x: 0, y: 0, width: 60, height: 60),
+            padding: PaddingConfig(top: 24, right: 24, bottom: 24, left: 24),
+            background: .image(.user(wallpaper)))
+
+        let image = try XCTUnwrap(DocumentRenderer.render(doc))
+        let buf = try XCTUnwrap(PixelBuffer.decode(image))
+        let i = (6 * buf.bytesPerRow) + 6 * 4
+        XCTAssertEqual(Int(buf.pixels[i + 3]), 255, "wallpaper margin must be opaque")
+        XCTAssertGreaterThan(Int(buf.pixels[i + 0]), Int(buf.pixels[i + 2]) + 30,
+                             "margin should show the red wallpaper, not the blue screenshot")
+    }
+
+    private func writeTempPNG(color: CGColor, size: CGSize) throws -> URL {
+        let image = FixtureDocument.makeSolidImage(color: color, size: size)
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(UUID().uuidString).png")
+        let dest = try XCTUnwrap(CGImageDestinationCreateWithURL(
+            url as CFURL, UTType.png.identifier as CFString, 1, nil))
+        CGImageDestinationAddImage(dest, image, nil)
+        XCTAssertTrue(CGImageDestinationFinalize(dest))
+        return url
+    }
+}

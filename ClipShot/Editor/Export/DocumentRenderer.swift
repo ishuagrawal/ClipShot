@@ -199,7 +199,33 @@ enum DocumentRenderer {
             drawGradient(start: start, end: end, angleDegrees: angleDegrees, in: ctx, rect: outputRect)
         case .dynamic:
             drawDynamic(in: ctx, outputRect: outputRect, screenshot: screenshot, selection: selection)
+        case .image(let ref):
+            drawWallpaper(ref, in: ctx, outputRect: outputRect)
         }
+    }
+
+    private static func drawWallpaper(
+        _ ref: WallpaperRef,
+        in ctx: CGContext,
+        outputRect: CGRect
+    ) {
+        guard let image = WallpaperImageCache.shared.image(for: ref) else { return }
+        let imageSize = CGSize(width: image.width, height: image.height)
+        ctx.saveGState()
+        ctx.clip(to: outputRect)
+        ctx.translateBy(x: outputRect.minX, y: outputRect.maxY)
+        ctx.scaleBy(x: 1, y: -1)
+        let local = CGRect(origin: .zero, size: outputRect.size)
+        ctx.draw(image, in: aspectFillRect(imageSize, in: local))
+        ctx.restoreGState()
+    }
+
+    /// Scales `size` to cover `rect`, centering the overflow (macOS desktop fill).
+    static func aspectFillRect(_ size: CGSize, in rect: CGRect) -> CGRect {
+        guard size.width > 0, size.height > 0 else { return rect }
+        let scale = max(rect.width / size.width, rect.height / size.height)
+        let w = size.width * scale, h = size.height * scale
+        return CGRect(x: rect.midX - w / 2, y: rect.midY - h / 2, width: w, height: h)
     }
 
     private static func drawDynamic(
@@ -388,8 +414,8 @@ enum DocumentRenderer {
     ) -> CIImage {
         let maxAmount = BackgroundEffects.maximumNoiseOpacity / materialNoiseReferenceOpacity
         let amount = min(max(strength / materialNoiseReferenceOpacity, 0), maxAmount)
-        let alpha = 0.05 + amount * 0.085
-        let contrast = 0.10 + amount * 0.085
+        let alpha = 0.05 + amount * 0.18
+        let contrast = 0.10 + amount * 0.16
         let bias = 0.5 - contrast * 0.5
         let noise = CIFilter(name: "CIRandomGenerator")?.outputImage
             ?? CIImage(color: CIColor(red: 0.5, green: 0.5, blue: 0.5))

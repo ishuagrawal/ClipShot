@@ -182,6 +182,12 @@ final class CanvasContentView: NSView {
             updateDynamicBackground(for: doc)
             dynamicBackgroundLayer.isHidden = false
             applyOuterMask(to: dynamicBackgroundLayer, doc: doc, size: backgroundFrame.size)
+        case .image:
+            // Aspect-fill the wallpaper via the shared composed-image path; noise
+            // stays a separate overlay so we pass the noise-free document here.
+            updateComposedBackground(for: doc.withoutPreviewNoise, size: backgroundFrame.size)
+            dynamicBackgroundLayer.isHidden = false
+            applyOuterMask(to: dynamicBackgroundLayer, doc: doc, size: backgroundFrame.size)
         }
     }
 
@@ -288,7 +294,7 @@ final class CanvasContentView: NSView {
         let reference: CGFloat = 0.20
         let maxAmount = BackgroundEffects.maximumNoiseOpacity / reference
         let amount = min(max(strength / reference, 0), maxAmount)
-        return Float(0.05 + amount * 0.085)
+        return Float(0.05 + amount * 0.18)
     }
 
     private static let noiseTexture: CGImage? = {

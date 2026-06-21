@@ -1,10 +1,26 @@
 import CoreGraphics
+import Foundation
+
+/// Identifies a wallpaper image: a file bundled in the app's `Wallpapers/`
+/// folder, or one the user imported (copied into Application Support).
+enum WallpaperRef: Equatable {
+    case bundled(String)
+    case user(URL)
+
+    var key: String {
+        switch self {
+        case .bundled(let name): return "bundled:\(name)"
+        case .user(let url): return "user:\(url.lastPathComponent)"
+        }
+    }
+}
 
 enum BackgroundStyle: Equatable {
     case none
     case solidColor(CGColor)
     case gradient(start: CGColor, end: CGColor, angleDegrees: CGFloat)
     case dynamic
+    case image(WallpaperRef)
 }
 
 extension BackgroundStyle {
@@ -14,6 +30,7 @@ extension BackgroundStyle {
         case solid
         case gradient
         case dynamic
+        case wallpaper
     }
 
     var kind: Kind {
@@ -26,6 +43,8 @@ extension BackgroundStyle {
             return .gradient
         case .dynamic:
             return .dynamic
+        case .image:
+            return .wallpaper
         }
     }
 }

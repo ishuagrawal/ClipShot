@@ -1,16 +1,35 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
-/// Background detail panel with style tiles and per-style controls.
+/// Background detail panel: a Color / Gradient / Wallpaper section picker with
+/// per-section controls, plus stackable blur + grain effects.
 struct BackgroundToolView: View {
     @ObservedObject var state: EditorState
 
+    private enum Section: String, CaseIterable, Identifiable {
+        case color = "Color"
+        case gradient = "Gradient"
+        case wallpaper = "Wallpaper"
+        var id: String { rawValue }
+
+        init(_ kind: BackgroundStyle.Kind) {
+            switch kind {
+            case .none, .solid: self = .color
+            case .gradient, .dynamic: self = .gradient
+            case .wallpaper: self = .wallpaper
+            }
+        }
+    }
+
+    @State private var section: Section = .color
     @State private var solid = Color.white
     @State private var gradientStart = Color(cgColor: BackgroundStyle.defaultGradientStart)
     @State private var gradientEnd = Color(cgColor: BackgroundStyle.defaultGradientEnd)
     @State private var gradientAngle = Double(BackgroundStyle.defaultGradientAngle)
     @State private var blur = 0.0
     @State private var noise = 0.0
+    @State private var uploads: [Wallpaper] = []
     @State private var isSyncingControls = false
     @State private var isSyncingEffects = false
 
@@ -18,17 +37,29 @@ struct BackgroundToolView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.panelSectionSpacing) {
+            Picker("", selection: $section) {
+                ForEach(Section.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+
             VStack(alignment: .leading, spacing: Theme.panelRowSpacing) {
-                tiles
-                config
+                switch section {
+                case .color: colorSection
+                case .gradient: gradientSection
+                case .wallpaper: wallpaperSection
+                }
             }
             effects
         }
         .onAppear {
+            section = section(for: style)
             syncControls(from: style)
             syncEffects(state.document.backgroundEffects)
+            uploads = WallpaperCatalog.userUploads()
         }
         .onChange(of: style) { _, newStyle in
+            section = section(for: newStyle)
             syncControls(from: newStyle)
         }
         .onChange(of: state.document.backgroundEffects) { _, fx in
@@ -36,7 +67,165 @@ struct BackgroundToolView: View {
         }
     }
 
-    /// Stackable post-effects (blur + grain) on top of any non-empty background.
+    // MARK: - Color
+
+    private var colorSection: some View {
+        HStack(spacing: 12) {
+            bead(.none, selected: style.kind == .none) { commit(.none) }
+            bead(.solid, selected: style.kind == .solid) {
+                commit(.solidColor(NSColor(solid).cgColor))
+            }
+            GlassColorWell(selection: $solid, label: "Background color")
+                .onChange(of: solid) { _, _ in
+                    guard !isSyncingControls else { return }
+                    commit(.solidColor(NSColor(solid).cgColor))
+                }
+            Spacer(minLength: 0)
+        }
+    }
+
+    // MARK: - Gradient
+
+    private var gradientSection: some View {
+        VStack(alignment: .leading, spacing: Theme.panelRowSpacing) {
+            HStack(spacing: 12) {
+                bead(.gradient, selected: style.kind == .gradient) { applyGradient() }
+                bead(.dynamic, selected: style.kind == .dynamic) { commit(.dynamic) }
+                Spacer(minLength: 0)
+            }
+            if style.kind == .dynamic {
+                Text("Auto-generated from screenshot colors")
+                    .font(Theme.label(12)).foregroundStyle(Theme.textTertiary)
+            } else {
+                HStack(spacing: 10) {
+                    InspectorRowLabel(text: "Colors")
+                    GlassColorWell(selection: $gradientStart, label: "Gradient start")
+                        .onChange(of: gradientStart) { _, _ in
+                            guard !isSyncingControls else { return }
+                            applyGradient()
+                        }
+                    GlassColorWell(selection: $gradientEnd, label: "Gradient end")
+                        .onChange(of: gradientEnd) { _, _ in
+                            guard !isSyncingControls else { return }
+                            applyGradient()
+                        }
+                }
+                HStack(spacing: 10) {
+                    InspectorRowLabel(text: "Angle")
+                    GlassSlider(
+                        value: Binding(
+                            get: { gradientAngle },
+                            set: { gradientAngle = $0; applyGradient() }
+                        ),
+                        range: 0...360,
+                        accessibilityLabel: "Gradient angle",
+                        accessibilityValue: { "\(Int($0.rounded())) degrees" }
+                    )
+                    InspectorValueLabel(text: "\(Int(gradientAngle))", suffix: "°")
+                }
+            }
+            if !gradientWallpapers.isEmpty {
+                wallpaperHeader("Presets")
+                LazyVGrid(columns: wallpaperColumns, spacing: 8) {
+                    ForEach(gradientWallpapers) { wallpaperTile($0) }
+                }
+            }
+        }
+    }
+
+    private var gradientWallpapers: [Wallpaper] {
+        WallpaperCatalog.bundledGroups().first { $0.category == "gradient" }?.items ?? []
+    }
+
+    /// Segment for a style; gradient-category wallpapers live under Gradient, not Wallpaper.
+    private func section(for style: BackgroundStyle) -> Section {
+        if case .image(let ref) = style, WallpaperCatalog.category(of: ref) == "gradient" {
+            return .gradient
+        }
+        return Section(style.kind)
+    }
+
+    // MARK: - Wallpaper
+
+    private let wallpaperColumns = [GridItem(.adaptive(minimum: 72), spacing: 8)]
+
+    private var wallpaperSection: some View {
+        VStack(alignment: .leading, spacing: Theme.panelRowSpacing) {
+            ForEach(WallpaperCatalog.bundledGroups().filter { $0.category != "gradient" }, id: \.category) { group in
+                wallpaperHeader(group.category.capitalized)
+                LazyVGrid(columns: wallpaperColumns, spacing: 8) {
+                    ForEach(group.items) { wallpaperTile($0) }
+                }
+            }
+            wallpaperHeader("Your uploads")
+            LazyVGrid(columns: wallpaperColumns, spacing: 8) {
+                uploadTile
+                ForEach(uploads) { wallpaperTile($0) }
+            }
+        }
+    }
+
+    private func wallpaperHeader(_ text: String) -> some View {
+        Text(text.uppercased())
+            .font(Theme.label(10)).foregroundStyle(Theme.textTertiary)
+            .padding(.top, 2)
+    }
+
+    private func wallpaperTile(_ wallpaper: Wallpaper) -> some View {
+        let selected = style == .image(wallpaper.ref)
+        return Button {
+            commit(.image(wallpaper.ref))
+        } label: {
+            WallpaperThumbnail(ref: wallpaper.ref)
+                .aspectRatio(16.0 / 9.0, contentMode: .fill)
+                .frame(height: 44)
+                .clipShape(RoundedRectangle(cornerRadius: 7))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 7)
+                        .stroke(selected ? Theme.accent : Color.white.opacity(0.18),
+                                lineWidth: selected ? 2 : 1)
+                )
+                .contentShape(RoundedRectangle(cornerRadius: 7))
+        }
+        .buttonStyle(.plain)
+        .help(wallpaper.displayName)
+        .accessibilityLabel(wallpaper.displayName)
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
+    }
+
+    private var uploadTile: some View {
+        Button(action: pickUpload) {
+            RoundedRectangle(cornerRadius: 7)
+                .fill(Color.black.opacity(0.25))
+                .frame(height: 44)
+                .overlay(
+                    Image(systemName: "plus")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(Theme.textSecondary)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 7)
+                        .stroke(Color.white.opacity(0.18), style: StrokeStyle(lineWidth: 1, dash: [3]))
+                )
+        }
+        .buttonStyle(.plain)
+        .help("Upload an image")
+        .accessibilityLabel("Upload an image")
+    }
+
+    private func pickUpload() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard let ref = try? WallpaperCatalog.importUpload(from: url) else { return }
+        uploads = WallpaperCatalog.userUploads()
+        commit(.image(ref))
+    }
+
+    // MARK: - Effects
+
     @ViewBuilder
     private var effects: some View {
         if style.kind != .none {
@@ -66,176 +255,93 @@ struct BackgroundToolView: View {
         }
     }
 
-    /// Style lenses: each background style is a round glass bead. The active one
-    /// wears a vermilion ring and lifts slightly — same vocabulary as the color wells.
-    private var tiles: some View {
-        HStack(spacing: 12) {
-            ForEach(BackgroundStyle.Kind.allCases, id: \.self) { kind in
-                let selected = style.kind == kind
-                Button {
-                    select(kind)
-                } label: {
-                    tileSwatch(kind)
-                        .frame(width: 36, height: 36)
-                        .clipShape(Circle())
-                        .overlay(
-                            // Specular highlight: every lens reads as glass.
-                            Circle().fill(
-                                RadialGradient(
-                                    colors: [.white.opacity(0.4), .clear],
-                                    center: .init(x: 0.32, y: 0.22),
-                                    startRadius: 0, endRadius: 16
-                                )
-                            )
-                        )
-                        .overlay(
-                            Circle().stroke(
-                                selected ? Theme.accent : Color.white.opacity(0.18),
-                                lineWidth: selected ? 2 : 1
-                            )
-                        )
-                        .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
-                        .scaleEffect(selected ? 1.08 : 1)
-                        .contentShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .animation(.spring(duration: 0.25), value: selected)
-                .help(tileName(kind))
-                .accessibilityLabel(tileName(kind))
-                .accessibilityAddTraits(selected ? [.isSelected] : [])
-            }
-            Spacer(minLength: 0)
+    // MARK: - Tiles
+
+    /// Round glass bead matching the color-well vocabulary: active wears a
+    /// vermilion ring and lifts.
+    private func bead(_ kind: BackgroundStyle.Kind, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            tileSwatch(kind)
+                .frame(width: 36, height: 36)
+                .clipShape(Circle())
+                .overlay(
+                    Circle().fill(
+                        RadialGradient(colors: [.white.opacity(0.4), .clear],
+                                       center: .init(x: 0.32, y: 0.22),
+                                       startRadius: 0, endRadius: 16)
+                    )
+                )
+                .overlay(
+                    Circle().stroke(selected ? Theme.accent : Color.white.opacity(0.18),
+                                    lineWidth: selected ? 2 : 1)
+                )
+                .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
+                .scaleEffect(selected ? 1.08 : 1)
+                .contentShape(Circle())
         }
+        .buttonStyle(.plain)
+        .animation(.spring(duration: 0.25), value: selected)
+        .help(tileName(kind))
+        .accessibilityLabel(tileName(kind))
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 
     @ViewBuilder
     private func tileSwatch(_ kind: BackgroundStyle.Kind) -> some View {
         switch kind {
         case .none:
-            Circle()
-                .fill(Color.black.opacity(0.3))
+            Circle().fill(Color.black.opacity(0.3))
                 .overlay(
-                    Image(systemName: "circle.slash")
-                        .font(.system(size: 13))
+                    Image(systemName: "circle.slash").font(.system(size: 13))
                         .foregroundStyle(Theme.textTertiary)
                 )
         case .solid:
             Circle().fill(solid)
         case .gradient:
             Circle().fill(
-                LinearGradient(
-                    colors: [gradientStart, gradientEnd],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
+                LinearGradient(colors: [gradientStart, gradientEnd],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
             )
         case .dynamic:
             Circle().fill(
-                AngularGradient(
-                    colors: [
-                        Color(red: 0.95, green: 0.35, blue: 0.45),
-                        Color(red: 0.45, green: 0.45, blue: 0.95),
-                        Color(red: 0.35, green: 0.85, blue: 0.75),
-                        Color(red: 0.95, green: 0.35, blue: 0.45)
-                    ],
-                    center: .center
-                )
+                AngularGradient(colors: [
+                    Color(red: 0.95, green: 0.35, blue: 0.45),
+                    Color(red: 0.45, green: 0.45, blue: 0.95),
+                    Color(red: 0.35, green: 0.85, blue: 0.75),
+                    Color(red: 0.95, green: 0.35, blue: 0.45)
+                ], center: .center)
             )
             .overlay(
-                Image(systemName: "sparkles")
-                    .font(.system(size: 12))
+                Image(systemName: "sparkles").font(.system(size: 12))
                     .foregroundStyle(.white.opacity(0.9))
             )
+        case .wallpaper:
+            Circle().fill(Color.black.opacity(0.3))
+                .overlay(
+                    Image(systemName: "photo").font(.system(size: 13))
+                        .foregroundStyle(Theme.textTertiary)
+                )
         }
     }
 
     private func tileName(_ kind: BackgroundStyle.Kind) -> String {
         switch kind {
-        case .none:
-            return "None"
-        case .solid:
-            return "Solid"
-        case .gradient:
-            return "Gradient"
-        case .dynamic:
-            return "Dynamic"
+        case .none: return "None"
+        case .solid: return "Solid"
+        case .gradient: return "Gradient"
+        case .dynamic: return "Auto"
+        case .wallpaper: return "Wallpaper"
         }
     }
 
-    @ViewBuilder
-    private var config: some View {
-        switch style.kind {
-        case .none:
-            Text("No background")
-                .font(Theme.label(12))
-                .foregroundStyle(Theme.textTertiary)
-        case .solid:
-            HStack {
-                InspectorRowLabel(text: "Color")
-                GlassColorWell(selection: $solid, label: "Background color")
-                    .onChange(of: solid) { _, _ in
-                        guard !isSyncingControls else { return }
-                        commit(.solidColor(NSColor(solid).cgColor))
-                    }
-            }
-        case .gradient:
-            VStack(alignment: .leading, spacing: Theme.panelRowSpacing) {
-                HStack(spacing: 10) {
-                    InspectorRowLabel(text: "Colors")
-                    GlassColorWell(selection: $gradientStart, label: "Gradient start")
-                        .onChange(of: gradientStart) { _, _ in
-                            guard !isSyncingControls else { return }
-                            applyGradient()
-                        }
-                    GlassColorWell(selection: $gradientEnd, label: "Gradient end")
-                        .onChange(of: gradientEnd) { _, _ in
-                            guard !isSyncingControls else { return }
-                            applyGradient()
-                        }
-                }
-                HStack(spacing: 10) {
-                    InspectorRowLabel(text: "Angle")
-                    GlassSlider(
-                        value: Binding(
-                            get: { gradientAngle },
-                            set: { newValue in
-                                gradientAngle = newValue
-                                applyGradient()
-                            }
-                        ),
-                        range: 0...360,
-                        accessibilityLabel: "Gradient angle",
-                        accessibilityValue: { "\(Int($0.rounded())) degrees" }
-                    )
-                    InspectorValueLabel(text: "\(Int(gradientAngle))", suffix: "°")
-                }
-            }
-        case .dynamic:
-            Text("Auto-generated from image").font(Theme.label(12)).foregroundStyle(Theme.textTertiary)
-        }
-    }
-
-    private func select(_ kind: BackgroundStyle.Kind) {
-        switch kind {
-        case .none:
-            commit(.none)
-        case .solid:
-            commit(.solidColor(NSColor(solid).cgColor))
-        case .gradient:
-            applyGradient()
-        case .dynamic:
-            commit(.dynamic)
-        }
-    }
+    // MARK: - Commit / sync
 
     private func applyGradient() {
-        commit(
-            .gradient(
-                start: NSColor(gradientStart).cgColor,
-                end: NSColor(gradientEnd).cgColor,
-                angleDegrees: CGFloat(gradientAngle)
-            )
-        )
+        commit(.gradient(
+            start: NSColor(gradientStart).cgColor,
+            end: NSColor(gradientEnd).cgColor,
+            angleDegrees: CGFloat(gradientAngle)
+        ))
     }
 
     private func commit(_ next: BackgroundStyle) {
@@ -245,15 +351,9 @@ struct BackgroundToolView: View {
 
     private func syncControls(from style: BackgroundStyle) {
         isSyncingControls = true
-        defer {
-            // Re-enable writes after the onChange cascade settles, staying on the main actor.
-            Task { @MainActor in
-                isSyncingControls = false
-            }
-        }
-
+        defer { Task { @MainActor in isSyncingControls = false } }
         switch style {
-        case .none:
+        case .none, .dynamic, .image:
             break
         case .solidColor(let color):
             solid = Color(cgColor: color)
@@ -261,8 +361,6 @@ struct BackgroundToolView: View {
             gradientStart = Color(cgColor: start)
             gradientEnd = Color(cgColor: end)
             gradientAngle = Double(angle)
-        case .dynamic:
-            break
         }
     }
 
@@ -282,5 +380,28 @@ struct BackgroundToolView: View {
         defer { Task { @MainActor in isSyncingEffects = false } }
         blur = nextBlur
         noise = nextNoise
+    }
+}
+
+/// Async-loading wallpaper thumbnail backed by `WallpaperImageCache`.
+private struct WallpaperThumbnail: View {
+    let ref: WallpaperRef
+    @State private var image: CGImage?
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(decorative: image, scale: 1)
+                    .resizable()
+            } else {
+                Rectangle().fill(Color.black.opacity(0.25))
+            }
+        }
+        .task(id: ref.key) {
+            let loaded = await Task.detached(priority: .userInitiated) {
+                WallpaperImageCache.shared.thumbnail(for: ref, maxPixel: 240)
+            }.value
+            await MainActor.run { image = loaded }
+        }
     }
 }

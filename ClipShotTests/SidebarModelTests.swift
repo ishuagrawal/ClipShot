@@ -43,8 +43,9 @@ final class SidebarModelTests: XCTestCase {
         XCTAssertEqual(BackgroundStyle.dynamic.kind, .dynamic)
     }
 
-    func testKindHasAllFourCases() {
-        XCTAssertEqual(BackgroundStyle.Kind.allCases.count, 4)
+    func testKindHasAllCases() {
+        XCTAssertEqual(BackgroundStyle.Kind.allCases.count, 5)
+        XCTAssertEqual(BackgroundStyle.image(.bundled("x.jpg")).kind, .wallpaper)
     }
 
     // MARK: EditorState inspector model
