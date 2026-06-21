@@ -198,10 +198,12 @@ struct BackgroundToolView: View {
     private func sectionLabelRow(_ segments: [Section], segW: CGFloat, height: CGFloat, color: Color) -> some View {
         HStack(spacing: 0) {
             ForEach(segments) { seg in
-                HStack(spacing: 5) {
+                HStack(spacing: 4) {
                     Image(systemName: seg.icon).font(.system(size: 11, weight: .semibold))
-                        .frame(width: 16, height: 14)
+                        .frame(width: 14)
                     Text(seg.rawValue).font(Theme.label(11.5, .semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
                 }
                 .frame(width: segW, height: height)
             }
