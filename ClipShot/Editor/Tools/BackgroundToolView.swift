@@ -32,6 +32,9 @@ struct BackgroundToolView: View {
     @State private var uploads: [Wallpaper] = []
     @State private var isSyncingControls = false
     @State private var isSyncingEffects = false
+    @State private var sectionOpacity: Double = 1
+    @State private var sectionHeight: CGFloat = 0
+    private static let sectionClipInset: CGFloat = 6
 
     private var style: BackgroundStyle { state.document.background }
 
@@ -43,14 +46,40 @@ struct BackgroundToolView: View {
             .pickerStyle(.segmented)
             .labelsHidden()
 
-            VStack(alignment: .leading, spacing: Theme.panelRowSpacing) {
-                switch section {
-                case .color: colorSection
-                case .gradient: gradientSection
-                case .wallpaper: wallpaperSection
+            ZStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: Theme.panelRowSpacing) {
+                    switch section {
+                    case .color: colorSection
+                    case .gradient: gradientSection
+                    case .wallpaper: wallpaperSection
+                    }
+                }
+                // Headroom so the clip doesn't shave the bead ring/lift/shadow.
+                .padding(.vertical, Self.sectionClipInset)
+                .opacity(sectionOpacity)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
+                    if sectionHeight != height {
+                        withAnimation(Theme.panelSpring) { sectionHeight = height }
+                    }
                 }
             }
+            // Clip to an animated height so the rows are revealed as the panel
+            // grows instead of fading in over empty space.
+            .frame(height: sectionHeight, alignment: .top)
+            .clipped()
+            // Cancel the clip headroom so row spacing is unchanged.
+            .padding(.vertical, -Self.sectionClipInset)
             effects
+        }
+        // Match the glass-panel motion: the card resizes on the panel spring while
+        // the swapped section cuts to zero and fades up (plain opacity — blur/scale
+        // on glass content snaps).
+        .animation(Theme.panelSpring, value: section)
+        .onChange(of: section) { _, _ in
+            var snap = Transaction()
+            snap.disablesAnimations = true
+            withTransaction(snap) { sectionOpacity = 0 }
+            withAnimation(.easeOut(duration: 0.22).delay(0.05)) { sectionOpacity = 1 }
         }
         .onAppear {
             section = section(for: style)
