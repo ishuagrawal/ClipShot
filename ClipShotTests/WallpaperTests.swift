@@ -20,6 +20,38 @@ final class WallpaperTests: XCTestCase {
         XCTAssertEqual(WallpaperRef.user(url).key, "user:photo.png")
     }
 
+    func test_backgroundPaletteRequest_changesWhenCropAspectChanges() throws {
+        let ref = WallpaperRef.bundled("a.jpg")
+        let wide = try XCTUnwrap(BackgroundPaletteRequest(
+            background: .image(ref),
+            effectiveCrop: CGRect(x: 0, y: 0, width: 200, height: 100)
+        ))
+        let tall = try XCTUnwrap(BackgroundPaletteRequest(
+            background: .image(ref),
+            effectiveCrop: CGRect(x: 0, y: 0, width: 100, height: 200)
+        ))
+
+        XCTAssertNotEqual(wide.key, tall.key)
+    }
+
+    func test_backgroundPaletteRequest_rejectsStaleBackground() throws {
+        let request = try XCTUnwrap(BackgroundPaletteRequest(
+            background: .image(.bundled("a.jpg")),
+            effectiveCrop: CGRect(x: 0, y: 0, width: 200, height: 100)
+        ))
+
+        XCTAssertFalse(request.matches(
+            background: .image(.bundled("b.jpg")),
+            effectiveCrop: CGRect(x: 0, y: 0, width: 200, height: 100),
+            currentKey: request.key
+        ))
+        XCTAssertFalse(request.matches(
+            background: .solidColor(CGColor(gray: 0, alpha: 1)),
+            effectiveCrop: CGRect(x: 0, y: 0, width: 200, height: 100),
+            currentKey: request.key
+        ))
+    }
+
     // MARK: - Aspect fill
 
     func test_aspectFill_coversAndCenters() {

@@ -40,6 +40,10 @@ private struct EditorShell: View {
     @StateObject private var zoomController = CanvasZoomController()
     /// Mesh palette is derived from the (immutable) screenshot once, not per render.
     @State private var meshPalette: [Color] = []
+    /// Edge palette sampled from the rendered background (wallpaper or gradient),
+    /// the same pixel-sampling path so every background lights the room identically.
+    @State private var samplePalette: [Color] = []
+    @State private var samplePaletteKey = ""
     private let onGoHome: () -> Void
 
     init(document: EditorDocument, onGoHome: @escaping () -> Void = {}) {
@@ -56,7 +60,7 @@ private struct EditorShell: View {
             let rightChrome = Theme.rightChromeWidth(forInspector: inspectorWidth)
             ZStack {
                 StageBackdrop()
-                AmbientGlowView(colors: ambientColors)
+                AmbientGlowView(colors: ambientColors, cardFrame: zoomController.cardFrame)
                 // Full bleed: the document and its background run underneath every
                 // glass panel, so the chrome refracts the work itself.
                 CanvasView(
@@ -132,11 +136,21 @@ private struct EditorShell: View {
                           selection: state.document.baseSelection)
                 .colors
                 .map { Color(cgColor: $0) }
+            recomputeBackgroundPalette()
             // SwiftUI hands initial key focus to the first text field (the title),
             // which selects its text and steals canvas shortcuts. Canvas wins.
             DispatchQueue.main.async {
                 canvasFocusProxy.requestKeyboardFocus()
             }
+        }
+        .onChange(of: state.document.background) { _, _ in
+            recomputeBackgroundPalette()
+        }
+        .onChange(of: state.document.effectiveCrop) { _, _ in
+            recomputeBackgroundPalette()
+        }
+        .onChange(of: state.previewingOriginal) { _, _ in
+            recomputeBackgroundPalette()
         }
     }
 
@@ -159,15 +173,97 @@ private struct EditorShell: View {
     /// The capture decides the room's light. Dynamic/none backgrounds diffuse the
     /// screenshot's harmonized mesh palette; explicit backgrounds diffuse themselves.
     private var ambientColors: [Color] {
-        switch state.document.background {
+        switch state.displayDocument.background {
         case .solidColor(let color):
             return [Color(cgColor: color)]
-        case .gradient(let start, let end, _):
-            return [Color(cgColor: start), Color(cgColor: end),
-                    Color(cgColor: start), Color(cgColor: end),
-                    Color(cgColor: start).opacity(0.8), Color(cgColor: end)]
-        case .dynamic, .none, .image:
+        case .gradient(let start, let end, let angle):
+            // Exact, not sampled: evaluate the gradient at the 9 anchor points with
+            // the same projection CAGradientLayer uses. No rasterization/flip risk.
+            return Self.gradientGrid(start: start, end: end, angle: angle,
+                                     size: state.displayDocument.effectiveCrop.size)
+                .map { Color(cgColor: $0) }
+        case .image:
+            return samplePalette.isEmpty ? meshPalette : samplePalette
+        case .dynamic, .none:
             return meshPalette
+        }
+    }
+
+    /// The linear gradient evaluated at the 9 blob anchors (mesh order, v top-down:
+    /// index 0 = top-left, 8 = bottom-right), via the exact axis projection the live
+    /// CAGradientLayer uses. Same anchor layout as `EdgePaletteSampler`.
+    private static func gradientGrid(start: CGColor, end: CGColor,
+                                     angle: CGFloat, size: CGSize) -> [CGColor] {
+        let w = max(1, size.width), h = max(1, size.height)
+        let rad = angle * .pi / 180
+        let half = max(w, h) / 2
+        // Matches both the live CAGradientLayer and the export renderer: their
+        // start/end pixels are identical (center − dir·max(w,h)/2), start top-right
+        // at 135°. Evaluated in this same top-left-origin unit space.
+        let dx = cos(rad) * half, dy = sin(rad) * half
+        let s = CGPoint(x: 0.5 - dx / w, y: 0.5 - dy / h)
+        let e = CGPoint(x: 0.5 + dx / w, y: 0.5 + dy / h)
+        let ax = e.x - s.x, ay = e.y - s.y
+        let len2 = ax * ax + ay * ay
+        let zones: [CGFloat] = [0, 0.5, 1]
+        var grid: [CGColor] = []
+        for v in zones {
+            for u in zones {
+                let t = len2 > 0
+                    ? min(1, max(0, ((u - s.x) * ax + (v - s.y) * ay) / len2))
+                    : 0.5
+                grid.append(lerp(start, end, t))
+            }
+        }
+        return grid
+    }
+
+    private static func lerp(_ a: CGColor, _ b: CGColor, _ t: CGFloat) -> CGColor {
+        let ca = a.components ?? [0, 0, 0, 1], cb = b.components ?? [0, 0, 0, 1]
+        guard ca.count >= 3, cb.count >= 3 else { return a }
+        return CGColor(srgbRed: ca[0] + (cb[0] - ca[0]) * t,
+                       green: ca[1] + (cb[1] - ca[1]) * t,
+                       blue: ca[2] + (cb[2] - ca[2]) * t, alpha: 1)
+    }
+
+    /// Wallpapers can't be computed in closed form, so decode the image and sample
+    /// its 9 edge zones via `EdgePaletteSampler`. Gradients are evaluated exactly in
+    /// `ambientColors`; other backgrounds need no palette here.
+    private func recomputeBackgroundPalette() {
+        let document = state.displayDocument
+        guard let request = BackgroundPaletteRequest(
+            background: document.background,
+            effectiveCrop: document.effectiveCrop
+        ) else {
+            samplePalette = []
+            samplePaletteKey = ""
+            return
+        }
+
+        guard samplePaletteKey != request.key else { return }
+        samplePaletteKey = request.key
+        samplePalette = []
+
+        switch document.background {
+        case .image(let ref):
+            Task.detached(priority: .userInitiated) {
+                guard let image = WallpaperImageCache.shared.thumbnail(for: ref, maxPixel: 256)
+                    ?? WallpaperImageCache.shared.image(for: ref) else { return }
+                let colors = EdgePaletteSampler.grid(from: image, cardAspect: request.aspect)
+                    .map { Color(cgColor: $0) }
+                await MainActor.run {
+                    guard request.matches(
+                        background: state.displayDocument.background,
+                        effectiveCrop: state.displayDocument.effectiveCrop,
+                        currentKey: samplePaletteKey
+                    ) else {
+                        return
+                    }
+                    samplePalette = colors
+                }
+            }
+        default:
+            break
         }
     }
 }

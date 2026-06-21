@@ -24,6 +24,10 @@ final class CanvasCoordinator {
 
     /// Forwarded to the zoom controller so the SwiftUI readout tracks the live zoom.
     var onMagnificationChange: ((CGFloat) -> Void)?
+    /// Forwarded to the zoom controller: the card's on-screen frame (top-left
+    /// origin, stage space) so the ambient glow radiates from its edges.
+    var onCardFrameChange: ((CGRect) -> Void)?
+    nonisolated(unsafe) private var cardFrameObserver: NSObjectProtocol?
     var currentMagnification: CGFloat { scrollView.logicalMagnification }
     var minimumMagnification: CGFloat { scrollView.logicalMinMagnification }
     var maximumMagnification: CGFloat { scrollView.logicalMaxMagnification }
@@ -88,7 +92,34 @@ final class CanvasCoordinator {
             guard let self else { return }
             self.onMagnificationChange?(mag)
             self.pushZoomScale()
+            self.publishCardFrame()
         }
+        // Pans (clip view scrolling) move the card on screen; track them too.
+        scrollView.contentView.postsBoundsChangedNotifications = true
+        cardFrameObserver = NotificationCenter.default.addObserver(
+            forName: NSView.boundsDidChangeNotification,
+            object: scrollView.contentView,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.publishCardFrame() }
+        }
+    }
+
+    deinit {
+        if let cardFrameObserver {
+            NotificationCenter.default.removeObserver(cardFrameObserver)
+        }
+    }
+
+    /// Maps the padded card (interaction view) into the stage's top-left-origin
+    /// space, which is coincident with the full-bleed ambient glow layer.
+    private func publishCardFrame() {
+        let bottomUp = interactionView.convert(interactionView.bounds, to: scrollView)
+        let h = scrollView.bounds.height
+        guard h > 0, bottomUp.width > 0, bottomUp.height > 0 else { return }
+        let topLeft = CGRect(x: bottomUp.minX, y: h - bottomUp.maxY,
+                             width: bottomUp.width, height: bottomUp.height)
+        onCardFrameChange?(topLeft)
     }
 
     /// Push the physical magnification into the chrome views so resize handles
@@ -188,6 +219,7 @@ final class CanvasCoordinator {
             dy: placement.imageFrame.minY
         )
         pushZoomScale()
+        publishCardFrame()
     }
 
     private func refitInitialSelectionIfNeeded(viewportSize: CGSize, force: Bool = false) {

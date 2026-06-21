@@ -77,6 +77,7 @@
 		01A000000000000000000503 /* MenuBarIcon@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000503 /* MenuBarIcon@2x.png */; };
 		01A000000000000000000601 /* RecentsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000601 /* RecentsStore.swift */; };
 		1BA944B9B0F0C1F9C43EF01B /* MeshGradientGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA9393E6113E2EEE8E5FE7E6 /* MeshGradientGenerator.swift */; };
+		0AED9E000100000000000001 /* EdgePaletteSampler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AED9E000200000000000002 /* EdgePaletteSampler.swift */; };
 		4AE6726D86D36938DDD57DF4 /* ContentBoundsDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8845A676CEB200FC3C0AD70E /* ContentBoundsDetectorTests.swift */; };
 		775F677B581250353BE09E0E /* ContentBoundsDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4814D67D6F978873045C5635 /* ContentBoundsDetector.swift */; };
 		876F3B6F8742365424087997 /* DynamicMeshCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = D99D9E0BDD5C3B8BAB17EF4C /* DynamicMeshCache.swift */; };
@@ -180,6 +181,7 @@
 		6498582A10FFBBAB8A685137 /* MeshSpec.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MeshSpec.swift; path = ClipShot/Editor/Background/MeshSpec.swift; sourceTree = "<group>"; };
 		8845A676CEB200FC3C0AD70E /* ContentBoundsDetectorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ContentBoundsDetectorTests.swift; sourceTree = "<group>"; };
 		BA9393E6113E2EEE8E5FE7E6 /* MeshGradientGenerator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MeshGradientGenerator.swift; path = ClipShot/Editor/Background/MeshGradientGenerator.swift; sourceTree = "<group>"; };
+		0AED9E000200000000000002 /* EdgePaletteSampler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgePaletteSampler.swift; path = ClipShot/Editor/Background/EdgePaletteSampler.swift; sourceTree = "<group>"; };
 		D99D9E0BDD5C3B8BAB17EF4C /* DynamicMeshCache.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DynamicMeshCache.swift; path = ClipShot/Editor/Background/DynamicMeshCache.swift; sourceTree = "<group>"; };
 		CA7A10096000000000000001 /* WallpaperCatalog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WallpaperCatalog.swift; path = ClipShot/Editor/Background/WallpaperCatalog.swift; sourceTree = "<group>"; };
 		CA7A10096000000000000002 /* WallpaperImageCache.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WallpaperImageCache.swift; path = ClipShot/Editor/Background/WallpaperImageCache.swift; sourceTree = "<group>"; };
@@ -207,6 +209,7 @@
 				6498582A10FFBBAB8A685137 /* MeshSpec.swift */,
 				090C58A15E485322374C6255 /* MeshSpecTests.swift */,
 				BA9393E6113E2EEE8E5FE7E6 /* MeshGradientGenerator.swift */,
+				0AED9E000200000000000002 /* EdgePaletteSampler.swift */,
 				53E6D10A95528AC36DD4CA1A /* MeshGradientGeneratorTests.swift */,
 				D99D9E0BDD5C3B8BAB17EF4C /* DynamicMeshCache.swift */,
 				56154F05608FA48C1096BB93 /* DynamicMeshCacheTests.swift */,
@@ -546,6 +549,7 @@
 				01A000000000000000000220 /* TextToolView.swift in Sources */,
 				D941DE371CF3851E414EB2D6 /* MeshSpec.swift in Sources */,
 				1BA944B9B0F0C1F9C43EF01B /* MeshGradientGenerator.swift in Sources */,
+				0AED9E000100000000000001 /* EdgePaletteSampler.swift in Sources */,
 				876F3B6F8742365424087997 /* DynamicMeshCache.swift in Sources */,
 				775F677B581250353BE09E0E /* ContentBoundsDetector.swift in Sources */,
 				CA7A10096000000000000101 /* WallpaperCatalog.swift in Sources */,

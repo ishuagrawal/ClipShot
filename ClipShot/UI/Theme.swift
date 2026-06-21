@@ -198,21 +198,34 @@ struct AmbientGlowView: View {
     /// Mesh-order palette (3×3, top-left → bottom-right). Fewer colors degrade
     /// gracefully — each blob indexes with wraparound.
     let colors: [Color]
+    /// The card's on-screen frame (stage space). Blobs anchor to its edges so the
+    /// light reads as spilling from the artboard, not the window. Null → full stage.
+    var cardFrame: CGRect = .null
 
     var body: some View {
         GeometryReader { geo in
             let w = geo.size.width, h = geo.size.height
+            // Anchor to the card's real frame when known, else the whole stage.
+            let f = (cardFrame.isNull || cardFrame.isEmpty)
+                ? CGRect(x: 0, y: 0, width: w, height: h) : cardFrame
             let d = max(w, h)
+            let cr = d * 0.34, er = d * 0.32
             ZStack {
-                blob(0, x: 0.06 * w, y: 0.04 * h, r: d * 0.34)
-                blob(2, x: 0.95 * w, y: 0.08 * h, r: d * 0.30)
-                blob(6, x: 0.04 * w, y: 0.96 * h, r: d * 0.32)
-                blob(8, x: 0.96 * w, y: 0.94 * h, r: d * 0.36)
-                blob(4, x: 0.50 * w, y: 0.55 * h, r: d * 0.42)
-                blob(5, x: 0.99 * w, y: 0.50 * h, r: d * 0.26)
+                // Each perimeter zone radiates its own edge color outward from the
+                // card edge, so the light direction reads true (right edge → right
+                // glow) and originates at the artboard, not the window corner.
+                blob(0, x: f.minX, y: f.minY, r: cr)            // TL
+                blob(1, x: f.midX, y: f.minY, r: er)            // top
+                blob(2, x: f.maxX, y: f.minY, r: cr)            // TR
+                blob(3, x: f.minX, y: f.midY, r: er)            // left
+                blob(5, x: f.maxX, y: f.midY, r: er)            // right
+                blob(6, x: f.minX, y: f.maxY, r: cr)            // BL
+                blob(7, x: f.midX, y: f.maxY, r: er)            // bottom
+                blob(8, x: f.maxX, y: f.maxY, r: cr)            // BR
+                blob(4, x: f.midX, y: f.midY, r: d * 0.24)      // center
             }
             .blur(radius: 70)
-            .saturation(1.5)
+            .saturation(1.1)
             .opacity(0.42)
         }
         .drawingGroup()

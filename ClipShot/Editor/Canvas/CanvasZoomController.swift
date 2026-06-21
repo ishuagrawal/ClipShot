@@ -67,6 +67,9 @@ private extension Comparable {
 @MainActor
 final class CanvasZoomController: ObservableObject {
     @Published private(set) var magnification: CGFloat = 1
+    /// The padded card's live on-screen frame, in the canvas/stage coordinate
+    /// space (top-left origin), so the ambient glow can radiate from its edges.
+    @Published private(set) var cardFrame: CGRect = .null
 
     private weak var coordinator: CanvasCoordinator?
 
@@ -93,8 +96,19 @@ final class CanvasZoomController: ObservableObject {
             coordinator.onMagnificationChange = { [weak self] mag in
                 self?.publishMagnification(mag)
             }
+            coordinator.onCardFrameChange = { [weak self] frame in
+                self?.publishCardFrame(frame)
+            }
         }
         publishMagnification(coordinator.currentMagnification)
+    }
+
+    private func publishCardFrame(_ frame: CGRect) {
+        guard frame != cardFrame else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self, frame != self.cardFrame else { return }
+            self.cardFrame = frame
+        }
     }
 
     /// Publish only on real change (breaks the invalidation loop) and off the current
