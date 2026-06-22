@@ -22,7 +22,7 @@ final class NativeCaptureRegionOverlay {
 
         for screen in NSScreen.screens {
             guard let displayID = screen.displayID else { continue }
-            let panel = NSPanel(
+            let panel = NativeCapturePanel(
                 contentRect: screen.frame,
                 styleMask: [.borderless, .nonactivatingPanel],
                 backing: .buffered,
@@ -71,6 +71,11 @@ final class NativeCaptureRegionOverlay {
     }
 }
 
+private final class NativeCapturePanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
+}
+
 private final class NativeCaptureRegionView: NSView {
     private let displayID: CGDirectDisplayID
     private let completion: (NativeCaptureRegion?) -> Void
@@ -98,7 +103,23 @@ private final class NativeCaptureRegionView: NSView {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         window?.makeFirstResponder(self)
+        NSCursor.crosshair.set()
     }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas { removeTrackingArea(area) }
+        addTrackingArea(NSTrackingArea(
+            rect: bounds,
+            options: [.activeAlways, .mouseMoved, .mouseEnteredAndExited, .cursorUpdate, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        ))
+    }
+
+    override func cursorUpdate(with event: NSEvent) { NSCursor.crosshair.set() }
+    override func mouseEntered(with event: NSEvent) { NSCursor.crosshair.set() }
+    override func mouseMoved(with event: NSEvent) { NSCursor.crosshair.set() }
 
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 53 {
@@ -121,6 +142,7 @@ private final class NativeCaptureRegionView: NSView {
         if let startPoint, hypot(point.x - startPoint.x, point.y - startPoint.y) >= dragSlop {
             didDrag = true
         }
+        NSCursor.crosshair.set()
         needsDisplay = true
     }
 
@@ -159,22 +181,17 @@ private final class NativeCaptureRegionView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         guard let rect = selectionRect, rect.width > 1 || rect.height > 1 else { return }
 
-        NSColor.black.withAlphaComponent(0.24).setFill()
-        bounds.fill()
-
-        if let context = NSGraphicsContext.current?.cgContext {
-            context.saveGState()
-            context.clear(rect)
-            context.restoreGState()
-        }
-
-        NSColor.systemBlue.withAlphaComponent(0.18).setFill()
+        NSColor.white.withAlphaComponent(0.18).setFill()
         rect.fill()
 
         let path = NSBezierPath(rect: rect)
-        path.lineWidth = 2
-        NSColor.systemBlue.setStroke()
+        path.lineWidth = 1
+        NSColor.white.withAlphaComponent(0.9).setStroke()
         path.stroke()
+    }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .crosshair)
     }
 
     private var selectionRect: CGRect? {
