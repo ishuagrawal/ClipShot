@@ -131,9 +131,34 @@ final class NativeScreenCapturer: @unchecked Sendable {
         return NativeCaptureBitmap(image: image, pixelScale: max(1, scale))
     }
 
-    /// Frontmost eligible window containing a global point (SCShareableContent
-    /// returns windows front-to-back, so the first hit is topmost).
+    /// Frontmost window at a point via CGWindowList z-order (SCShareableContent
+    /// windows are not reliably ordered), mapped back to its SCWindow.
     private func window(at point: CGPoint, windows: [SCWindow]) -> SCWindow? {
+        let byID = Dictionary(windows.map { ($0.windowID, $0) }, uniquingKeysWith: { first, _ in first })
+        guard let info = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID
+        ) as? [[String: Any]] else {
+            return fallbackWindow(at: point, windows: windows)
+        }
+
+        let ownPID = Int(ProcessInfo.processInfo.processIdentifier)
+        for entry in info {
+            guard (entry[kCGWindowLayer as String] as? Int) == 0,
+                  (entry[kCGWindowOwnerPID as String] as? Int) != ownPID,
+                  let id = entry[kCGWindowNumber as String] as? CGWindowID,
+                  let bounds = entry[kCGWindowBounds as String] as? [String: CGFloat] else { continue }
+            let frame = CGRect(
+                x: bounds["X"] ?? 0, y: bounds["Y"] ?? 0,
+                width: bounds["Width"] ?? 0, height: bounds["Height"] ?? 0
+            )
+            guard frame.contains(point), let window = byID[id] else { continue }
+            return window
+        }
+        return fallbackWindow(at: point, windows: windows)
+    }
+
+    /// Last-resort pick when the CGWindowList hit-test yields nothing usable.
+    private func fallbackWindow(at point: CGPoint, windows: [SCWindow]) -> SCWindow? {
         windows.first { window in
             window.isOnScreen
                 && window.windowLayer == 0
