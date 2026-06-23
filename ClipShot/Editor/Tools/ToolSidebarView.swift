@@ -14,7 +14,6 @@ struct InspectorView: View {
     /// back. A stale value only persists while the slot is collapsed; the next
     /// interior re-measures on its way in.
     @State private var contextCardHeight: CGFloat = 0
-    @State private var interiorOpacity: Double = 1
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -92,22 +91,13 @@ struct InspectorView: View {
             ZStack(alignment: .top) {
                 if hasContextCard {
                     contextCard
-                        // Sequenced fade driven by state, not insert/remove
-                        // transitions: on a swap the content cuts to the new
-                        // interior at zero opacity and fades up, so half-opaque
-                        // interiors never overlap (reads as a flash) and rapid
-                        // tool swaps just retarget the animation — re-inserting
-                        // a transitioning-out identity could leave the interior
-                        // stuck invisible. Plain opacity, because blur on
-                        // content rendered into a glassEffect causes flicker.
-                        // .identity for the same reason: a default opacity
-                        // removal lasts the length of the panel spring, and
-                        // re-inserting the interior mid-removal (rapid select ↔
-                        // draw-tool toggling) cancels the insertion and leaves
-                        // the slot empty. The slot's height, opacity, and the
-                        // state-driven fade already carry the visuals.
-                        .transition(.identity)
-                        .opacity(interiorOpacity)
+                        // Keyed crossfade: outgoing tool fades out as incoming
+                        // fades in. Sequenced to avoid a half-opaque overlap flash.
+                        .id(contextCardKey)
+                        .transition(.asymmetric(
+                            insertion: .opacity.animation(.easeOut(duration: 0.22).delay(0.1)),
+                            removal: .opacity.animation(.easeIn(duration: 0.14))
+                        ))
                         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
                             if contextCardHeight != height {
                                 withAnimation(Theme.panelSpring) { contextCardHeight = height }
@@ -122,13 +112,6 @@ struct InspectorView: View {
             // Cancel the column spacing while collapsed so the hidden slot
             // doesn't leave a double gap above the Layers card.
             .padding(.bottom, hasContextCard ? 0 : -columnSpacing)
-            .onChange(of: contextCardKey) { _, key in
-                guard key != "none" else { return }
-                var snap = Transaction()
-                snap.disablesAnimations = true
-                withTransaction(snap) { interiorOpacity = 0 }
-                withAnimation(.easeOut(duration: 0.22).delay(0.05)) { interiorOpacity = 1 }
-            }
             layersCard
             GlassCard("Frame") {
                 PaddingToolView(state: state)
