@@ -10,6 +10,12 @@ final class CanvasContentView: NSView {
         didSet { updateFrameAndLayers(previous: oldValue) }
     }
 
+    /// Fires when the visible card background for the current document has been
+    /// committed on screen — synchronously for solid/gradient, on the async
+    /// landing for image/dynamic/blur. The ambient glow swaps off this so the
+    /// light never recolors ahead of the background it radiates.
+    var onBackgroundLanded: ((CanvasBackgroundLanding) -> Void)?
+
     private let solidBackgroundLayer: CALayer
     private let gradientBackgroundLayer: CAGradientLayer
     private let dynamicBackgroundLayer: CALayer
@@ -163,6 +169,7 @@ final class CanvasContentView: NSView {
             pendingBGOperation = nil
             noiseBackgroundLayer.opacity = 0
             hideBlurContent()
+            publishBackgroundLanded(for: doc)
             return
         }
 
@@ -202,6 +209,7 @@ final class CanvasContentView: NSView {
             solidBackgroundLayer.backgroundColor = color
             solidBackgroundLayer.isHidden = false
             applyOuterMask(to: solidBackgroundLayer, doc: doc, size: backgroundFrame.size)
+            publishBackgroundLanded(for: doc)
         case .gradient(let start, let end, let angleDegrees):
             gradientBackgroundLayer.colors = [start, end]
             let points = Self.gradientPoints(angleDegrees: angleDegrees, size: backgroundFrame.size)
@@ -209,6 +217,7 @@ final class CanvasContentView: NSView {
             gradientBackgroundLayer.endPoint = points.end
             gradientBackgroundLayer.isHidden = false
             applyOuterMask(to: gradientBackgroundLayer, doc: doc, size: backgroundFrame.size)
+            publishBackgroundLanded(for: doc)
         case .dynamic:
             updateDynamicBackground(for: doc)
             dynamicBackgroundLayer.isHidden = false
@@ -241,6 +250,7 @@ final class CanvasContentView: NSView {
             dynamicBackgroundLayer.contents = cached
             pendingDynamicSource = nil
             pendingDynamicSelection = .null
+            publishBackgroundLanded(for: doc)
             return
         }
 
@@ -264,6 +274,7 @@ final class CanvasContentView: NSView {
                       current.screenshot === screenshot,
                       current.baseSelection == selection else { return }
                 self.setContentsWithoutAnimation(self.dynamicBackgroundLayer, image)
+                self.publishBackgroundLanded(for: current)
             }
         }
     }
@@ -317,6 +328,7 @@ final class CanvasContentView: NSView {
                       self.pendingBGToken == token,
                       let image else { return }
                 self.setContentsWithoutAnimation(self.blurContentLayer, image)
+                self.publishBackgroundLanded(for: doc)
                 if self.pendingBGOperation === operation {
                     self.pendingBGOperation = nil
                 }
@@ -352,6 +364,7 @@ final class CanvasContentView: NSView {
                       self.pendingBGToken == token,
                       let image else { return }
                 self.setContentsWithoutAnimation(self.dynamicBackgroundLayer, image)
+                self.publishBackgroundLanded(for: doc)
                 if self.pendingBGOperation === operation {
                     self.pendingBGOperation = nil
                 }
@@ -372,6 +385,13 @@ final class CanvasContentView: NSView {
             layer.masksToBounds = true
             layer.mask = nil
         }
+    }
+
+    private func publishBackgroundLanded(for doc: EditorDocument) {
+        onBackgroundLanded?(CanvasBackgroundLanding(
+            background: doc.background,
+            effectiveCrop: doc.effectiveCrop
+        ))
     }
 
     private static func previewNoiseOpacity(for strength: CGFloat) -> Float {

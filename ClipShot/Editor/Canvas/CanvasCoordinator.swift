@@ -30,6 +30,10 @@ final class CanvasCoordinator {
     /// tracks the card in lockstep), false for programmatic layout (must defer off
     /// the view update that triggered it).
     var onCardFrameChange: ((CGRect, Bool) -> Void)?
+    /// Forwarded to the zoom controller: the background identity whose pixels just
+    /// landed on the card, so the SwiftUI glow recolors in step with the card
+    /// rather than ahead of an async background render.
+    var onBackgroundLanded: ((CanvasBackgroundLanding) -> Void)?
     nonisolated(unsafe) private var cardFrameObserver: NSObjectProtocol?
     /// Set while we drive scroll/zoom ourselves (initial fit, refit, apply). The
     /// programmatic magnify/scroll posts the same boundsDidChange a user pan does,
@@ -47,6 +51,11 @@ final class CanvasCoordinator {
         container.layer?.backgroundColor = .clear
         contentView = CanvasContentView(frame: .zero)
         overlayView = CanvasOverlayView(frame: .zero)
+        defer {
+            contentView.onBackgroundLanded = { [weak self] landing in
+                self?.onBackgroundLanded?(landing)
+            }
+        }
         interactionView = CanvasInteractionView(frame: .zero)
         interactionView.wantsLayer = true
         // None of these views draw in draw(_:) — everything is CALayer content.

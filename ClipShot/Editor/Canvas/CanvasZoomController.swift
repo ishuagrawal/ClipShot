@@ -61,6 +61,14 @@ private extension Comparable {
     }
 }
 
+/// Identity of the background pixels currently committed to the canvas card.
+/// The style alone is not enough: wallpaper and gradient pixels can change when
+/// the card crop changes without changing the selected background style.
+struct CanvasBackgroundLanding: Equatable {
+    let background: ClipShot.BackgroundStyle
+    let effectiveCrop: CGRect
+}
+
 /// SwiftUI-facing bridge to the AppKit zoom state. Publishes the live magnification
 /// (so the percentage readout tracks pinch / cmd-scroll / programmatic changes) and
 /// forwards control actions to the `CanvasCoordinator`.
@@ -70,6 +78,10 @@ final class CanvasZoomController: ObservableObject {
     /// The padded card's live on-screen frame, in the canvas/stage coordinate
     /// space (top-left origin), so the ambient glow can radiate from its edges.
     @Published private(set) var cardFrame: CGRect = .null
+    /// The background identity whose pixels are currently on the card. EditorView
+    /// keys the ambient glow swap off this so the light follows the (sometimes
+    /// async-rendered) background instead of leading it.
+    @Published private(set) var landedBackground: CanvasBackgroundLanding?
 
     private weak var coordinator: CanvasCoordinator?
 
@@ -99,6 +111,9 @@ final class CanvasZoomController: ObservableObject {
             coordinator.onCardFrameChange = { [weak self] frame, immediate in
                 self?.publishCardFrame(frame, immediate: immediate)
             }
+            coordinator.onBackgroundLanded = { [weak self] landing in
+                self?.publishLandedBackground(landing)
+            }
         }
         publishMagnification(coordinator.currentMagnification)
     }
@@ -115,6 +130,16 @@ final class CanvasZoomController: ObservableObject {
         DispatchQueue.main.async { [weak self] in
             guard let self, frame != self.cardFrame else { return }
             self.cardFrame = frame
+        }
+    }
+
+    /// Deferred off the run loop turn (the sync solid/gradient path fires this from
+    /// inside a SwiftUI view update) and only on real change, so the glow swaps once
+    /// per landing rather than re-invalidating the view in a loop.
+    private func publishLandedBackground(_ landing: CanvasBackgroundLanding) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.landedBackground != landing else { return }
+            self.landedBackground = landing
         }
     }
 

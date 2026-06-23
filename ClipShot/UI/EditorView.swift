@@ -44,6 +44,14 @@ private struct EditorShell: View {
     /// the same pixel-sampling path so every background lights the room identically.
     @State private var samplePalette: [Color] = []
     @State private var samplePaletteKey = ""
+    /// The glow palette actually on screen. Lags `desiredGlowColors`: it only
+    /// adopts a new background's colors once that background's pixels have landed
+    /// on the card (signalled by `zoomController.landedBackground`), so the light
+    /// never recolors ahead of the artboard it radiates from.
+    @State private var presentedGlow: [Color] = []
+    /// Kind of the background `presentedGlow` currently shows — distinguishes a
+    /// style switch (crossfade) from a live edit of the same style (track instantly).
+    @State private var presentedGlowKind: BackgroundStyle.Kind?
     private let onGoHome: () -> Void
 
     init(document: EditorDocument, onGoHome: @escaping () -> Void = {}) {
@@ -60,7 +68,7 @@ private struct EditorShell: View {
             let rightChrome = Theme.rightChromeWidth(forInspector: inspectorWidth)
             ZStack {
                 StageBackdrop()
-                AmbientGlowView(colors: ambientColors, cardFrame: zoomController.cardFrame)
+                AmbientGlowView(colors: presentedGlow, cardFrame: zoomController.cardFrame)
                 // Full bleed: the document and its background run underneath every
                 // glass panel, so the chrome refracts the work itself.
                 CanvasView(
@@ -138,6 +146,8 @@ private struct EditorShell: View {
                 .colors
                 .map { Color(cgColor: $0) }
             recomputeBackgroundPalette()
+            presentedGlow = desiredGlowColors
+            presentedGlowKind = state.displayDocument.background.kind
             // SwiftUI hands initial key focus to the first text field (the title),
             // which selects its text and steals canvas shortcuts. Canvas wins.
             DispatchQueue.main.async {
@@ -152,6 +162,39 @@ private struct EditorShell: View {
         }
         .onChange(of: state.previewingOriginal) { _, _ in
             recomputeBackgroundPalette()
+        }
+        // The card just committed a new background's pixels — now the light may
+        // recolor to match.
+        .onChange(of: zoomController.landedBackground) { _, landed in
+            guard landingMatchesDisplayDocument(landed) else { return }
+            adoptGlow(forLandedKind: state.displayDocument.background.kind)
+        }
+        // Wallpaper palette is sampled async; if its card already landed, fold the
+        // refined colors into the glow when they arrive.
+        .onChange(of: samplePalette) { _, _ in
+            guard landingMatchesDisplayDocument(zoomController.landedBackground) else { return }
+            adoptGlow(forLandedKind: state.displayDocument.background.kind)
+        }
+    }
+
+    private func landingMatchesDisplayDocument(_ landing: CanvasBackgroundLanding?) -> Bool {
+        guard let landing else { return false }
+        let document = state.displayDocument
+        return landing.background == document.background
+            && landing.effectiveCrop == document.effectiveCrop
+    }
+
+    /// Move the glow to match the background that just landed. Crossfades on a
+    /// style switch or an async (wallpaper/dynamic) settle so the light reads as
+    /// the room catching up; tracks instantly during a continuous same-style edit
+    /// (e.g. a gradient drag) where a fade would only lag behind.
+    private func adoptGlow(forLandedKind kind: BackgroundStyle.Kind) {
+        let animate = kind != presentedGlowKind || kind == .wallpaper || kind == .dynamic
+        presentedGlowKind = kind
+        if animate {
+            withAnimation(.easeInOut(duration: 0.25)) { presentedGlow = desiredGlowColors }
+        } else {
+            presentedGlow = desiredGlowColors
         }
     }
 
@@ -198,7 +241,8 @@ private struct EditorShell: View {
 
     /// The capture decides the room's light. Dynamic/none backgrounds diffuse the
     /// screenshot's harmonized mesh palette; explicit backgrounds diffuse themselves.
-    private var ambientColors: [Color] {
+    /// This is the target; `presentedGlow` adopts it only once the card has landed.
+    private var desiredGlowColors: [Color] {
         switch state.displayDocument.background {
         case .solidColor(let color):
             return [Color(cgColor: color)]
