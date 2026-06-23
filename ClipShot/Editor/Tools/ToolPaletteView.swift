@@ -74,7 +74,7 @@ struct DockView: View {
         }
         .padding(.horizontal, Theme.barInset)
         .frame(height: Theme.dockHeight)
-        .glassPanel(cornerRadius: 26)
+        .glassPanel(cornerRadius: Theme.radiusPanel)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Dock")
     }
