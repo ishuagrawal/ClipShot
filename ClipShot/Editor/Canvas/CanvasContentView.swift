@@ -19,7 +19,10 @@ final class CanvasContentView: NSView {
     /// Overscan per side, in points. Sized for ~3σ of the widest gaussian.
     static let liveBlurMargin: CGFloat = (BackgroundEffects.maximumBlurRadius * 3).rounded(.up)
     private let noiseBackgroundLayer: CALayer
+    /// Shadow host. Never clips, so its drop shadow survives rounded corners.
     private let selectionLayer: CALayer
+    /// Child of `selectionLayer` holding the screenshot and the corner clip.
+    private let selectionContentLayer: CALayer
     private let selectionMaskLayer: CAShapeLayer
     private let composedBackgroundQueue: OperationQueue
     private var pendingDynamicSource: CGImage?
@@ -45,6 +48,7 @@ final class CanvasContentView: NSView {
         self.blurContentLayer = CALayer()
         self.noiseBackgroundLayer = CALayer()
         self.selectionLayer = CALayer()
+        self.selectionContentLayer = CALayer()
         self.selectionMaskLayer = CAShapeLayer()
         self.composedBackgroundQueue = OperationQueue()
         super.init(frame: frameRect)
@@ -63,9 +67,11 @@ final class CanvasContentView: NSView {
         blurContentLayer.minificationFilter = .trilinear
         blurContentLayer.isHidden = true
         dynamicBackgroundLayer.addSublayer(blurContentLayer)
-        selectionLayer.contentsGravity = .resize
-        selectionLayer.magnificationFilter = .trilinear
-        selectionLayer.minificationFilter = .trilinear
+        selectionLayer.masksToBounds = false
+        selectionContentLayer.contentsGravity = .resize
+        selectionContentLayer.magnificationFilter = .trilinear
+        selectionContentLayer.minificationFilter = .trilinear
+        selectionLayer.addSublayer(selectionContentLayer)
         noiseBackgroundLayer.contents = Self.noiseTexture
         noiseBackgroundLayer.contentsGravity = .resize
         noiseBackgroundLayer.magnificationFilter = .linear
@@ -93,8 +99,8 @@ final class CanvasContentView: NSView {
             dynamicBackgroundLayer.isHidden = true
             noiseBackgroundLayer.isHidden = true
             dynamicBackgroundLayer.contents = nil
-            selectionLayer.contents = nil
-            selectionLayer.mask = nil
+            selectionContentLayer.contents = nil
+            selectionContentLayer.mask = nil
             pendingBGOperation?.cancel()
             pendingBGOperation = nil
             return
@@ -420,31 +426,32 @@ final class CanvasContentView: NSView {
         let selection = doc.baseSelection.integral.intersection(doc.imageBounds)
         guard !selection.isNull, !selection.isEmpty else {
             selectionLayer.frame = .zero
-            selectionLayer.contents = nil
-            selectionLayer.mask = nil
+            selectionContentLayer.contents = nil
+            selectionContentLayer.mask = nil
             selectionLayer.shadowOpacity = 0
             return
         }
 
         selectionLayer.frame = selection
-        selectionLayer.contents = doc.screenshot.cropping(to: selection)
+        selectionContentLayer.frame = CGRect(origin: .zero, size: selection.size)
+        selectionContentLayer.contents = doc.screenshot.cropping(to: selection)
         let radii = doc.effectiveSelectionCornerRadii.clamped(to: selection.size)
         if let r = radii.uniformRadius {
             // Apple continuous-corner (squircle), matching the system window mask.
-            selectionLayer.cornerCurve = .continuous
-            selectionLayer.cornerRadius = r
-            selectionLayer.masksToBounds = true
-            selectionLayer.mask = nil
+            selectionContentLayer.cornerCurve = .continuous
+            selectionContentLayer.cornerRadius = r
+            selectionContentLayer.masksToBounds = true
+            selectionContentLayer.mask = nil
         } else if radii.isZero {
-            selectionLayer.cornerRadius = 0
-            selectionLayer.masksToBounds = false
-            selectionLayer.mask = nil
+            selectionContentLayer.cornerRadius = 0
+            selectionContentLayer.masksToBounds = false
+            selectionContentLayer.mask = nil
         } else {
-            selectionLayer.cornerRadius = 0
-            selectionLayer.masksToBounds = false
+            selectionContentLayer.cornerRadius = 0
+            selectionContentLayer.masksToBounds = false
             selectionMaskLayer.frame = CGRect(origin: .zero, size: selection.size)
             selectionMaskLayer.path = radii.path(in: selectionMaskLayer.bounds)
-            selectionLayer.mask = selectionMaskLayer
+            selectionContentLayer.mask = selectionMaskLayer
         }
 
         let shadow = doc.shadow
