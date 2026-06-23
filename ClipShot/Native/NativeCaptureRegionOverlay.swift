@@ -31,6 +31,8 @@ final class NativeCaptureRegionOverlay {
             panel.backgroundColor = .clear
             panel.isOpaque = false
             panel.hasShadow = false
+            // Prevent the capture overlay itself from appearing in screenshots.
+            panel.sharingType = .none
             panel.level = .screenSaver
             panel.animationBehavior = .none
             panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
@@ -45,6 +47,10 @@ final class NativeCaptureRegionOverlay {
             panel.makeKeyAndOrderFront(nil)
             windows.append(panel)
         }
+
+        // Menu-bar agent (LSUIElement) is inactive on hotkey/menu trigger; without
+        // activating, macOS keeps the arrow cursor over the panel instead of crosshair.
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     private func finish(_ region: NativeCaptureRegion?) {
@@ -54,6 +60,14 @@ final class NativeCaptureRegionOverlay {
             window.orderOut(nil)
         }
         windows.removeAll()
+
+        // Esc closes panels without a mouse move; with the app left active and no
+        // window owning the cursor, arrow.set() no-ops. Warp the cursor in place to
+        // force the window server to recompute ownership and restore the arrow.
+        NSCursor.arrow.set()
+        if let location = CGEvent(source: nil)?.location {
+            CGWarpMouseCursorPosition(location)
+        }
 
         guard region != nil else {
             callback?(nil)
@@ -82,6 +96,7 @@ private final class NativeCaptureRegionView: NSView {
     private var startPoint: CGPoint?
     private var currentPoint: CGPoint?
     private var didDrag = false
+    private var done = false
 
     /// Pointer travel (points) past which a press is a region drag; below it,
     /// a click → whole-window capture.
@@ -117,12 +132,20 @@ private final class NativeCaptureRegionView: NSView {
         ))
     }
 
-    override func cursorUpdate(with event: NSEvent) { NSCursor.crosshair.set() }
-    override func mouseEntered(with event: NSEvent) { NSCursor.crosshair.set() }
-    override func mouseMoved(with event: NSEvent) { NSCursor.crosshair.set() }
+    override func cursorUpdate(with event: NSEvent) { setCrosshair() }
+    override func mouseEntered(with event: NSEvent) { setCrosshair() }
+    override func mouseMoved(with event: NSEvent) { setCrosshair() }
+
+    // Stop asserting the crosshair once finishing; a queued cursor event from the
+    // dying view would otherwise override the arrow reset after Esc.
+    private func setCrosshair() {
+        guard !done else { return }
+        NSCursor.crosshair.set()
+    }
 
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 53 {
+            done = true
             completion(nil)
         } else {
             super.keyDown(with: event)
@@ -142,13 +165,14 @@ private final class NativeCaptureRegionView: NSView {
         if let startPoint, hypot(point.x - startPoint.x, point.y - startPoint.y) >= dragSlop {
             didDrag = true
         }
-        NSCursor.crosshair.set()
+        setCrosshair()
         needsDisplay = true
     }
 
     override func mouseUp(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         currentPoint = point
+        done = true
 
         // A pure click (no real drag) captures the whole window under the cursor.
         guard didDrag else {
@@ -191,6 +215,7 @@ private final class NativeCaptureRegionView: NSView {
     }
 
     override func resetCursorRects() {
+        guard !done else { return }
         addCursorRect(bounds, cursor: .crosshair)
     }
 
