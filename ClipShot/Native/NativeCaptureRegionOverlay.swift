@@ -47,27 +47,17 @@ final class NativeCaptureRegionOverlay {
             panel.makeKeyAndOrderFront(nil)
             windows.append(panel)
         }
-
-        // Menu-bar agent (LSUIElement) is inactive on hotkey/menu trigger; without
-        // activating, macOS keeps the arrow cursor over the panel instead of crosshair.
-        NSApp.activate(ignoringOtherApps: true)
     }
 
     private func finish(_ region: NativeCaptureRegion?) {
         let callback = completion
         completion = nil
         for window in windows {
+            // Restore the hidden hardware cursor even if the mouse never exited.
+            (window.contentView as? NativeCaptureRegionView)?.showHardwareCursor()
             window.orderOut(nil)
         }
         windows.removeAll()
-
-        // Esc closes panels without a mouse move; with the app left active and no
-        // window owning the cursor, arrow.set() no-ops. Warp the cursor in place to
-        // force the window server to recompute ownership and restore the arrow.
-        NSCursor.arrow.set()
-        if let location = CGEvent(source: nil)?.location {
-            CGWarpMouseCursorPosition(location)
-        }
 
         guard region != nil else {
             callback?(nil)
@@ -95,8 +85,14 @@ private final class NativeCaptureRegionView: NSView {
     private let completion: (NativeCaptureRegion?) -> Void
     private var startPoint: CGPoint?
     private var currentPoint: CGPoint?
+    private var hoverPoint: CGPoint?
     private var didDrag = false
     private var done = false
+    private var cursorHidden = false
+
+    /// Drawn crosshair geometry (points): arm length and center gap on each side.
+    private let crosshairArm: CGFloat = 10
+    private let crosshairGap: CGFloat = 3
 
     /// Pointer travel (points) past which a press is a region drag; below it,
     /// a click → whole-window capture.
@@ -118,7 +114,6 @@ private final class NativeCaptureRegionView: NSView {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         window?.makeFirstResponder(self)
-        NSCursor.crosshair.set()
     }
 
     override func updateTrackingAreas() {
@@ -126,26 +121,46 @@ private final class NativeCaptureRegionView: NSView {
         for area in trackingAreas { removeTrackingArea(area) }
         addTrackingArea(NSTrackingArea(
             rect: bounds,
-            options: [.activeAlways, .mouseMoved, .mouseEnteredAndExited, .cursorUpdate, .inVisibleRect],
+            options: [.activeAlways, .mouseMoved, .mouseEnteredAndExited, .inVisibleRect],
             owner: self,
             userInfo: nil
         ))
     }
 
-    override func cursorUpdate(with event: NSEvent) { setCrosshair() }
-    override func mouseEntered(with event: NSEvent) { setCrosshair() }
-    override func mouseMoved(with event: NSEvent) { setCrosshair() }
+    override func mouseEntered(with event: NSEvent) { moveHover(to: convert(event.locationInWindow, from: nil)) }
+    override func mouseMoved(with event: NSEvent) { moveHover(to: convert(event.locationInWindow, from: nil)) }
+    override func mouseExited(with event: NSEvent) { showHardwareCursor(); setHover(nil) }
 
-    // Stop asserting the crosshair once finishing; a queued cursor event from the
-    // dying view would otherwise override the arrow reset after Esc.
-    private func setCrosshair() {
-        guard !done else { return }
-        NSCursor.crosshair.set()
+    // A background (non-active) app can't reliably own the hardware cursor, so the
+    // crosshair flickers. Hide the hardware cursor over the overlay and draw it.
+    private func hideHardwareCursor() {
+        guard !cursorHidden, !done else { return }
+        CGDisplayHideCursor(CGMainDisplayID())
+        cursorHidden = true
+    }
+
+    func showHardwareCursor() {
+        guard cursorHidden else { return }
+        CGDisplayShowCursor(CGMainDisplayID())
+        cursorHidden = false
+    }
+
+    private func moveHover(to point: CGPoint) {
+        hideHardwareCursor()
+        setHover(point)
+    }
+
+    /// Repaints only the old and new crosshair footprints, not the full-screen view.
+    private func setHover(_ point: CGPoint?) {
+        if let old = hoverPoint { setNeedsDisplay(crosshairRect(around: old)) }
+        hoverPoint = point
+        if let point { setNeedsDisplay(crosshairRect(around: point)) }
     }
 
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 53 {
             done = true
+            showHardwareCursor()
             completion(nil)
         } else {
             super.keyDown(with: event)
@@ -165,7 +180,8 @@ private final class NativeCaptureRegionView: NSView {
         if let startPoint, hypot(point.x - startPoint.x, point.y - startPoint.y) >= dragSlop {
             didDrag = true
         }
-        setCrosshair()
+        hideHardwareCursor()
+        hoverPoint = point
         needsDisplay = true
     }
 
@@ -173,6 +189,7 @@ private final class NativeCaptureRegionView: NSView {
         let point = convert(event.locationInWindow, from: nil)
         currentPoint = point
         done = true
+        showHardwareCursor()
 
         // A pure click (no real drag) captures the whole window under the cursor.
         guard didDrag else {
@@ -203,20 +220,43 @@ private final class NativeCaptureRegionView: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        guard let rect = selectionRect, rect.width > 1 || rect.height > 1 else { return }
+        if let rect = selectionRect, rect.width > 1 || rect.height > 1 {
+            NSColor.white.withAlphaComponent(0.18).setFill()
+            rect.fill()
 
-        NSColor.white.withAlphaComponent(0.18).setFill()
-        rect.fill()
+            let path = NSBezierPath(rect: rect)
+            path.lineWidth = 1
+            NSColor.white.withAlphaComponent(0.9).setStroke()
+            path.stroke()
+        }
 
-        let path = NSBezierPath(rect: rect)
-        path.lineWidth = 1
-        NSColor.white.withAlphaComponent(0.9).setStroke()
-        path.stroke()
+        if let point = hoverPoint, !done {
+            drawCrosshair(at: point)
+        }
     }
 
-    override func resetCursorRects() {
-        guard !done else { return }
-        addCursorRect(bounds, cursor: .crosshair)
+    private func crosshairRect(around point: CGPoint) -> CGRect {
+        let reach = crosshairArm + crosshairGap + 2
+        return CGRect(x: point.x - reach, y: point.y - reach, width: reach * 2, height: reach * 2)
+    }
+
+    private func drawCrosshair(at p: CGPoint) {
+        let path = NSBezierPath()
+        path.move(to: CGPoint(x: p.x - crosshairGap - crosshairArm, y: p.y))
+        path.line(to: CGPoint(x: p.x - crosshairGap, y: p.y))
+        path.move(to: CGPoint(x: p.x + crosshairGap, y: p.y))
+        path.line(to: CGPoint(x: p.x + crosshairGap + crosshairArm, y: p.y))
+        path.move(to: CGPoint(x: p.x, y: p.y - crosshairGap - crosshairArm))
+        path.line(to: CGPoint(x: p.x, y: p.y - crosshairGap))
+        path.move(to: CGPoint(x: p.x, y: p.y + crosshairGap))
+        path.line(to: CGPoint(x: p.x, y: p.y + crosshairGap + crosshairArm))
+
+        path.lineWidth = 3
+        NSColor.white.withAlphaComponent(0.9).setStroke()
+        path.stroke()
+        path.lineWidth = 1
+        NSColor.black.withAlphaComponent(0.85).setStroke()
+        path.stroke()
     }
 
     private var selectionRect: CGRect? {
