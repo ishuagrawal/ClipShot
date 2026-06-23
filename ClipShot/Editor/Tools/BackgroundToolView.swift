@@ -329,9 +329,15 @@ struct BackgroundToolView: View {
                 Spacer(minLength: 0)
             }
             if style.kind == .dynamic {
-                Text("Auto-generated from screenshot colors")
-                    .font(Theme.label(12)).foregroundStyle(Theme.textTertiary)
-            } else {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Image(systemName: "sparkles").font(.system(size: 10))
+                    Text("Colors sampled from your screenshot")
+                        .font(Theme.label(11.5)).lineSpacing(1)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .foregroundStyle(Theme.textTertiary)
+                .padding(.top, 2)
+            } else if style.kind == .gradient {
                 HStack(spacing: 10) {
                     InspectorRowLabel(text: "Colors")
                     GlassColorWell(selection: $gradientStart, label: "Gradient start")
