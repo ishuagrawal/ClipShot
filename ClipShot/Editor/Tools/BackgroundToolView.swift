@@ -56,21 +56,10 @@ struct BackgroundToolView: View {
     @State private var visibleSection: Section = .color
     private static let sectionClipInset: CGFloat = 6
 
-    // TEST: drives BeadFace across the inspector so finishes can be compared.
-    @AppStorage("beadFinishTest") private var beadFinishRaw = 0
-    private var beadFinish: BeadFinish { BeadFinish(rawValue: beadFinishRaw) ?? .domed }
-
     private var style: BackgroundStyle { state.document.background }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-          // TEST switcher — remove with the losing finishes.
-          Picker("", selection: $beadFinishRaw) {
-              ForEach(BeadFinish.allCases) { Text($0.title).tag($0.rawValue) }
-          }
-          .pickerStyle(.segmented)
-          .padding(.bottom, 10)
-
           VStack(alignment: .leading, spacing: Theme.panelSectionSpacing) {
             sectionTabs
 
@@ -297,7 +286,7 @@ struct BackgroundToolView: View {
         selected: Bool,
         @ViewBuilder swatch: @escaping () -> S
     ) -> some View {
-        BeadFace(finish: beadFinish, selected: selected, diameter: 28, swatch: swatch)
+        BeadFace(selected: selected, diameter: 28, swatch: swatch)
             .scaleEffect(selected ? 1.1 : 1)
             .contentShape(Circle())
             .animation(.spring(duration: 0.25), value: selected)
@@ -497,7 +486,7 @@ struct BackgroundToolView: View {
     /// vermilion ring and lifts.
     private func bead(_ kind: BackgroundStyle.Kind, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            BeadFace(finish: beadFinish, selected: selected, diameter: 36) {
+            BeadFace(selected: selected, diameter: 36) {
                 tileSwatch(kind)
             }
             .scaleEffect(selected ? 1.08 : 1)

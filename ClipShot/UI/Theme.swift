@@ -904,91 +904,24 @@ struct GlassToggleStyle: ToggleStyle {
     }
 }
 
-// TEST: three liquid-glass swatch finishes, switchable live for comparison.
-// Remove the losers once a verdict is in.
-enum BeadFinish: Int, CaseIterable, Identifiable {
-    case domed, lens, liquid
-    var id: Int { rawValue }
-    var title: String {
-        switch self {
-        case .domed: return "Domed"
-        case .lens: return "Lens"
-        case .liquid: return "Liquid"
-        }
-    }
-}
-
-/// Circular color swatch with liquid-glass depth, rendered in the current
-/// `BeadFinish`. Shared by every color orb so all candidates render
-/// consistently across the inspector.
+/// Circular color swatch with liquid-glass depth. Shared by every color orb so
+/// all wells render consistently across the inspector. The color itself gains
+/// volume — a sheen across the top, shade pooling below — plus a sharp specular
+/// arc and a graded rim.
 struct BeadFace<S: View>: View {
-    let finish: BeadFinish
     let selected: Bool
     let diameter: CGFloat
     @ViewBuilder var swatch: () -> S
 
     var body: some View {
-        Group {
-            switch finish {
-            case .domed: domed
-            case .lens: lens
-            case .liquid: liquid
-            }
-        }
-        .overlay(Circle().stroke(selected ? Theme.accent : .clear, lineWidth: 2))
+        liquid
+            .overlay(Circle().stroke(selected ? Theme.accent : .clear, lineWidth: 2))
     }
 
     private var base: some View {
         swatch().frame(width: diameter, height: diameter).clipShape(Circle())
     }
 
-    /// Convex pebble: a soft top crescent of light, a radial shade pooling at the
-    /// bottom, finished with the panel's top-bright/bottom-dark rim.
-    private var domed: some View {
-        base
-            .overlay(
-                Ellipse()
-                    .fill(Color.white.opacity(0.5))
-                    .frame(width: diameter * 0.62, height: diameter * 0.3)
-                    .blur(radius: diameter * 0.06)
-                    .offset(y: -diameter * 0.24)
-                    .blendMode(.plusLighter)
-                    .mask(Circle())
-            )
-            .overlay(
-                Circle().fill(RadialGradient(
-                    colors: [.clear, .black.opacity(0.28)],
-                    center: .init(x: 0.5, y: 0.62),
-                    startRadius: diameter * 0.2, endRadius: diameter * 0.55))
-            )
-            .overlay(Circle().strokeBorder(
-                LinearGradient(colors: [.white.opacity(0.55), .white.opacity(0.04), .black.opacity(0.22)],
-                               startPoint: .top, endPoint: .bottom), lineWidth: 1))
-            .shadow(color: .black.opacity(0.35), radius: 2.5, y: 2)
-    }
-
-    /// Refractive lens: a crisp specular arc catches the top rim, a faint
-    /// counter-arc lifts the bottom — light bending through glass.
-    private var lens: some View {
-        base
-            .overlay(
-                Circle().trim(from: 0.60, to: 0.90)
-                    .stroke(Color.white.opacity(0.85),
-                            style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
-                    .blur(radius: 0.5).padding(1.6)
-            )
-            .overlay(
-                Circle().trim(from: 0.10, to: 0.40)
-                    .stroke(Color.white.opacity(0.18),
-                            style: StrokeStyle(lineWidth: 1, lineCap: .round))
-                    .padding(1.6)
-            )
-            .overlay(Circle().strokeBorder(Color.white.opacity(0.3), lineWidth: 1))
-            .shadow(color: .black.opacity(0.4), radius: 2.5, y: 2)
-    }
-
-    /// Liquid: the color itself gains volume — a sheen across the top, shade
-    /// pooling below — plus a sharp specular arc and a graded rim.
     private var liquid: some View {
         base
             // Inner shadow pooling at the bottom edge: convex volume without
@@ -1047,15 +980,13 @@ struct GlassColorWell: View {
     var fill: AnyShapeStyle? = nil
     @State private var hovering = false
     @State private var proxy = ColorPanelProxy()
-    @AppStorage("beadFinishTest") private var beadFinishRaw = 0
 
     var body: some View {
         Button {
             proxy.onChange = { selection = $0 }
             proxy.present(selection, supportsOpacity: supportsOpacity)
         } label: {
-            BeadFace(finish: BeadFinish(rawValue: beadFinishRaw) ?? .domed,
-                     selected: false, diameter: 23) {
+            BeadFace(selected: false, diameter: 23) {
                 Circle().fill(fill ?? AnyShapeStyle(selection))
             }
             .overlay(Circle().stroke(Color.white.opacity(hovering ? 0.45 : 0), lineWidth: 1))
