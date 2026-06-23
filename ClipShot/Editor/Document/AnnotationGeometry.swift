@@ -19,6 +19,10 @@ enum AnnotationGeometry {
         max(10, weight * 3.5)
     }
 
+    static func arrowBorderWidth(weight: CGFloat) -> CGFloat {
+        max(2, weight * 0.5)
+    }
+
     static func arrowLinePath(from: CGPoint, to: CGPoint, weight: CGFloat) -> CGPath {
         let head = arrowHeadLength(weight: weight)
         let dx = to.x - from.x
@@ -99,7 +103,7 @@ enum AnnotationGeometry {
 
     static func boundingBox(_ kind: Annotation.Kind) -> CGRect {
         switch kind {
-        case .arrow(let from, let to, _, let weight):
+        case .arrow(let from, let to, _, let weight, _):
             let line = CGRect(
                 x: min(from.x, to.x),
                 y: min(from.y, to.y),
@@ -127,7 +131,7 @@ enum AnnotationGeometry {
 
     static func hitTest(_ kind: Annotation.Kind, point: CGPoint, tolerance: CGFloat) -> Bool {
         switch kind {
-        case .arrow(let from, let to, _, let weight):
+        case .arrow(let from, let to, _, let weight, _):
             return distance(point, segmentStart: from, segmentEnd: to) <= tolerance + weight / 2
         case .line(let from, let to, _, let weight, _):
             return distance(point, segmentStart: from, segmentEnd: to) <= tolerance + weight / 2
@@ -149,7 +153,7 @@ enum AnnotationGeometry {
     /// Resize-handle anchor points in annotation coordinates, in draw order.
     static func resizeHandles(_ kind: Annotation.Kind) -> [(handle: ResizeHandle, point: CGPoint)] {
         switch kind {
-        case .arrow(let from, let to, _, _), .line(let from, let to, _, _, _):
+        case .arrow(let from, let to, _, _, _), .line(let from, let to, _, _, _):
             return [(.start, from), (.end, to)]
         case .rect(let frame, _, _, _, _), .blur(let frame, _):
             return boxHandles(frame.standardized)
@@ -187,9 +191,9 @@ enum AnnotationGeometry {
         bounds: CGRect
     ) -> Annotation.Kind {
         switch kind {
-        case .arrow(let from, let to, let color, let weight):
+        case .arrow(let from, let to, let color, let weight, let borderColor):
             let (f, t) = resizedEndpoints(from: from, to: to, handle: handle, to: point, shiftLock: shiftLock, snapAxis: false, bounds: bounds)
-            return .arrow(from: f, to: t, color: color, weight: weight)
+            return .arrow(from: f, to: t, color: color, weight: weight, borderColor: borderColor)
         case .line(let from, let to, let color, let weight, let dash):
             let (f, t) = resizedEndpoints(from: from, to: to, handle: handle, to: point, shiftLock: shiftLock, snapAxis: true, bounds: bounds)
             return .line(from: f, to: t, color: color, weight: weight, dash: dash)
@@ -377,8 +381,14 @@ enum AnnotationGeometry {
 
     static func translated(_ kind: Annotation.Kind, by delta: CGSize) -> Annotation.Kind {
         switch kind {
-        case .arrow(let from, let to, let color, let weight):
-            return .arrow(from: from.offset(delta), to: to.offset(delta), color: color, weight: weight)
+        case .arrow(let from, let to, let color, let weight, let borderColor):
+            return .arrow(
+                from: from.offset(delta),
+                to: to.offset(delta),
+                color: color,
+                weight: weight,
+                borderColor: borderColor
+            )
         case .line(let from, let to, let color, let weight, let dash):
             return .line(from: from.offset(delta), to: to.offset(delta), color: color, weight: weight, dash: dash)
         case .rect(let frame, let stroke, let fill, let weight, let corner):
@@ -405,7 +415,7 @@ enum AnnotationGeometry {
     /// so a shape already touching the border isn't nudged on an orthogonal axis.
     static func geometryExtent(_ kind: Annotation.Kind) -> CGRect {
         switch kind {
-        case .arrow(let from, let to, _, _), .line(let from, let to, _, _, _):
+        case .arrow(let from, let to, _, _, _), .line(let from, let to, _, _, _):
             return CGRect(
                 x: min(from.x, to.x),
                 y: min(from.y, to.y),
@@ -446,8 +456,14 @@ enum AnnotationGeometry {
 
     static func clamped(_ kind: Annotation.Kind, to bounds: CGRect) -> Annotation.Kind {
         switch kind {
-        case .arrow(let from, let to, let color, let weight):
-            return .arrow(from: from.clamped(to: bounds), to: to.clamped(to: bounds), color: color, weight: weight)
+        case .arrow(let from, let to, let color, let weight, let borderColor):
+            return .arrow(
+                from: from.clamped(to: bounds),
+                to: to.clamped(to: bounds),
+                color: color,
+                weight: weight,
+                borderColor: borderColor
+            )
         case .line(let from, let to, let color, let weight, let dash):
             return .line(from: from.clamped(to: bounds), to: to.clamped(to: bounds), color: color, weight: weight, dash: dash)
         case .rect(let frame, let stroke, let fill, let weight, let corner):

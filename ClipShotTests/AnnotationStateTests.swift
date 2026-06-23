@@ -214,7 +214,7 @@ final class AnnotationStateTests: XCTestCase {
 
         XCTAssertEqual(state.undoStack.undoCount, undoBefore + 1)
         state.performUndo()
-        if case let .arrow(from, _, _, _) = state.document.annotations[0].kind {
+        if case let .arrow(from, _, _, _, _) = state.document.annotations[0].kind {
             XCTAssertEqual(from, CGPoint(x: 5, y: 5))
         } else {
             XCTFail("expected arrow")
@@ -1005,13 +1005,13 @@ final class CanvasInteractionViewTests: XCTestCase {
         XCTAssertNil(state.inProgressAnnotation)
         XCTAssertEqual(state.undoStack.undoCount, 1)
 
-        if case let .arrow(from, to, _, _) = state.document.annotations[0].kind {
+        if case let .arrow(from, to, _, _, _) = state.document.annotations[0].kind {
             XCTAssertEqual(from, CGPoint(x: 10, y: 10))
             XCTAssertEqual(to, CGPoint(x: 40, y: 40))
         } else {
             XCTFail("expected existing arrow")
         }
-        if case let .arrow(from, to, _, _) = state.document.annotations[1].kind {
+        if case let .arrow(from, to, _, _, _) = state.document.annotations[1].kind {
             XCTAssertEqual(from, CGPoint(x: 20, y: 20))
             XCTAssertEqual(to, CGPoint(x: 30, y: 30))
         } else {
@@ -1046,7 +1046,7 @@ final class CanvasInteractionViewTests: XCTestCase {
         XCTAssertEqual(state.inspectorRoute, .annotation)
         XCTAssertEqual(state.undoStack.undoCount, 0)
 
-        if case let .arrow(from, to, _, _) = state.document.annotations[0].kind {
+        if case let .arrow(from, to, _, _, _) = state.document.annotations[0].kind {
             XCTAssertEqual(from, CGPoint(x: 10, y: 10))
             XCTAssertEqual(to, CGPoint(x: 40, y: 40))
         } else {
@@ -1110,7 +1110,7 @@ final class CanvasInteractionViewTests: XCTestCase {
         } else {
             XCTFail("expected rectangle")
         }
-        if case let .arrow(from, to, _, _) = state.document.annotations[1].kind {
+        if case let .arrow(from, to, _, _, _) = state.document.annotations[1].kind {
             XCTAssertEqual(from, CGPoint(x: 25, y: 20))
             XCTAssertEqual(to, CGPoint(x: 35, y: 30))
         } else {
@@ -1131,7 +1131,7 @@ final class CanvasInteractionViewTests: XCTestCase {
         XCTAssertNil(state.inProgressAnnotation)
         XCTAssertEqual(state.undoStack.undoCount, 1)
 
-        if case let .arrow(from, to, _, _) = state.document.annotations[0].kind {
+        if case let .arrow(from, to, _, _, _) = state.document.annotations[0].kind {
             XCTAssertEqual(from, CGPoint(x: 10, y: 10))
             XCTAssertEqual(to, CGPoint(x: 40, y: 40))
         } else {
@@ -1271,7 +1271,7 @@ final class CanvasInteractionViewTests: XCTestCase {
             arrowFixture.view.mouseDragged(with: try makeMouseEvent(type: .leftMouseDragged, at: CGPoint(x: 30, y: 30)))
             arrowFixture.view.mouseUp(with: try makeMouseEvent(type: .leftMouseUp, at: CGPoint(x: 30, y: 30)))
 
-            if case let .arrow(from, to, _, _) = arrowFixture.state.document.annotations[0].kind {
+            if case let .arrow(from, to, _, _, _) = arrowFixture.state.document.annotations[0].kind {
                 XCTAssertEqual(from, CGPoint(x: 20, y: 20))
                 XCTAssertEqual(to, CGPoint(x: 50, y: 50))
             } else {
@@ -1323,7 +1323,7 @@ final class CanvasInteractionViewTests: XCTestCase {
             arrowFixture.state.selectedAnnotationID = arrowFixture.annotation.id
             arrowFixture.view.keyDown(with: try makeKeyDown(keyCode: 125))
 
-            if case let .arrow(from, to, _, _) = arrowFixture.state.document.annotations[0].kind {
+            if case let .arrow(from, to, _, _, _) = arrowFixture.state.document.annotations[0].kind {
                 XCTAssertEqual(from, CGPoint(x: 10, y: 18))
                 XCTAssertEqual(to, CGPoint(x: 40, y: 48))
             } else {
@@ -1366,7 +1366,7 @@ final class CanvasInteractionViewTests: XCTestCase {
             arrowFixture.state.selectedAnnotationID = arrowFixture.annotation.id
             arrowFixture.view.keyDown(with: try makeKeyDown(keyCode: 125))
 
-            if case let .arrow(from, to, _, _) = arrowFixture.state.document.annotations[0].kind {
+            if case let .arrow(from, to, _, _, _) = arrowFixture.state.document.annotations[0].kind {
                 XCTAssertEqual(from, CGPoint(x: 10, y: 10))
                 XCTAssertEqual(to, CGPoint(x: 40, y: 40))
             } else {
@@ -1435,7 +1435,8 @@ final class CanvasInteractionViewTests: XCTestCase {
                     from: CGPoint(x: 10, y: 10),
                     to: CGPoint(x: 40, y: 40),
                     color: CGColor(gray: 0, alpha: 1),
-                    weight: 4
+                    weight: 4,
+                    borderColor: nil
                 )
             ),
             initialTool: initialTool

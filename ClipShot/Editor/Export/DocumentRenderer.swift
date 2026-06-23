@@ -77,8 +77,8 @@ enum DocumentRenderer {
     private static func drawAnnotations(_ annotations: [Annotation], in ctx: CGContext) {
         for annotation in annotations {
             switch annotation.kind {
-            case .arrow(let from, let to, let color, let weight):
-                drawArrow(from: from, to: to, color: color, weight: weight, in: ctx)
+            case .arrow(let from, let to, let color, let weight, let borderColor):
+                drawArrow(from: from, to: to, color: color, weight: weight, borderColor: borderColor, in: ctx)
             case .line(let from, let to, let color, let weight, let dash):
                 drawLine(from: from, to: to, color: color, weight: weight, dash: dash, in: ctx)
             case .rect(let frame, let stroke, let fill, let weight, let corner):
@@ -96,16 +96,35 @@ enum DocumentRenderer {
         to: CGPoint,
         color: CGColor,
         weight: CGFloat,
+        borderColor: CGColor?,
         in ctx: CGContext
     ) {
+        let linePath = AnnotationGeometry.arrowLinePath(from: from, to: to, weight: weight)
+        let headPath = AnnotationGeometry.arrowHeadPath(from: from, to: to, weight: weight)
+
+        if let borderColor {
+            let borderWidth = AnnotationGeometry.arrowBorderWidth(weight: weight)
+            ctx.saveGState()
+            ctx.setStrokeColor(borderColor)
+            ctx.setLineWidth(weight + borderWidth * 2)
+            ctx.setLineCap(.round)
+            ctx.addPath(linePath)
+            ctx.strokePath()
+            ctx.setLineJoin(.round)
+            ctx.setLineWidth(borderWidth * 2)
+            ctx.addPath(headPath)
+            ctx.drawPath(using: .fillStroke)
+            ctx.restoreGState()
+        }
+
         ctx.saveGState()
         ctx.setStrokeColor(color)
         ctx.setFillColor(color)
         ctx.setLineWidth(weight)
         ctx.setLineCap(.round)
-        ctx.addPath(AnnotationGeometry.arrowLinePath(from: from, to: to, weight: weight))
+        ctx.addPath(linePath)
         ctx.strokePath()
-        ctx.addPath(AnnotationGeometry.arrowHeadPath(from: from, to: to, weight: weight))
+        ctx.addPath(headPath)
         ctx.fillPath()
         ctx.restoreGState()
     }

@@ -131,6 +131,7 @@ final class EditorState: ObservableObject {
 
     struct ToolStyle {
         var arrowColor: CGColor = CGColor(red: 1, green: 0.23, blue: 0.19, alpha: 1)
+        var arrowBorderColor: CGColor? = nil
         var arrowWeight: CGFloat = 4
         var lineColor: CGColor = CGColor(red: 1, green: 0.23, blue: 0.19, alpha: 1)
         var lineWeight: CGFloat = 4
@@ -291,7 +292,13 @@ final class EditorState: ObservableObject {
         let kind: Annotation.Kind
         switch activeTool {
         case .arrow:
-            kind = .arrow(from: point, to: point, color: toolStyle.arrowColor, weight: toolStyle.arrowWeight)
+            kind = .arrow(
+                from: point,
+                to: point,
+                color: toolStyle.arrowColor,
+                weight: toolStyle.arrowWeight,
+                borderColor: toolStyle.arrowBorderColor
+            )
         case .line:
             kind = .line(from: point, to: point, color: toolStyle.lineColor, weight: toolStyle.lineWeight, dash: toolStyle.lineDash)
         case .rectangle:
@@ -334,9 +341,15 @@ final class EditorState: ObservableObject {
         let point = point.clamped(to: documentBounds)
 
         switch current.kind {
-        case .arrow(let from, _, let color, let weight):
+        case .arrow(let from, _, let color, let weight, let borderColor):
             let end = shiftSnap ? AnnotationGeometry.snap45(from: from, to: point) : point
-            inProgressAnnotation?.kind = .arrow(from: from, to: end, color: color, weight: weight)
+            inProgressAnnotation?.kind = .arrow(
+                from: from,
+                to: end,
+                color: color,
+                weight: weight,
+                borderColor: borderColor
+            )
         case .line(let from, _, let color, let weight, let dash):
             let end = shiftSnap ? AnnotationGeometry.snap45(from: from, to: point) : AnnotationGeometry.snapNearAxis(from: from, to: point)
             inProgressAnnotation?.kind = .line(from: from, to: end, color: color, weight: weight, dash: dash)
@@ -589,7 +602,7 @@ final class EditorState: ObservableObject {
 
     private func isDegenerate(_ kind: Annotation.Kind) -> Bool {
         switch kind {
-        case .arrow(let from, let to, _, _), .line(let from, let to, _, _, _):
+        case .arrow(let from, let to, _, _, _), .line(let from, let to, _, _, _):
             return hypot(to.x - from.x, to.y - from.y) < 3
         case .rect(let frame, _, _, _, _):
             return frame.width < 3 || frame.height < 3

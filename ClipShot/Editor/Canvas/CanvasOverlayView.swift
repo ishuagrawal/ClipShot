@@ -195,9 +195,31 @@ final class CanvasOverlayView: NSView {
 
         if rendersContent {
             switch kind {
-            case .arrow(let from, let to, let color, let weight):
+            case .arrow(let from, let to, let color, let weight, let borderColor):
+                let linePath = AnnotationGeometry.arrowLinePath(from: from, to: to, weight: weight)
+                let headPath = AnnotationGeometry.arrowHeadPath(from: from, to: to, weight: weight)
+
+                if let borderColor {
+                    let borderWidth = AnnotationGeometry.arrowBorderWidth(weight: weight)
+                    let borderLine = CAShapeLayer()
+                    borderLine.path = linePath
+                    borderLine.strokeColor = borderColor
+                    borderLine.fillColor = nil
+                    borderLine.lineWidth = weight + borderWidth * 2
+                    borderLine.lineCap = .round
+                    container.addSublayer(borderLine)
+
+                    let borderHead = CAShapeLayer()
+                    borderHead.path = headPath
+                    borderHead.strokeColor = borderColor
+                    borderHead.fillColor = borderColor
+                    borderHead.lineWidth = borderWidth * 2
+                    borderHead.lineJoin = .round
+                    container.addSublayer(borderHead)
+                }
+
                 let line = CAShapeLayer()
-                line.path = AnnotationGeometry.arrowLinePath(from: from, to: to, weight: weight)
+                line.path = linePath
                 line.strokeColor = color
                 line.fillColor = nil
                 line.lineWidth = weight
@@ -205,7 +227,7 @@ final class CanvasOverlayView: NSView {
                 container.addSublayer(line)
 
                 let head = CAShapeLayer()
-                head.path = AnnotationGeometry.arrowHeadPath(from: from, to: to, weight: weight)
+                head.path = headPath
                 head.fillColor = color
                 container.addSublayer(head)
 

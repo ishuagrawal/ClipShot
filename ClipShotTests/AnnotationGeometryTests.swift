@@ -8,7 +8,8 @@ final class AnnotationGeometryTests: XCTestCase {
             from: CGPoint(x: 0, y: 0),
             to: CGPoint(x: 100, y: 0),
             color: CGColor(gray: 0, alpha: 1),
-            weight: 4
+            weight: 4,
+            borderColor: nil
         )
 
         XCTAssertTrue(AnnotationGeometry.hitTest(kind, point: CGPoint(x: 50, y: 1), tolerance: 4))
@@ -19,7 +20,8 @@ final class AnnotationGeometryTests: XCTestCase {
             from: CGPoint(x: 0, y: 0),
             to: CGPoint(x: 100, y: 0),
             color: CGColor(gray: 0, alpha: 1),
-            weight: 4
+            weight: 4,
+            borderColor: nil
         )
 
         XCTAssertFalse(AnnotationGeometry.hitTest(kind, point: CGPoint(x: 50, y: 40), tolerance: 4))
@@ -54,10 +56,11 @@ final class AnnotationGeometryTests: XCTestCase {
             from: CGPoint(x: 0, y: 0),
             to: CGPoint(x: 10, y: 10),
             color: CGColor(gray: 0, alpha: 1),
-            weight: 2
+            weight: 2,
+            borderColor: nil
         )
 
-        guard case let .arrow(from, to, _, _) = AnnotationGeometry.translated(
+        guard case let .arrow(from, to, _, _, _) = AnnotationGeometry.translated(
             kind,
             by: CGSize(width: 5, height: -3)
         ) else {
@@ -117,10 +120,11 @@ final class AnnotationGeometryTests: XCTestCase {
             from: CGPoint(x: 10, y: 10),
             to: CGPoint(x: 40, y: 10),
             color: CGColor(gray: 0, alpha: 1),
-            weight: 2
+            weight: 2,
+            borderColor: nil
         )
 
-        guard case let .arrow(from, to, _, _) = AnnotationGeometry.translatedClamped(
+        guard case let .arrow(from, to, _, _, _) = AnnotationGeometry.translatedClamped(
             kind,
             by: CGSize(width: -1000, height: 0),
             to: CGRect(x: 0, y: 0, width: 200, height: 200)
@@ -158,10 +162,11 @@ final class AnnotationGeometryTests: XCTestCase {
             from: CGPoint(x: 5, y: 50),
             to: CGPoint(x: 20, y: 50),
             color: CGColor(gray: 0, alpha: 1),
-            weight: 2
+            weight: 2,
+            borderColor: nil
         )
 
-        guard case let .arrow(from, to, _, _) = AnnotationGeometry.resized(
+        guard case let .arrow(from, to, _, _, _) = AnnotationGeometry.resized(
             kind,
             handle: .end,
             to: CGPoint(x: 100, y: 80),

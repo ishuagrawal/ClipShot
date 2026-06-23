@@ -15,7 +15,7 @@ struct Annotation: Identifiable, Equatable {
     }
 
     enum Kind: Equatable {
-        case arrow(from: CGPoint, to: CGPoint, color: CGColor, weight: CGFloat)
+        case arrow(from: CGPoint, to: CGPoint, color: CGColor, weight: CGFloat, borderColor: CGColor?)
         case line(from: CGPoint, to: CGPoint, color: CGColor, weight: CGFloat, dash: LineDash)
         case rect(frame: CGRect, stroke: CGColor?, fill: CGColor?, weight: CGFloat, cornerRadius: CGFloat)
         case text(origin: CGPoint, string: String, fontSize: CGFloat, color: CGColor)

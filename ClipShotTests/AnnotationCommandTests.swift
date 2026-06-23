@@ -16,7 +16,7 @@ final class AnnotationCommandTests: XCTestCase {
     private func arrow(_ id: UUID = UUID(), to: CGPoint = CGPoint(x: 20, y: 20)) -> Annotation {
         Annotation(
             id: id,
-            kind: .arrow(from: .zero, to: to, color: CGColor(gray: 0, alpha: 1), weight: 3)
+            kind: .arrow(from: .zero, to: to, color: CGColor(gray: 0, alpha: 1), weight: 3, borderColor: nil)
         )
     }
 
@@ -65,13 +65,15 @@ final class AnnotationCommandTests: XCTestCase {
             from: .zero,
             to: CGPoint(x: 1, y: 1),
             color: CGColor(gray: 0, alpha: 1),
-            weight: 2
+            weight: 2,
+            borderColor: nil
         )
         let secondKind = Annotation.Kind.arrow(
             from: .zero,
             to: CGPoint(x: 2, y: 2),
             color: CGColor(gray: 0, alpha: 1),
-            weight: 2
+            weight: 2,
+            borderColor: nil
         )
         let first = MoveAnnotationCommand(id: id, from: firstKind, to: secondKind)
         let second = MoveAnnotationCommand(id: id, from: secondKind, to: firstKind)
@@ -85,19 +87,22 @@ final class AnnotationCommandTests: XCTestCase {
             from: .zero,
             to: CGPoint(x: 1, y: 1),
             color: CGColor(gray: 0, alpha: 1),
-            weight: 2
+            weight: 2,
+            borderColor: nil
         )
         let secondKind = Annotation.Kind.arrow(
             from: .zero,
             to: CGPoint(x: 2, y: 2),
             color: CGColor(gray: 0, alpha: 1),
-            weight: 2
+            weight: 2,
+            borderColor: nil
         )
         let thirdKind = Annotation.Kind.arrow(
             from: .zero,
             to: CGPoint(x: 3, y: 3),
             color: CGColor(gray: 0, alpha: 1),
-            weight: 2
+            weight: 2,
+            borderColor: nil
         )
         let first = MoveAnnotationCommand(id: id, from: firstKind, to: secondKind, coalescingKey: .style)
         let second = MoveAnnotationCommand(id: id, from: secondKind, to: thirdKind, coalescingKey: .style)
@@ -114,7 +119,8 @@ final class AnnotationCommandTests: XCTestCase {
             from: .zero,
             to: CGPoint(x: 1, y: 1),
             color: CGColor(gray: 0, alpha: 1),
-            weight: 2
+            weight: 2,
+            borderColor: nil
         )
         let first = MoveAnnotationCommand(id: UUID(), from: kind, to: kind)
         let second = MoveAnnotationCommand(id: UUID(), from: kind, to: kind)
@@ -128,7 +134,8 @@ final class AnnotationCommandTests: XCTestCase {
             from: .zero,
             to: CGPoint(x: 1, y: 1),
             color: CGColor(gray: 0, alpha: 1),
-            weight: 2
+            weight: 2,
+            borderColor: nil
         )
         let first = MoveAnnotationCommand(id: id, from: kind, to: kind, coalescingKey: .style)
         let second = MoveAnnotationCommand(id: id, from: kind, to: kind, coalescingKey: .keyboardNudge)
