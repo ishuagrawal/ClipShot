@@ -2,17 +2,27 @@ import AppKit
 import Carbon.HIToolbox
 import SwiftUI
 
-/// Tabbed settings window. Keyboard Shortcuts is the populated tab; the structure
-/// leaves room for more tabs later.
+/// Tabbed settings window.
 struct SettingsView: View {
     enum Tab: String, CaseIterable, Identifiable {
+        case general
         case keyboard
         var id: String { rawValue }
-        var title: String { self == .keyboard ? "Keyboard Shortcuts" : rawValue }
-        var symbol: String { "keyboard" }
+        var title: String {
+            switch self {
+            case .general: "General"
+            case .keyboard: "Keyboard Shortcuts"
+            }
+        }
+        var symbol: String {
+            switch self {
+            case .general: "gearshape"
+            case .keyboard: "keyboard"
+            }
+        }
     }
 
-    @State private var tab: Tab = .keyboard
+    @State private var tab: Tab = .general
 
     var body: some View {
         VStack(spacing: 0) {
@@ -28,6 +38,7 @@ struct SettingsView: View {
             Rectangle().fill(Theme.hairline).frame(height: 1)
 
             switch tab {
+            case .general: GeneralSettingsView()
             case .keyboard: KeyboardShortcutsView()
             }
         }
@@ -203,5 +214,78 @@ struct KeyboardShortcutsView: View {
         monitor = nil
         recording = nil
         recordingGate.endRecording()
+    }
+}
+
+/// Default save location and other general preferences.
+struct GeneralSettingsView: View {
+    @ObservedObject private var store = GeneralSettingsStore.shared
+    @State private var panelOpen = false
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                saveLocationSection
+            }
+            .padding(20)
+        }
+    }
+
+    private var saveLocationSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("SAVE LOCATION")
+                .font(Theme.label(10.5, .semibold))
+                .foregroundStyle(Theme.textSecondary)
+                .tracking(1.2)
+
+            Button(action: pickDirectory) {
+                HStack(spacing: 10) {
+                    Image(systemName: "folder")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Theme.textSecondary)
+                    Text(store.displayPath)
+                        .font(Theme.label(13))
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Theme.textTertiary)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(Color.white.opacity(0.07))
+                )
+            }
+            .buttonStyle(.plain)
+            .help("Click to choose a different folder")
+
+            Text("Images save to this folder by default.")
+                .font(Theme.label(11))
+                .foregroundStyle(Theme.textSecondary)
+        }
+    }
+
+    private func pickDirectory() {
+        guard !panelOpen else { return }
+        panelOpen = true
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        panel.directoryURL = store.saveDirectoryURL
+        panel.prompt = "Choose"
+        panel.message = "Select the default folder for saved images"
+        panel.begin { response in
+            Task { @MainActor in
+                panelOpen = false
+                guard response == .OK, let url = panel.url else { return }
+                store.setSaveDirectory(url)
+            }
+        }
     }
 }

@@ -16,6 +16,7 @@ enum ExportActions {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.png]
         panel.canCreateDirectories = true
+        panel.directoryURL = GeneralSettingsStore.shared.saveDirectoryURL
         panel.nameFieldStringValue = defaultFilename(document)
         panel.begin { response in
             guard response == .OK, let url = panel.url else { return }
