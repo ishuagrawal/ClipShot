@@ -749,11 +749,18 @@ struct GlassSlider: View {
 
     @State private var isEditing = false
     @State private var hovering = false
+    // True while the cursor sits within grab range of the knob — i.e. a press
+    // would pick the knob up rather than jump it. Drives the armed indicator.
+    @State private var nearKnob = false
+    // When a drag starts on/near the knob, grab it and track the finger's offset
+    // so the value follows the drag instead of jumping to the press point.
+    @State private var grabOffset: CGFloat? = nil
 
     private let trackHeight: CGFloat = 5
     private let knob: CGFloat = 15
 
     private var engaged: Bool { isEditing || hovering }
+    private var armed: Bool { isEditing || nearKnob }
 
     var body: some View {
         // GeometryReader is intentional: knob offset arithmetic needs the numeric track width.
@@ -796,9 +803,12 @@ struct GlassSlider: View {
                     .frame(width: knob, height: knob)
                     .overlay(Circle().stroke(Color.black.opacity(0.25), lineWidth: 0.5))
                     .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
-                    .overlay(Circle().stroke(Theme.accentFocus, lineWidth: isEditing ? 3 : 0))
+                    // Armed: a vermilion focus ring + accent halo so the knob
+                    // reads as "live" the moment the cursor can pick it up.
+                    .overlay(Circle().stroke(Theme.accent, lineWidth: armed ? (isEditing ? 3 : 2) : 0))
+                    .shadow(color: Theme.accent.opacity(armed ? 0.6 : 0), radius: armed ? 6 : 0)
+                    .scaleEffect(isEditing ? 1.18 : (armed ? 1.1 : 1))
                     .offset(x: knobX - knob / 2)
-                    .scaleEffect(isEditing ? 1.1 : (hovering ? 1.05 : 1))
             }
             .frame(height: knob)
             .contentShape(Rectangle())
@@ -810,17 +820,32 @@ struct GlassSlider: View {
                         if !isEditing {
                             isEditing = true
                             onEditingChanged(true)
+                            // Grab the knob if the press lands within a knob-width of it.
+                            grabOffset = abs(gesture.startLocation.x - knobX) <= knob
+                                ? knobX - gesture.startLocation.x
+                                : nil
                         }
-                        value = valueAt(x: gesture.location.x, width: width)
+                        value = valueAt(x: gesture.location.x + (grabOffset ?? 0), width: width)
                     }
                     .onEnded { _ in
                         isEditing = false
+                        grabOffset = nil
                         onEditingChanged(false)
                     }
             )
-            .onHover { hovering = $0 }
+            .onContinuousHover { phase in
+                switch phase {
+                case .active(let location):
+                    hovering = true
+                    nearKnob = abs(location.x - knobX) <= knob
+                case .ended:
+                    hovering = false
+                    nearKnob = false
+                }
+            }
             .animation(.easeOut(duration: 0.12), value: isEditing)
             .animation(.easeOut(duration: 0.12), value: hovering)
+            .animation(.easeOut(duration: 0.12), value: nearKnob)
         }
         .frame(height: knob)
         .accessibilityElement()
