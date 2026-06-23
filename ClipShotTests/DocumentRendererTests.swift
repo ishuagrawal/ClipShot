@@ -157,6 +157,8 @@ final class DocumentRendererTests: XCTestCase {
                 kind: .arrow(
                     from: CGPoint(x: 5, y: 5),
                     to: CGPoint(x: 70, y: 50),
+                    pathStyle: .straight,
+                    curve: nil,
                     color: CGColor(red: 0, green: 0, blue: 1, alpha: 1),
                     weight: 8,
                     borderColor: nil

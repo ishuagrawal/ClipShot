@@ -16,7 +16,7 @@ final class AnnotationCommandTests: XCTestCase {
     private func arrow(_ id: UUID = UUID(), to: CGPoint = CGPoint(x: 20, y: 20)) -> Annotation {
         Annotation(
             id: id,
-            kind: .arrow(from: .zero, to: to, color: CGColor(gray: 0, alpha: 1), weight: 3, borderColor: nil)
+            kind: .arrow(from: .zero, to: to, pathStyle: .straight, curve: nil, color: CGColor(gray: 0, alpha: 1), weight: 3, borderColor: nil)
         )
     }
 
@@ -64,6 +64,8 @@ final class AnnotationCommandTests: XCTestCase {
         let firstKind = Annotation.Kind.arrow(
             from: .zero,
             to: CGPoint(x: 1, y: 1),
+            pathStyle: .straight,
+            curve: nil,
             color: CGColor(gray: 0, alpha: 1),
             weight: 2,
             borderColor: nil
@@ -71,6 +73,8 @@ final class AnnotationCommandTests: XCTestCase {
         let secondKind = Annotation.Kind.arrow(
             from: .zero,
             to: CGPoint(x: 2, y: 2),
+            pathStyle: .straight,
+            curve: nil,
             color: CGColor(gray: 0, alpha: 1),
             weight: 2,
             borderColor: nil
@@ -86,6 +90,8 @@ final class AnnotationCommandTests: XCTestCase {
         let firstKind = Annotation.Kind.arrow(
             from: .zero,
             to: CGPoint(x: 1, y: 1),
+            pathStyle: .straight,
+            curve: nil,
             color: CGColor(gray: 0, alpha: 1),
             weight: 2,
             borderColor: nil
@@ -93,6 +99,8 @@ final class AnnotationCommandTests: XCTestCase {
         let secondKind = Annotation.Kind.arrow(
             from: .zero,
             to: CGPoint(x: 2, y: 2),
+            pathStyle: .straight,
+            curve: nil,
             color: CGColor(gray: 0, alpha: 1),
             weight: 2,
             borderColor: nil
@@ -100,6 +108,8 @@ final class AnnotationCommandTests: XCTestCase {
         let thirdKind = Annotation.Kind.arrow(
             from: .zero,
             to: CGPoint(x: 3, y: 3),
+            pathStyle: .straight,
+            curve: nil,
             color: CGColor(gray: 0, alpha: 1),
             weight: 2,
             borderColor: nil
@@ -118,6 +128,8 @@ final class AnnotationCommandTests: XCTestCase {
         let kind = Annotation.Kind.arrow(
             from: .zero,
             to: CGPoint(x: 1, y: 1),
+            pathStyle: .straight,
+            curve: nil,
             color: CGColor(gray: 0, alpha: 1),
             weight: 2,
             borderColor: nil
@@ -133,6 +145,8 @@ final class AnnotationCommandTests: XCTestCase {
         let kind = Annotation.Kind.arrow(
             from: .zero,
             to: CGPoint(x: 1, y: 1),
+            pathStyle: .straight,
+            curve: nil,
             color: CGColor(gray: 0, alpha: 1),
             weight: 2,
             borderColor: nil

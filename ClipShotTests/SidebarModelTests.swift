@@ -110,7 +110,7 @@ final class SidebarModelTests: XCTestCase {
         XCTAssertEqual(state.inspectorTitle, "Arrow")
     }
 
-    func testInspectorRouteAnnotationWhenSelected() {
+    func testInspectorRouteAnnotationWhenStraightArrowSelected() {
         let state = makeState()
         state.selectCursorTool(.arrow)
         state.beginDraw(at: CGPoint(x: 10, y: 10))
@@ -118,7 +118,7 @@ final class SidebarModelTests: XCTestCase {
         _ = state.commitDraw()
         XCTAssertNotNil(state.selectedAnnotationID)
         XCTAssertEqual(state.inspectorRoute, .annotation)
-        XCTAssertEqual(state.inspectorTitle, "Arrow")
+        XCTAssertEqual(state.inspectorTitle, "Straight Arrow")
     }
 
     func testDismissInspectorClearsEverything() {

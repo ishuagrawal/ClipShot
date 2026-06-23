@@ -77,8 +77,16 @@ enum DocumentRenderer {
     private static func drawAnnotations(_ annotations: [Annotation], in ctx: CGContext) {
         for annotation in annotations {
             switch annotation.kind {
-            case .arrow(let from, let to, let color, let weight, let borderColor):
-                drawArrow(from: from, to: to, color: color, weight: weight, borderColor: borderColor, in: ctx)
+            case .arrow(let from, let to, let pathStyle, let curve, let color, let weight, let borderColor):
+                drawArrow(
+                    from: from,
+                    to: to,
+                    curve: AnnotationGeometry.arrowCurve(pathStyle: pathStyle, curve: curve),
+                    color: color,
+                    weight: weight,
+                    borderColor: borderColor,
+                    in: ctx
+                )
             case .line(let from, let to, let color, let weight, let dash):
                 drawLine(from: from, to: to, color: color, weight: weight, dash: dash, in: ctx)
             case .rect(let frame, let stroke, let fill, let weight, let corner):
@@ -94,13 +102,14 @@ enum DocumentRenderer {
     private static func drawArrow(
         from: CGPoint,
         to: CGPoint,
+        curve: CGPoint?,
         color: CGColor,
         weight: CGFloat,
         borderColor: CGColor?,
         in ctx: CGContext
     ) {
-        let linePath = AnnotationGeometry.arrowLinePath(from: from, to: to, weight: weight)
-        let headPath = AnnotationGeometry.arrowHeadPath(from: from, to: to, weight: weight)
+        let linePath = AnnotationGeometry.arrowShaftPath(from: from, to: to, curve: curve, weight: weight)
+        let headPath = AnnotationGeometry.arrowHeadPath(from: from, to: to, curve: curve, weight: weight)
 
         if let borderColor {
             let borderWidth = AnnotationGeometry.arrowBorderWidth(weight: weight)

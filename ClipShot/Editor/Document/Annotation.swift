@@ -14,8 +14,27 @@ struct Annotation: Identifiable, Equatable {
         case solid, dashed, dotted
     }
 
+    enum ArrowPathStyle: Equatable, CaseIterable {
+        case straight, curved
+
+        var displayName: String {
+            switch self {
+            case .straight: return "Straight Arrow"
+            case .curved: return "Curved Arrow"
+            }
+        }
+    }
+
     enum Kind: Equatable {
-        case arrow(from: CGPoint, to: CGPoint, color: CGColor, weight: CGFloat, borderColor: CGColor?)
+        case arrow(
+            from: CGPoint,
+            to: CGPoint,
+            pathStyle: ArrowPathStyle,
+            curve: CGPoint?,
+            color: CGColor,
+            weight: CGFloat,
+            borderColor: CGColor?
+        )
         case line(from: CGPoint, to: CGPoint, color: CGColor, weight: CGFloat, dash: LineDash)
         case rect(frame: CGRect, stroke: CGColor?, fill: CGColor?, weight: CGFloat, cornerRadius: CGFloat)
         case text(origin: CGPoint, string: String, fontSize: CGFloat, color: CGColor)

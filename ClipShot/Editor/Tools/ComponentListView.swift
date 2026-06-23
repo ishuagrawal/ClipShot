@@ -72,7 +72,8 @@ private struct ComponentRow: View {
 private extension Annotation.Kind {
     var symbolName: String {
         switch self {
-        case .arrow: return "arrow.up.right"
+        case .arrow(_, _, let pathStyle, _, _, _, _):
+            return pathStyle == .straight ? "arrow.up.right" : "arrow.triangle.turn.up.right.circle"
         case .line:  return "line.diagonal"
         case .rect:  return "rectangle"
         case .text:  return "textformat"
@@ -82,7 +83,8 @@ private extension Annotation.Kind {
 
     var listLabel: String {
         switch self {
-        case .arrow: return "Arrow"
+        case .arrow(_, _, let pathStyle, _, _, _, _):
+            return pathStyle.displayName
         case .line:  return "Line"
         case .rect:  return "Rectangle"
         case .blur:  return "Blur"

@@ -132,6 +132,7 @@ final class EditorState: ObservableObject {
     struct ToolStyle {
         var arrowColor: CGColor = CGColor(red: 1, green: 0.23, blue: 0.19, alpha: 1)
         var arrowBorderColor: CGColor? = nil
+        var arrowPathStyle: Annotation.ArrowPathStyle = .straight
         var arrowWeight: CGFloat = 4
         var lineColor: CGColor = CGColor(red: 1, green: 0.23, blue: 0.19, alpha: 1)
         var lineWeight: CGFloat = 4
@@ -275,7 +276,8 @@ final class EditorState: ObservableObject {
         case .drawDefaults(let tool): return tool.displayName
         case .annotation:
             switch selectedAnnotation?.kind {
-            case .arrow: return "Arrow"
+            case .arrow(_, _, let pathStyle, _, _, _, _):
+                return pathStyle.displayName
             case .line: return "Line"
             case .rect: return "Rectangle"
             case .text: return "Text"
@@ -295,6 +297,8 @@ final class EditorState: ObservableObject {
             kind = .arrow(
                 from: point,
                 to: point,
+                pathStyle: toolStyle.arrowPathStyle,
+                curve: toolStyle.arrowPathStyle == .curved ? point : nil,
                 color: toolStyle.arrowColor,
                 weight: toolStyle.arrowWeight,
                 borderColor: toolStyle.arrowBorderColor
@@ -341,11 +345,19 @@ final class EditorState: ObservableObject {
         let point = point.clamped(to: documentBounds)
 
         switch current.kind {
-        case .arrow(let from, _, let color, let weight, let borderColor):
+        case .arrow(let from, _, let pathStyle, let curve, let color, let weight, let borderColor):
             let end = shiftSnap ? AnnotationGeometry.snap45(from: from, to: point) : point
+            let nextCurve: CGPoint?
+            if pathStyle == .curved {
+                nextCurve = AnnotationGeometry.defaultCurveControl(from: from, to: end)
+            } else {
+                nextCurve = curve
+            }
             inProgressAnnotation?.kind = .arrow(
                 from: from,
                 to: end,
+                pathStyle: pathStyle,
+                curve: nextCurve,
                 color: color,
                 weight: weight,
                 borderColor: borderColor
@@ -602,7 +614,7 @@ final class EditorState: ObservableObject {
 
     private func isDegenerate(_ kind: Annotation.Kind) -> Bool {
         switch kind {
-        case .arrow(let from, let to, _, _, _), .line(let from, let to, _, _, _):
+        case .arrow(let from, let to, _, _, _, _, _), .line(let from, let to, _, _, _):
             return hypot(to.x - from.x, to.y - from.y) < 3
         case .rect(let frame, _, _, _, _):
             return frame.width < 3 || frame.height < 3

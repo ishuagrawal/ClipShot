@@ -195,9 +195,10 @@ final class CanvasOverlayView: NSView {
 
         if rendersContent {
             switch kind {
-            case .arrow(let from, let to, let color, let weight, let borderColor):
-                let linePath = AnnotationGeometry.arrowLinePath(from: from, to: to, weight: weight)
-                let headPath = AnnotationGeometry.arrowHeadPath(from: from, to: to, weight: weight)
+            case .arrow(let from, let to, let pathStyle, let curve, let color, let weight, let borderColor):
+                let activeCurve = AnnotationGeometry.arrowCurve(pathStyle: pathStyle, curve: curve)
+                let linePath = AnnotationGeometry.arrowShaftPath(from: from, to: to, curve: activeCurve, weight: weight)
+                let headPath = AnnotationGeometry.arrowHeadPath(from: from, to: to, curve: activeCurve, weight: weight)
 
                 if let borderColor {
                     let borderWidth = AnnotationGeometry.arrowBorderWidth(weight: weight)

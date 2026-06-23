@@ -181,7 +181,8 @@ struct InspectorView: View {
 
     private var selectionTitle: String {
         switch state.selectedAnnotation?.kind {
-        case .arrow: return "Arrow"
+        case .arrow(_, _, let pathStyle, _, _, _, _):
+            return pathStyle.displayName
         case .line:  return "Line"
         case .rect:  return "Rectangle"
         case .text:  return "Text"

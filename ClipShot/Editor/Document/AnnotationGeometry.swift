@@ -5,7 +5,7 @@ import Foundation
 /// A draggable resize control on a selected annotation. Endpoints for
 /// arrow/line, eight box controls for rect/blur, four scaling corners for text.
 enum ResizeHandle {
-    case start, end
+    case start, end, curve
     case topLeft, top, topRight, right, bottomRight, bottom, bottomLeft, left
     case scaleTopLeft, scaleTopRight, scaleBottomLeft, scaleBottomRight
 }
@@ -23,7 +23,91 @@ enum AnnotationGeometry {
         max(2, weight * 0.5)
     }
 
-    static func arrowLinePath(from: CGPoint, to: CGPoint, weight: CGFloat) -> CGPath {
+    static func arrowCurve(pathStyle: Annotation.ArrowPathStyle, curve: CGPoint?) -> CGPoint? {
+        pathStyle == .curved ? curve : nil
+    }
+
+    /// Default bow places the visible arc apex ~16% of the chord length off-center.
+    static func defaultCurveControl(from: CGPoint, to: CGPoint) -> CGPoint {
+        arrowCurveControl(
+            from: from,
+            to: to,
+            handle: defaultCurveHandle(from: from, to: to)
+        )
+    }
+
+    /// Handle anchor on the drawn curve (t = 0.5), not the off-curve bezier control.
+    static func arrowCurveHandlePoint(from: CGPoint, control: CGPoint, to: CGPoint) -> CGPoint {
+        quadPoint(from: from, control: control, to: to, t: 0.5)
+    }
+
+    static func arrowCurveControl(from: CGPoint, to: CGPoint, handle: CGPoint) -> CGPoint {
+        let mid = CGPoint(x: (from.x + to.x) / 2, y: (from.y + to.y) / 2)
+        return CGPoint(
+            x: 2 * handle.x - mid.x,
+            y: 2 * handle.y - mid.y
+        )
+    }
+
+    private static func defaultCurveHandle(from: CGPoint, to: CGPoint) -> CGPoint {
+        let mid = CGPoint(x: (from.x + to.x) / 2, y: (from.y + to.y) / 2)
+        let dx = to.x - from.x
+        let dy = to.y - from.y
+        let length = max(hypot(dx, dy), 0.0001)
+        let bow = length * 0.16
+        let perpendicular = CGPoint(x: -dy / length, y: dx / length)
+        return CGPoint(x: mid.x + perpendicular.x * bow, y: mid.y + perpendicular.y * bow)
+    }
+
+    private static func arrowRenderedBounds(
+        from: CGPoint,
+        to: CGPoint,
+        curve: CGPoint?,
+        weight: CGFloat
+    ) -> CGRect {
+        let head = arrowHeadPath(from: from, to: to, curve: curve, weight: weight)
+        let shaftBounds: CGRect
+        if let curve {
+            // CGPath.boundingBox expands quad curves to include the off-curve control.
+            shaftBounds = arrowCurvedShaftBounds(from: from, to: to, control: curve, weight: weight)
+        } else {
+            shaftBounds = arrowStraightShaftPath(from: from, to: to, weight: weight).boundingBox
+        }
+        return shaftBounds.union(head.boundingBox)
+    }
+
+    private static func arrowCurvedShaftBounds(
+        from: CGPoint,
+        to: CGPoint,
+        control: CGPoint,
+        weight: CGFloat
+    ) -> CGRect {
+        var box = CGRect.null
+        let steps = 24
+        for step in 0...steps {
+            let t = CGFloat(step) / CGFloat(steps)
+            let point = quadPoint(from: from, control: control, to: to, t: t)
+            box = box.union(CGRect(x: point.x, y: point.y, width: 0, height: 0))
+        }
+        let strokePad = weight / 2
+        return box.insetBy(dx: -strokePad, dy: -strokePad)
+    }
+
+    static func arrowShaftPath(from: CGPoint, to: CGPoint, curve: CGPoint?, weight: CGFloat) -> CGPath {
+        if let curve {
+            return arrowCurveShaftPath(from: from, to: to, control: curve, weight: weight)
+        }
+        return arrowStraightShaftPath(from: from, to: to, weight: weight)
+    }
+
+    static func arrowHeadPath(from: CGPoint, to: CGPoint, curve: CGPoint?, weight: CGFloat) -> CGPath {
+        if let curve {
+            return arrowCurveHeadPath(from: from, to: to, control: curve, weight: weight)
+        }
+        return arrowStraightHeadPath(from: from, to: to, weight: weight)
+    }
+
+    private static func arrowStraightShaftPath(from: CGPoint, to: CGPoint, weight: CGFloat) -> CGPath {
         let head = arrowHeadLength(weight: weight)
         let dx = to.x - from.x
         let dy = to.y - from.y
@@ -37,24 +121,166 @@ enum AnnotationGeometry {
         return path
     }
 
-    static func arrowHeadPath(from: CGPoint, to: CGPoint, weight: CGFloat) -> CGPath {
+    private static func arrowStraightHeadPath(from: CGPoint, to: CGPoint, weight: CGFloat) -> CGPath {
+        arrowHeadPath(
+            at: to,
+            direction: CGPoint(x: to.x - from.x, y: to.y - from.y),
+            weight: weight
+        )
+    }
+
+    private static func arrowCurveShaftPath(
+        from: CGPoint,
+        to: CGPoint,
+        control: CGPoint,
+        weight: CGFloat
+    ) -> CGPath {
         let head = arrowHeadLength(weight: weight)
-        let dx = to.x - from.x
-        let dy = to.y - from.y
-        let length = max(hypot(dx, dy), 0.0001)
-        let unit = CGPoint(x: dx / length, y: dy / length)
-        let base = CGPoint(x: to.x - unit.x * head, y: to.y - unit.y * head)
+        let junction = arrowCurveJunction(from: from, control: control, to: to, headLength: head)
+        let path = CGMutablePath()
+        path.move(to: from)
+        if junction.t <= 0.001 || junction.t >= 1 {
+            path.addQuadCurve(to: to, control: control)
+        } else {
+            let segment = subdivideQuad(from: from, control: control, to: to, at: junction.t)
+            path.addQuadCurve(to: segment.end, control: segment.control)
+        }
+        return path
+    }
+
+    private static func arrowCurveHeadPath(
+        from: CGPoint,
+        to: CGPoint,
+        control: CGPoint,
+        weight: CGFloat
+    ) -> CGPath {
+        let head = arrowHeadLength(weight: weight)
+        let junction = arrowCurveJunction(from: from, control: control, to: to, headLength: head)
+        let dx = to.x - junction.point.x
+        let dy = to.y - junction.point.y
+        let direction: CGPoint
+        if hypot(dx, dy) < 0.5 {
+            direction = CGPoint(x: to.x - control.x, y: to.y - control.y)
+        } else {
+            direction = CGPoint(x: dx, y: dy)
+        }
+        return arrowHeadPath(at: to, direction: direction, weight: weight)
+    }
+
+    /// Point on the curve `headLength` pixels from the tip, shared by the shaft end and head base.
+    private static func arrowCurveJunction(
+        from: CGPoint,
+        control: CGPoint,
+        to: CGPoint,
+        headLength: CGFloat
+    ) -> (t: CGFloat, point: CGPoint) {
+        let trimT = curveParameterAtEuclideanDistanceFromEnd(
+            from: from,
+            control: control,
+            to: to,
+            distance: headLength
+        )
+        let point = quadPoint(from: from, control: control, to: to, t: trimT)
+        return (trimT, point)
+    }
+
+    private static func curveParameterAtEuclideanDistanceFromEnd(
+        from: CGPoint,
+        control: CGPoint,
+        to: CGPoint,
+        distance: CGFloat
+    ) -> CGFloat {
+        var low: CGFloat = 0
+        var high: CGFloat = 1
+        for _ in 0..<24 {
+            let mid = (low + high) / 2
+            let point = quadPoint(from: from, control: control, to: to, t: mid)
+            let separation = hypot(point.x - to.x, point.y - to.y)
+            if separation > distance {
+                low = mid
+            } else {
+                high = mid
+            }
+        }
+        return (low + high) / 2
+    }
+
+    private static func arrowHeadPath(at tip: CGPoint, direction: CGPoint, weight: CGFloat) -> CGPath {
+        let head = arrowHeadLength(weight: weight)
+        let length = max(hypot(direction.x, direction.y), 0.0001)
+        let unit = CGPoint(x: direction.x / length, y: direction.y / length)
+        let base = CGPoint(x: tip.x - unit.x * head, y: tip.y - unit.y * head)
         let halfWidth = head * 0.55
         let perpendicular = CGPoint(x: -unit.y, y: unit.x)
         let left = CGPoint(x: base.x + perpendicular.x * halfWidth, y: base.y + perpendicular.y * halfWidth)
         let right = CGPoint(x: base.x - perpendicular.x * halfWidth, y: base.y - perpendicular.y * halfWidth)
 
         let path = CGMutablePath()
-        path.move(to: to)
+        path.move(to: tip)
         path.addLine(to: left)
         path.addLine(to: right)
         path.closeSubpath()
         return path
+    }
+
+    private static func quadPoint(
+        from: CGPoint,
+        control: CGPoint,
+        to: CGPoint,
+        t: CGFloat
+    ) -> CGPoint {
+        let oneMinusT = 1 - t
+        let a = CGPoint(
+            x: oneMinusT * from.x + t * control.x,
+            y: oneMinusT * from.y + t * control.y
+        )
+        let b = CGPoint(
+            x: oneMinusT * control.x + t * to.x,
+            y: oneMinusT * control.y + t * to.y
+        )
+        return CGPoint(
+            x: oneMinusT * a.x + t * b.x,
+            y: oneMinusT * a.y + t * b.y
+        )
+    }
+
+    private static func subdivideQuad(
+        from: CGPoint,
+        control: CGPoint,
+        to: CGPoint,
+        at t: CGFloat
+    ) -> (control: CGPoint, end: CGPoint) {
+        let a = CGPoint(
+            x: from.x + (control.x - from.x) * t,
+            y: from.y + (control.y - from.y) * t
+        )
+        let b = CGPoint(
+            x: control.x + (to.x - control.x) * t,
+            y: control.y + (to.y - control.y) * t
+        )
+        let end = CGPoint(
+            x: a.x + (b.x - a.x) * t,
+            y: a.y + (b.y - a.y) * t
+        )
+        return (a, end)
+    }
+
+    private static func distanceToQuadCurve(
+        _ point: CGPoint,
+        from: CGPoint,
+        control: CGPoint,
+        to: CGPoint
+    ) -> CGFloat {
+        let steps = 32
+        var minimum = CGFloat.greatestFiniteMagnitude
+        var previous = from
+        for step in 1...steps {
+            let t = CGFloat(step) / CGFloat(steps)
+            let sample = quadPoint(from: from, control: control, to: to, t: t)
+            minimum = min(minimum, distance(point, segmentStart: previous, segmentEnd: sample))
+            previous = sample
+        }
+        return minimum
     }
 
     static func linePath(from: CGPoint, to: CGPoint) -> CGPath {
@@ -103,15 +329,13 @@ enum AnnotationGeometry {
 
     static func boundingBox(_ kind: Annotation.Kind) -> CGRect {
         switch kind {
-        case .arrow(let from, let to, _, let weight, _):
-            let line = CGRect(
-                x: min(from.x, to.x),
-                y: min(from.y, to.y),
-                width: abs(to.x - from.x),
-                height: abs(to.y - from.y)
-            )
-            let pad = arrowHeadLength(weight: weight) * 0.6 + weight
-            return line.insetBy(dx: -pad, dy: -pad)
+        case .arrow(let from, let to, let pathStyle, let curve, _, let weight, _):
+            let activeCurve = arrowCurve(pathStyle: pathStyle, curve: curve)
+            let box = arrowRenderedBounds(from: from, to: to, curve: activeCurve, weight: weight)
+            let pad = activeCurve == nil
+                ? arrowHeadLength(weight: weight) * 0.6 + weight
+                : max(3, weight / 2)
+            return box.insetBy(dx: -pad, dy: -pad)
         case .line(let from, let to, _, let weight, _):
             let line = CGRect(
                 x: min(from.x, to.x),
@@ -131,8 +355,14 @@ enum AnnotationGeometry {
 
     static func hitTest(_ kind: Annotation.Kind, point: CGPoint, tolerance: CGFloat) -> Bool {
         switch kind {
-        case .arrow(let from, let to, _, let weight, _):
-            return distance(point, segmentStart: from, segmentEnd: to) <= tolerance + weight / 2
+        case .arrow(let from, let to, let pathStyle, let curve, _, let weight, _):
+            let distanceToShaft: CGFloat
+            if let activeCurve = arrowCurve(pathStyle: pathStyle, curve: curve) {
+                distanceToShaft = distanceToQuadCurve(point, from: from, control: activeCurve, to: to)
+            } else {
+                distanceToShaft = distance(point, segmentStart: from, segmentEnd: to)
+            }
+            return distanceToShaft <= tolerance + weight / 2
         case .line(let from, let to, _, let weight, _):
             return distance(point, segmentStart: from, segmentEnd: to) <= tolerance + weight / 2
         case .rect(let frame, _, _, let weight, _):
@@ -153,7 +383,16 @@ enum AnnotationGeometry {
     /// Resize-handle anchor points in annotation coordinates, in draw order.
     static func resizeHandles(_ kind: Annotation.Kind) -> [(handle: ResizeHandle, point: CGPoint)] {
         switch kind {
-        case .arrow(let from, let to, _, _, _), .line(let from, let to, _, _, _):
+        case .arrow(let from, let to, let pathStyle, let curve, _, _, _):
+            var handles: [(ResizeHandle, CGPoint)] = [(.start, from), (.end, to)]
+            if let activeCurve = arrowCurve(pathStyle: pathStyle, curve: curve) {
+                handles.append((
+                    .curve,
+                    arrowCurveHandlePoint(from: from, control: activeCurve, to: to)
+                ))
+            }
+            return handles
+        case .line(let from, let to, _, _, _):
             return [(.start, from), (.end, to)]
         case .rect(let frame, _, _, _, _), .blur(let frame, _):
             return boxHandles(frame.standardized)
@@ -191,9 +430,43 @@ enum AnnotationGeometry {
         bounds: CGRect
     ) -> Annotation.Kind {
         switch kind {
-        case .arrow(let from, let to, let color, let weight, let borderColor):
-            let (f, t) = resizedEndpoints(from: from, to: to, handle: handle, to: point, shiftLock: shiftLock, snapAxis: false, bounds: bounds)
-            return .arrow(from: f, to: t, color: color, weight: weight, borderColor: borderColor)
+        case .arrow(let from, let to, let pathStyle, let curve, let color, let weight, let borderColor):
+            switch handle {
+            case .curve:
+                guard arrowCurve(pathStyle: pathStyle, curve: curve) != nil else { return kind }
+                return .arrow(
+                    from: from,
+                    to: to,
+                    pathStyle: pathStyle,
+                    curve: arrowCurveControl(
+                        from: from,
+                        to: to,
+                        handle: point.clamped(to: bounds)
+                    ),
+                    color: color,
+                    weight: weight,
+                    borderColor: borderColor
+                )
+            default:
+                let (f, t) = resizedEndpoints(
+                    from: from,
+                    to: to,
+                    handle: handle,
+                    to: point,
+                    shiftLock: shiftLock,
+                    snapAxis: false,
+                    bounds: bounds
+                )
+                return .arrow(
+                    from: f,
+                    to: t,
+                    pathStyle: pathStyle,
+                    curve: curve,
+                    color: color,
+                    weight: weight,
+                    borderColor: borderColor
+                )
+            }
         case .line(let from, let to, let color, let weight, let dash):
             let (f, t) = resizedEndpoints(from: from, to: to, handle: handle, to: point, shiftLock: shiftLock, snapAxis: true, bounds: bounds)
             return .line(from: f, to: t, color: color, weight: weight, dash: dash)
@@ -381,10 +654,12 @@ enum AnnotationGeometry {
 
     static func translated(_ kind: Annotation.Kind, by delta: CGSize) -> Annotation.Kind {
         switch kind {
-        case .arrow(let from, let to, let color, let weight, let borderColor):
+        case .arrow(let from, let to, let pathStyle, let curve, let color, let weight, let borderColor):
             return .arrow(
                 from: from.offset(delta),
                 to: to.offset(delta),
+                pathStyle: pathStyle,
+                curve: curve?.offset(delta),
                 color: color,
                 weight: weight,
                 borderColor: borderColor
@@ -415,7 +690,14 @@ enum AnnotationGeometry {
     /// so a shape already touching the border isn't nudged on an orthogonal axis.
     static func geometryExtent(_ kind: Annotation.Kind) -> CGRect {
         switch kind {
-        case .arrow(let from, let to, _, _, _), .line(let from, let to, _, _, _):
+        case .arrow(let from, let to, let pathStyle, let curve, _, let weight, _):
+            return arrowRenderedBounds(
+                from: from,
+                to: to,
+                curve: arrowCurve(pathStyle: pathStyle, curve: curve),
+                weight: weight
+            )
+        case .line(let from, let to, _, _, _):
             return CGRect(
                 x: min(from.x, to.x),
                 y: min(from.y, to.y),
@@ -456,10 +738,12 @@ enum AnnotationGeometry {
 
     static func clamped(_ kind: Annotation.Kind, to bounds: CGRect) -> Annotation.Kind {
         switch kind {
-        case .arrow(let from, let to, let color, let weight, let borderColor):
+        case .arrow(let from, let to, let pathStyle, let curve, let color, let weight, let borderColor):
             return .arrow(
                 from: from.clamped(to: bounds),
                 to: to.clamped(to: bounds),
+                pathStyle: pathStyle,
+                curve: curve?.clamped(to: bounds),
                 color: color,
                 weight: weight,
                 borderColor: borderColor

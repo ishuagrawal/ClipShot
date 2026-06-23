@@ -379,7 +379,7 @@ final class CanvasInteractionView: NSView {
         case .top, .bottom: return .resizeUpDown
         case .topLeft, .bottomRight, .scaleTopLeft, .scaleBottomRight: return diagonalResizeCursor(mirrored: false)
         case .topRight, .bottomLeft, .scaleTopRight, .scaleBottomLeft: return diagonalResizeCursor(mirrored: true)
-        case .start, .end: return .crosshair
+        case .start, .end, .curve: return .crosshair
         }
     }
 
