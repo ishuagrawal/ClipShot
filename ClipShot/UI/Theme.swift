@@ -904,8 +904,140 @@ struct GlassToggleStyle: ToggleStyle {
     }
 }
 
-/// Round glass color well: a lens-shaped swatch with a specular highlight; the
-/// system color panel opens through an invisible picker layered on top.
+// TEST: three liquid-glass swatch finishes, switchable live for comparison.
+// Remove the losers once a verdict is in.
+enum BeadFinish: Int, CaseIterable, Identifiable {
+    case domed, lens, liquid
+    var id: Int { rawValue }
+    var title: String {
+        switch self {
+        case .domed: return "Domed"
+        case .lens: return "Lens"
+        case .liquid: return "Liquid"
+        }
+    }
+}
+
+/// Circular color swatch with liquid-glass depth, rendered in the current
+/// `BeadFinish`. Shared by every color orb so all candidates render
+/// consistently across the inspector.
+struct BeadFace<S: View>: View {
+    let finish: BeadFinish
+    let selected: Bool
+    let diameter: CGFloat
+    @ViewBuilder var swatch: () -> S
+
+    var body: some View {
+        Group {
+            switch finish {
+            case .domed: domed
+            case .lens: lens
+            case .liquid: liquid
+            }
+        }
+        .overlay(Circle().stroke(selected ? Theme.accent : .clear, lineWidth: 2))
+    }
+
+    private var base: some View {
+        swatch().frame(width: diameter, height: diameter).clipShape(Circle())
+    }
+
+    /// Convex pebble: a soft top crescent of light, a radial shade pooling at the
+    /// bottom, finished with the panel's top-bright/bottom-dark rim.
+    private var domed: some View {
+        base
+            .overlay(
+                Ellipse()
+                    .fill(Color.white.opacity(0.5))
+                    .frame(width: diameter * 0.62, height: diameter * 0.3)
+                    .blur(radius: diameter * 0.06)
+                    .offset(y: -diameter * 0.24)
+                    .blendMode(.plusLighter)
+                    .mask(Circle())
+            )
+            .overlay(
+                Circle().fill(RadialGradient(
+                    colors: [.clear, .black.opacity(0.28)],
+                    center: .init(x: 0.5, y: 0.62),
+                    startRadius: diameter * 0.2, endRadius: diameter * 0.55))
+            )
+            .overlay(Circle().strokeBorder(
+                LinearGradient(colors: [.white.opacity(0.55), .white.opacity(0.04), .black.opacity(0.22)],
+                               startPoint: .top, endPoint: .bottom), lineWidth: 1))
+            .shadow(color: .black.opacity(0.35), radius: 2.5, y: 2)
+    }
+
+    /// Refractive lens: a crisp specular arc catches the top rim, a faint
+    /// counter-arc lifts the bottom — light bending through glass.
+    private var lens: some View {
+        base
+            .overlay(
+                Circle().trim(from: 0.60, to: 0.90)
+                    .stroke(Color.white.opacity(0.85),
+                            style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                    .blur(radius: 0.5).padding(1.6)
+            )
+            .overlay(
+                Circle().trim(from: 0.10, to: 0.40)
+                    .stroke(Color.white.opacity(0.18),
+                            style: StrokeStyle(lineWidth: 1, lineCap: .round))
+                    .padding(1.6)
+            )
+            .overlay(Circle().strokeBorder(Color.white.opacity(0.3), lineWidth: 1))
+            .shadow(color: .black.opacity(0.4), radius: 2.5, y: 2)
+    }
+
+    /// Liquid: the color itself gains volume — a sheen across the top, shade
+    /// pooling below — plus a sharp specular arc and a graded rim.
+    private var liquid: some View {
+        base
+            // Inner shadow pooling at the bottom edge: convex volume without
+            // washing the face, so the color stays vivid through the center.
+            .overlay(
+                Circle().strokeBorder(
+                    LinearGradient(colors: [.clear, .black.opacity(0.38)],
+                                   startPoint: .top, endPoint: .bottom),
+                    lineWidth: diameter * 0.16)
+                    .blur(radius: diameter * 0.05)
+                    .mask(Circle())
+            )
+            // Bright specular along the top edge — the glass catching light.
+            .overlay(Circle().strokeBorder(
+                LinearGradient(colors: [.white.opacity(0.8), .clear],
+                               startPoint: .top, endPoint: .center), lineWidth: 1.2))
+            // Thin graded definition rim, top-light to bottom-dark.
+            .overlay(Circle().strokeBorder(
+                LinearGradient(colors: [.white.opacity(0.3), .black.opacity(0.3)],
+                               startPoint: .top, endPoint: .bottom), lineWidth: 0.75))
+            .compositingGroup()
+    }
+}
+
+/// Drives the shared `NSColorPanel` and forwards live color changes to a
+/// binding. Avoids SwiftUI's `ColorPicker`, whose `NSColorWell` paints an
+/// AppKit active-frame that bleeds through any opacity.
+@MainActor
+final class ColorPanelProxy: NSObject {
+    var onChange: ((Color) -> Void)?
+
+    func present(_ color: Color, supportsOpacity: Bool) {
+        let panel = NSColorPanel.shared
+        panel.showsAlpha = supportsOpacity
+        panel.isContinuous = true
+        panel.color = NSColor(color)
+        panel.setTarget(self)
+        panel.setAction(#selector(colorChanged(_:)))
+        panel.orderFront(nil)
+    }
+
+    @objc private func colorChanged(_ sender: NSColorPanel) {
+        onChange?(Color(nsColor: sender.color))
+    }
+}
+
+/// Round liquid-glass color well: the `BeadFace` swatch is the whole control;
+/// tapping it opens the system color panel. No `NSColorWell`, so nothing paints
+/// an active ring around it.
 struct GlassColorWell: View {
     @Binding var selection: Color
     var supportsOpacity: Bool = false
@@ -914,28 +1046,24 @@ struct GlassColorWell: View {
     /// "pick any color" well. Defaults to the current selection.
     var fill: AnyShapeStyle? = nil
     @State private var hovering = false
+    @State private var proxy = ColorPanelProxy()
+    @AppStorage("beadFinishTest") private var beadFinishRaw = 0
 
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(fill ?? AnyShapeStyle(selection))
-                .overlay(
-                    // Specular arc: the swatch reads as a glass bead, not a chip.
-                    Circle().fill(
-                        RadialGradient(
-                            colors: [.white.opacity(0.55), .clear],
-                            center: .init(x: 0.32, y: 0.22), startRadius: 0, endRadius: 11
-                        )
-                    )
-                )
-                .overlay(Circle().stroke(Color.white.opacity(hovering ? 0.5 : 0.28), lineWidth: 1))
-                .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
-            ColorPicker("", selection: $selection, supportsOpacity: supportsOpacity)
-                .labelsHidden()
-                .opacity(0.02)
+        Button {
+            proxy.onChange = { selection = $0 }
+            proxy.present(selection, supportsOpacity: supportsOpacity)
+        } label: {
+            BeadFace(finish: BeadFinish(rawValue: beadFinishRaw) ?? .domed,
+                     selected: false, diameter: 23) {
+                Circle().fill(fill ?? AnyShapeStyle(selection))
+            }
+            .overlay(Circle().stroke(Color.white.opacity(hovering ? 0.45 : 0), lineWidth: 1))
+            .frame(width: 23, height: 23)
+            .contentShape(Circle())
         }
-        .frame(width: 23, height: 23)
-        .clipShape(Circle())
+        .buttonStyle(.plain)
+        .focusEffectDisabled()
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
         .help(label)

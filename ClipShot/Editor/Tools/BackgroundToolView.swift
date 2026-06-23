@@ -56,10 +56,21 @@ struct BackgroundToolView: View {
     @State private var visibleSection: Section = .color
     private static let sectionClipInset: CGFloat = 6
 
+    // TEST: drives BeadFace across the inspector so finishes can be compared.
+    @AppStorage("beadFinishTest") private var beadFinishRaw = 0
+    private var beadFinish: BeadFinish { BeadFinish(rawValue: beadFinishRaw) ?? .domed }
+
     private var style: BackgroundStyle { state.document.background }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+          // TEST switcher — remove with the losing finishes.
+          Picker("", selection: $beadFinishRaw) {
+              ForEach(BeadFinish.allCases) { Text($0.title).tag($0.rawValue) }
+          }
+          .pickerStyle(.segmented)
+          .padding(.bottom, 10)
+
           VStack(alignment: .leading, spacing: Theme.panelSectionSpacing) {
             sectionTabs
 
@@ -271,35 +282,22 @@ struct BackgroundToolView: View {
     /// vermilion ring and lifts.
     private func swatchBead<S: View>(
         selected: Bool,
-        @ViewBuilder swatch: () -> S,
+        @ViewBuilder swatch: @escaping () -> S,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
             beadFace(selected: selected, swatch: swatch)
         }
         .buttonStyle(.plain)
+        .focusEffectDisabled()
         .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 
     private func beadFace<S: View>(
         selected: Bool,
-        @ViewBuilder swatch: () -> S
+        @ViewBuilder swatch: @escaping () -> S
     ) -> some View {
-        swatch()
-            .frame(width: 28, height: 28)
-            .clipShape(Circle())
-            .overlay(
-                Circle().fill(
-                    RadialGradient(colors: [.white.opacity(0.4), .clear],
-                                   center: .init(x: 0.32, y: 0.22),
-                                   startRadius: 0, endRadius: 12)
-                )
-            )
-            .overlay(
-                Circle().stroke(selected ? Theme.accent : Color.white.opacity(0.18),
-                                lineWidth: selected ? 2 : 1)
-            )
-            .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
+        BeadFace(finish: beadFinish, selected: selected, diameter: 28, swatch: swatch)
             .scaleEffect(selected ? 1.1 : 1)
             .contentShape(Circle())
             .animation(.spring(duration: 0.25), value: selected)
@@ -499,25 +497,14 @@ struct BackgroundToolView: View {
     /// vermilion ring and lifts.
     private func bead(_ kind: BackgroundStyle.Kind, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            tileSwatch(kind)
-                .frame(width: 36, height: 36)
-                .clipShape(Circle())
-                .overlay(
-                    Circle().fill(
-                        RadialGradient(colors: [.white.opacity(0.4), .clear],
-                                       center: .init(x: 0.32, y: 0.22),
-                                       startRadius: 0, endRadius: 16)
-                    )
-                )
-                .overlay(
-                    Circle().stroke(selected ? Theme.accent : Color.white.opacity(0.18),
-                                    lineWidth: selected ? 2 : 1)
-                )
-                .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
-                .scaleEffect(selected ? 1.08 : 1)
-                .contentShape(Circle())
+            BeadFace(finish: beadFinish, selected: selected, diameter: 36) {
+                tileSwatch(kind)
+            }
+            .scaleEffect(selected ? 1.08 : 1)
+            .contentShape(Circle())
         }
         .buttonStyle(.plain)
+        .focusEffectDisabled()
         .animation(.spring(duration: 0.25), value: selected)
         .help(tileName(kind))
         .accessibilityLabel(tileName(kind))
