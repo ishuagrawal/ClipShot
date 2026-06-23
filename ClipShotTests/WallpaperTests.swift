@@ -20,6 +20,46 @@ final class WallpaperTests: XCTestCase {
         XCTAssertEqual(WallpaperRef.user(url).key, "user:photo.png")
     }
 
+    func test_wallpaperImageCache_evictsOldFullImages() throws {
+        let cache = WallpaperImageCache(fullLimit: 2, thumbnailLimit: 8)
+
+        XCTAssertNotNil(cache.image(for: .bundled("gradient-01.jpg")))
+        XCTAssertNotNil(cache.image(for: .bundled("gradient-02.jpg")))
+        XCTAssertNotNil(cache.image(for: .bundled("gradient-03.jpg")))
+
+        XCTAssertEqual(cache.cachedFullImageCount, 2)
+        XCTAssertFalse(cache.isFullImageCached(for: .bundled("gradient-01.jpg")))
+        XCTAssertTrue(cache.isFullImageCached(for: .bundled("gradient-02.jpg")))
+        XCTAssertTrue(cache.isFullImageCached(for: .bundled("gradient-03.jpg")))
+    }
+
+    func test_wallpaperImageCache_retouchesFullImagesOnHit() throws {
+        let cache = WallpaperImageCache(fullLimit: 2, thumbnailLimit: 8)
+
+        XCTAssertNotNil(cache.image(for: .bundled("gradient-01.jpg")))
+        XCTAssertNotNil(cache.image(for: .bundled("gradient-02.jpg")))
+        XCTAssertNotNil(cache.image(for: .bundled("gradient-01.jpg")))
+        XCTAssertNotNil(cache.image(for: .bundled("gradient-03.jpg")))
+
+        XCTAssertEqual(cache.cachedFullImageCount, 2)
+        XCTAssertTrue(cache.isFullImageCached(for: .bundled("gradient-01.jpg")))
+        XCTAssertFalse(cache.isFullImageCached(for: .bundled("gradient-02.jpg")))
+        XCTAssertTrue(cache.isFullImageCached(for: .bundled("gradient-03.jpg")))
+    }
+
+    func test_wallpaperImageCache_evictsOldThumbnails() throws {
+        let cache = WallpaperImageCache(fullLimit: 2, thumbnailLimit: 2)
+
+        XCTAssertNotNil(cache.thumbnail(for: .bundled("gradient-01.jpg"), maxPixel: 64))
+        XCTAssertNotNil(cache.thumbnail(for: .bundled("gradient-02.jpg"), maxPixel: 64))
+        XCTAssertNotNil(cache.thumbnail(for: .bundled("gradient-03.jpg"), maxPixel: 64))
+
+        XCTAssertEqual(cache.cachedThumbnailCount, 2)
+        XCTAssertFalse(cache.isThumbnailCached(for: .bundled("gradient-01.jpg"), maxPixel: 64))
+        XCTAssertTrue(cache.isThumbnailCached(for: .bundled("gradient-02.jpg"), maxPixel: 64))
+        XCTAssertTrue(cache.isThumbnailCached(for: .bundled("gradient-03.jpg"), maxPixel: 64))
+    }
+
     func test_backgroundPaletteRequest_changesWhenCropAspectChanges() throws {
         let ref = WallpaperRef.bundled("a.jpg")
         let wide = try XCTUnwrap(BackgroundPaletteRequest(

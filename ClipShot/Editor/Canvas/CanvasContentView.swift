@@ -167,6 +167,8 @@ final class CanvasContentView: NSView {
             pendingBGToken = nil
             pendingBGOperation?.cancel()
             pendingBGOperation = nil
+            dynamicBackgroundLayer.contents = nil
+            blurContentLayer.contents = nil
             noiseBackgroundLayer.opacity = 0
             hideBlurContent()
             publishBackgroundLanded(for: doc)
@@ -206,11 +208,13 @@ final class CanvasContentView: NSView {
         case .none:
             break
         case .solidColor(let color):
+            dynamicBackgroundLayer.contents = nil
             solidBackgroundLayer.backgroundColor = color
             solidBackgroundLayer.isHidden = false
             applyOuterMask(to: solidBackgroundLayer, doc: doc, size: backgroundFrame.size)
             publishBackgroundLanded(for: doc)
         case .gradient(let start, let end, let angleDegrees):
+            dynamicBackgroundLayer.contents = nil
             gradientBackgroundLayer.colors = [start, end]
             let points = Self.gradientPoints(angleDegrees: angleDegrees, size: backgroundFrame.size)
             gradientBackgroundLayer.startPoint = points.start
@@ -282,6 +286,7 @@ final class CanvasContentView: NSView {
     private func hideBlurContent() {
         guard liveBlurRadius >= 0 else { return }
         blurContentLayer.isHidden = true
+        blurContentLayer.contents = nil
         blurContentLayer.filters = nil
         liveBlurRadius = -1
     }
