@@ -12,6 +12,12 @@ final class AppState: ObservableObject {
     /// Set by AppDelegate; opens the editor window (home page when no session).
     var onOpenHome: (() -> Void)?
 
+    /// Set by AppDelegate; opens the Settings window.
+    var onOpenSettings: (() -> Void)?
+
+    /// Set by AppDelegate; toggles the global capture shortcut during shortcut recording.
+    var onCaptureShortcutEnabledChanged: ((Bool) -> Void)?
+
     private init() {}
 
     func setCaptureStatus(_ status: String?) {

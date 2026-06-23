@@ -67,7 +67,8 @@ private struct EditorShell: View {
                     state: state,
                     focusProxy: canvasFocusProxy,
                     zoomController: zoomController,
-                    rightOcclusion: rightChrome
+                    rightOcclusion: rightChrome,
+                    shortcutActions: shortcutActions
                 )
             }
             // Mirror of the inspector's scroll fade for the canvas itself: when
@@ -152,6 +153,31 @@ private struct EditorShell: View {
         .onChange(of: state.previewingOriginal) { _, _ in
             recomputeBackgroundPalette()
         }
+    }
+
+    /// Maps each in-app command to its action; consumed by the canvas responder
+    /// chain. The global capture hotkey is handled separately by NativeCaptureShortcut.
+    private var shortcutActions: [ShortcutCommand: () -> Void] {
+        let state = state
+        let zoom = zoomController
+        let goHome = onGoHome
+        return [
+            .goHome: { goHome() },
+            .copy: { ExportActions.copyToClipboard(state.document) },
+            .save: { ExportActions.save(state.document) },
+            .undo: { state.performUndo() },
+            .redo: { state.performRedo() },
+            .resetAll: { state.resetToOriginal() },
+            .preview: { state.togglePreviewOriginal() },
+            .zoomIn: { zoom.zoomIn() },
+            .zoomOut: { zoom.zoomOut() },
+            .resetZoom: { zoom.resetToCenter() },
+            .toolSelect: { state.selectCursorTool(.select) },
+            .toolArrow: { state.selectCursorTool(.arrow) },
+            .toolLine: { state.selectCursorTool(.line) },
+            .toolRectangle: { state.selectCursorTool(.rectangle) },
+            .toolText: { state.selectCursorTool(.text) }
+        ]
     }
 
     /// Hand-drawn titlebar: the app name centered on the stoplight row. The system

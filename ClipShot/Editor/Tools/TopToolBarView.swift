@@ -59,7 +59,7 @@ struct TitleBarView: View {
             // the only solid object up here, Copy reveals itself on hover.
             HStack(spacing: 10) {
                 Button {
-                    copyToClipboard()
+                    ExportActions.copyToClipboard(state.document)
                 } label: {
                     Label("Copy", systemImage: "square.on.square")
                         .labelStyle(.titleAndIcon)
@@ -67,7 +67,7 @@ struct TitleBarView: View {
                 .buttonStyle(BareButtonStyle())
                 .help("Copy PNG to clipboard")
                 Button {
-                    save()
+                    ExportActions.save(state.document)
                 } label: {
                     Label("Save", systemImage: "square.and.arrow.down")
                         .labelStyle(.titleAndIcon)
@@ -106,50 +106,4 @@ struct TitleBarView: View {
         .accessibilityLabel("Capture title")
     }
 
-    // MARK: - Export
-
-    private func copyToClipboard() {
-        guard let pngData = renderPNG() else {
-            NSSound.beep()
-            return
-        }
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        if !pasteboard.setData(pngData, forType: .png) {
-            NSSound.beep()
-        }
-    }
-
-    private func save() {
-        guard let pngData = renderPNG() else {
-            NSSound.beep()
-            return
-        }
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.png]
-        panel.canCreateDirectories = true
-        panel.nameFieldStringValue = defaultFilename()
-        panel.begin { response in
-            guard response == .OK, let url = panel.url else { return }
-            do {
-                try pngData.write(to: url, options: .atomic)
-            } catch {
-                NSSound.beep()
-            }
-        }
-    }
-
-    private func renderPNG() -> Data? {
-        guard let cgImage = DocumentRenderer.render(state.document) else { return nil }
-        return NSBitmapImageRep(cgImage: cgImage).representation(using: .png, properties: [:])
-    }
-
-    private func defaultFilename() -> String {
-        // Exactly the titlebar text; only the path separator is illegal in a name.
-        let title = state.document.sourceTitle
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: "/", with: "-")
-        let base = title.isEmpty ? "Untitled capture" : title
-        return "\(base).png"
-    }
 }

@@ -70,6 +70,9 @@ struct CanvasView: NSViewRepresentable {
     /// Width of the viewport slice the inspector column covers on the right;
     /// scales with the window, so it is pushed in on every update.
     var rightOcclusion: CGFloat = Theme.rightChromeWidth
+    /// Customizable keyboard shortcuts, handled by the interaction view's
+    /// responder chain (no system beep, unlike a swallowing event monitor).
+    var shortcutActions: [ShortcutCommand: () -> Void] = [:]
 
     func makeCoordinator() -> CanvasCoordinator { CanvasCoordinator() }
 
@@ -77,6 +80,7 @@ struct CanvasView: NSViewRepresentable {
         focusProxy.attach(context.coordinator.interactionView, state: state)
         zoomController.attach(context.coordinator)
         context.coordinator.updateRightOcclusion(rightOcclusion)
+        context.coordinator.interactionView.shortcutActions = shortcutActions
         context.coordinator.update(state: state)
         return context.coordinator.scrollView
     }
@@ -87,11 +91,12 @@ struct CanvasView: NSViewRepresentable {
         focusProxy.attach(context.coordinator.interactionView, state: state)
         zoomController.attach(context.coordinator)
         context.coordinator.updateRightOcclusion(rightOcclusion)
+        context.coordinator.interactionView.shortcutActions = shortcutActions
         context.coordinator.update(state: state)
     }
 }
 
-private extension NSWindow {
+extension NSWindow {
     var firstResponderAcceptsTextInput: Bool {
         guard let firstResponder else { return false }
 

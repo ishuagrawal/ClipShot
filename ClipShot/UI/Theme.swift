@@ -1004,6 +1004,7 @@ struct GlassColorWell: View {
     /// Optional fill override — e.g. a rainbow gradient to mark a wildcard
     /// "pick any color" well. Defaults to the current selection.
     var fill: AnyShapeStyle? = nil
+    var diameter: CGFloat = 23
     @State private var hovering = false
     @State private var proxy = ColorPanelProxy()
 
@@ -1012,11 +1013,11 @@ struct GlassColorWell: View {
             proxy.onChange = { selection = $0 }
             proxy.present(selection, supportsOpacity: supportsOpacity)
         } label: {
-            BeadFace(selected: false, diameter: 23) {
+            BeadFace(selected: false, diameter: diameter) {
                 Circle().fill(fill ?? AnyShapeStyle(selection))
             }
             .overlay(Circle().stroke(Color.white.opacity(hovering ? 0.45 : 0), lineWidth: 1))
-            .frame(width: 23, height: 23)
+            .frame(width: diameter, height: diameter)
             .contentShape(Circle())
         }
         .buttonStyle(.plain)

@@ -6,9 +6,18 @@ final class NativeCaptureShortcut {
     private var hotKeyRef: EventHotKeyRef?
     private var eventHandlerRef: EventHandlerRef?
     private let handler: () -> Void
+    private let store: ShortcutStore
 
-    init(handler: @escaping () -> Void) {
+    init(handler: @escaping () -> Void, store: ShortcutStore = .shared) {
         self.handler = handler
+        self.store = store
+    }
+
+    /// Re-registers with the current binding (after the user rebinds capture).
+    @discardableResult
+    func reload() -> Bool {
+        unregister()
+        return register()
     }
 
     func unregister() {
@@ -20,6 +29,23 @@ final class NativeCaptureShortcut {
             RemoveEventHandler(eventHandlerRef)
             self.eventHandlerRef = nil
         }
+    }
+
+    static func isBindingAvailableForRegistration(_ binding: KeyBinding) -> Bool {
+        var hotKeyRef: EventHotKeyRef?
+        let id = EventHotKeyID(signature: Self.probeSignature, id: Self.probeHotKeyID)
+        let status = RegisterEventHotKey(
+            UInt32(binding.keyCode),
+            binding.carbonModifiers,
+            id,
+            GetApplicationEventTarget(),
+            0,
+            &hotKeyRef
+        )
+        if let hotKeyRef {
+            UnregisterEventHotKey(hotKeyRef)
+        }
+        return status == noErr
     }
 
     @discardableResult
@@ -67,10 +93,11 @@ final class NativeCaptureShortcut {
         )
         guard status == noErr else { return false }
 
+        let binding = store.binding(for: .capture)
         let id = EventHotKeyID(signature: Self.signature, id: Self.hotKeyID)
         let hotKeyStatus = RegisterEventHotKey(
-            UInt32(kVK_ANSI_5),
-            UInt32(controlKey | shiftKey),
+            UInt32(binding.keyCode),
+            binding.carbonModifiers,
             id,
             GetApplicationEventTarget(),
             0,
@@ -84,10 +111,17 @@ final class NativeCaptureShortcut {
     }
 
     private static let hotKeyID = UInt32(5)
+    private static let probeHotKeyID = UInt32(6)
     private static let signature = OSType(
         UInt32(Character("C").asciiValue!) << 24
             | UInt32(Character("S").asciiValue!) << 16
             | UInt32(Character("H").asciiValue!) << 8
             | UInt32(Character("T").asciiValue!)
+    )
+    private static let probeSignature = OSType(
+        UInt32(Character("C").asciiValue!) << 24
+            | UInt32(Character("S").asciiValue!) << 16
+            | UInt32(Character("H").asciiValue!) << 8
+            | UInt32(Character("P").asciiValue!)
     )
 }

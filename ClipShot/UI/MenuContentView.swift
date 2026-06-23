@@ -4,6 +4,7 @@ import SwiftUI
 /// so the brand starts at the menu bar.
 struct MenuContentView: View {
     @EnvironmentObject private var appState: AppState
+    @ObservedObject private var shortcuts = ShortcutStore.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -32,8 +33,20 @@ struct MenuContentView: View {
                 captureRow(
                     title: "Screen capture",
                     detail: "Drag an exact region or click a window.",
-                    keys: ["⌃", "⇧", "5"]
+                    keys: shortcuts.binding(for: .capture).displayComponents
                 )
+            }
+            .padding(6)
+
+            Rectangle().fill(Theme.hairline).frame(height: 1)
+
+            MenuRowButton {
+                appState.onOpenSettings?()
+            } label: {
+                Text("Settings…")
+                    .font(Theme.label(12.5, .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(6)
 

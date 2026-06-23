@@ -37,6 +37,14 @@
 		01A000000000000000000213 /* BackgroundToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000213 /* BackgroundToolView.swift */; };
 		01A000000000000000000214 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000214 /* Theme.swift */; };
 		01A000000000000000000215 /* TopToolBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000215 /* TopToolBarView.swift */; };
+		01A000000000000000000320 /* KeyBinding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000320 /* KeyBinding.swift */; };
+		01A000000000000000000321 /* ShortcutCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000321 /* ShortcutCommand.swift */; };
+		01A000000000000000000322 /* ShortcutStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000322 /* ShortcutStore.swift */; };
+		01A000000000000000000323 /* ShortcutDispatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000323 /* ShortcutDispatcher.swift */; };
+		01A000000000000000000326 /* ShortcutRecordingGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000326 /* ShortcutRecordingGate.swift */; };
+		01A000000000000000000324 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000324 /* SettingsWindowController.swift */; };
+		01A000000000000000000325 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000325 /* SettingsView.swift */; };
+		01A000000000000000000331 /* ShortcutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000331 /* ShortcutTests.swift */; };
 		01A000000000000000000216 /* CanvasGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000216 /* CanvasGeometry.swift */; };
 		01A000000000000000000217 /* AnnotationGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000217 /* AnnotationGeometry.swift */; };
 		01A000000000000000000218 /* AddAnnotationCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B000000000000000000218 /* AddAnnotationCommand.swift */; };
@@ -112,6 +120,14 @@
 		01B000000000000000000011 /* CaptureModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureModels.swift; sourceTree = "<group>"; };
 		01B000000000000000000012 /* EditorWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorWindowController.swift; sourceTree = "<group>"; };
 		01B000000000000000000013 /* EditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorView.swift; sourceTree = "<group>"; };
+		01B000000000000000000320 /* KeyBinding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyBinding.swift; sourceTree = "<group>"; };
+		01B000000000000000000321 /* ShortcutCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutCommand.swift; sourceTree = "<group>"; };
+		01B000000000000000000322 /* ShortcutStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutStore.swift; sourceTree = "<group>"; };
+		01B000000000000000000323 /* ShortcutDispatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutDispatcher.swift; sourceTree = "<group>"; };
+		01B000000000000000000326 /* ShortcutRecordingGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutRecordingGate.swift; sourceTree = "<group>"; };
+		01B000000000000000000324 /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
+		01B000000000000000000325 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		01B000000000000000000331 /* ShortcutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutTests.swift; sourceTree = "<group>"; };
 		01B000000000000000000100 /* ClipShotTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClipShotTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		01B000000000000000000101 /* PixelBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelBuffer.swift; sourceTree = "<group>"; };
 		01B000000000000000000102 /* SanityTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SanityTest.swift; sourceTree = "<group>"; };
@@ -244,6 +260,7 @@
 				01D000000000000000000009 /* Capture */,
 				01D000000000000000000600 /* Recents */,
 				01D000000000000000000400 /* Native */,
+				01D000000000000000000340 /* Shortcuts */,
 				01D000000000000000000007 /* UI */,
 			);
 			path = ClipShot;
@@ -256,9 +273,23 @@
 				01B000000000000000000012 /* EditorWindowController.swift */,
 				01B000000000000000000013 /* EditorView.swift */,
 				01B000000000000000000500 /* HomeView.swift */,
+				01B000000000000000000324 /* SettingsWindowController.swift */,
+				01B000000000000000000325 /* SettingsView.swift */,
 				01B000000000000000000214 /* Theme.swift */,
 			);
 			path = UI;
+			sourceTree = "<group>";
+		};
+		01D000000000000000000340 /* Shortcuts */ = {
+			isa = PBXGroup;
+			children = (
+				01B000000000000000000320 /* KeyBinding.swift */,
+				01B000000000000000000321 /* ShortcutCommand.swift */,
+				01B000000000000000000322 /* ShortcutStore.swift */,
+				01B000000000000000000323 /* ShortcutDispatcher.swift */,
+				01B000000000000000000326 /* ShortcutRecordingGate.swift */,
+			);
+			path = Shortcuts;
 			sourceTree = "<group>";
 		};
 		01D000000000000000000009 /* Capture */ = {
@@ -286,6 +317,7 @@
 				01B00000000000000000030B /* ZoomMathTests.swift */,
 				01B00000000000000000030C /* NativeWindowMatcherTests.swift */,
 				01B000000000000000000310 /* RecentsStoreTests.swift */,
+				01B000000000000000000331 /* ShortcutTests.swift */,
 				8845A676CEB200FC3C0AD70E /* ContentBoundsDetectorTests.swift */,
 			);
 			path = ClipShotTests;
@@ -532,6 +564,13 @@
 				01A00000000000000000021C /* CanvasTextEditor.swift in Sources */,
 				01A00000000000000000020F /* ToolSidebarView.swift in Sources */,
 				01A000000000000000000215 /* TopToolBarView.swift in Sources */,
+				01A000000000000000000320 /* KeyBinding.swift in Sources */,
+				01A000000000000000000321 /* ShortcutCommand.swift in Sources */,
+				01A000000000000000000322 /* ShortcutStore.swift in Sources */,
+				01A000000000000000000323 /* ShortcutDispatcher.swift in Sources */,
+				01A000000000000000000326 /* ShortcutRecordingGate.swift in Sources */,
+				01A000000000000000000324 /* SettingsWindowController.swift in Sources */,
+				01A000000000000000000325 /* SettingsView.swift in Sources */,
 				01A000000000000000000221 /* ToolPaletteView.swift in Sources */,
 				01A000000000000000000222 /* ComponentListView.swift in Sources */,
 				01A000000000000000000210 /* SetPaddingCommand.swift in Sources */,
@@ -576,6 +615,7 @@
 				01A00000000000000000030B /* ZoomMathTests.swift in Sources */,
 				01A00000000000000000030C /* NativeWindowMatcherTests.swift in Sources */,
 				01A000000000000000000310 /* RecentsStoreTests.swift in Sources */,
+				01A000000000000000000331 /* ShortcutTests.swift in Sources */,
 				C4803FCDD1EF6B9F8142D09E /* MeshSpecTests.swift in Sources */,
 				A4A1E0ED3BFA78B1BF42D926 /* MeshGradientGeneratorTests.swift in Sources */,
 				97FCDDE7D93682B011548524 /* DynamicMeshCacheTests.swift in Sources */,

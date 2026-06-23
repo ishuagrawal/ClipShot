@@ -37,6 +37,7 @@ struct HomeView: View {
             .animation(Theme.panelSpring, value: recents.entries.map(\.id))
         }
         .overlay(alignment: .bottom) { importErrorNotice.padding(.bottom, 28) }
+        .overlay(alignment: .topTrailing) { settingsButton.padding(20) }
         .ignoresSafeArea()
         .frame(minWidth: 860, minHeight: 560)
         .onDrop(of: [.fileURL, .image], isTargeted: $isDropTargeted) { providers in
@@ -46,6 +47,21 @@ struct HomeView: View {
             recents.loadIfNeeded()
             withAnimation(.easeOut(duration: 0.35)) { appeared = true }
         }
+    }
+
+    private var settingsButton: some View {
+        Button {
+            AppState.shared.onOpenSettings?()
+        } label: {
+            Image(systemName: "gearshape")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(Theme.textSecondary)
+                .frame(width: 34, height: 34)
+                .background(Circle().fill(Color.white.opacity(0.06)))
+        }
+        .buttonStyle(.plain)
+        .help("Settings")
+        .accessibilityLabel("Settings")
     }
 
     // MARK: - Import

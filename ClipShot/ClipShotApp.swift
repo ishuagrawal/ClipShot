@@ -13,6 +13,14 @@ struct ClipShotApp: App {
             Image(nsImage: Self.menuBarIcon)
         }
         .menuBarExtraStyle(.window)
+        .commands {
+            // Puts a "Settings…" item (⌘,) in the system app menu, opening the
+            // same window as the menu-bar row and Home gear.
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings…") { AppState.shared.onOpenSettings?() }
+                    .keyboardShortcut(",", modifiers: .command)
+            }
+        }
     }
 
     private static let menuBarIcon: NSImage = {

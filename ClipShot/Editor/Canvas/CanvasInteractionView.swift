@@ -19,6 +19,10 @@ final class CanvasInteractionView: NSView {
         didSet { invalidateCursorRectsIfPossible() }
     }
     weak var scrollView: CanvasScrollView?
+    /// Customizable keyboard shortcuts (tool switches, copy/save, zoom, undo…).
+    /// Handled here in the responder chain so unclaimed keys never reach
+    /// `super`/the key-equivalent beep.
+    var shortcutActions: [ShortcutCommand: () -> Void] = [:]
     var onEditText: ((Annotation) -> Void)?
     var onCommitActiveText: (() -> Bool)?
     var onHoverAnnotationChanged: ((UUID?) -> Void)?
@@ -216,7 +220,16 @@ final class CanvasInteractionView: NSView {
         onDraggingChanged?(false)
     }
 
+    /// Command-key combos route through here (the key-equivalent phase), so
+    /// claiming them returns true and avoids the system "unhandled key" beep.
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if runShortcut(for: event) { return true }
+        return super.performKeyEquivalent(with: event)
+    }
+
     override func keyDown(with event: NSEvent) {
+        // Bare-key shortcuts (tools, preview) run regardless of preview mode.
+        if runShortcut(for: event) { return }
         guard let state else {
             super.keyDown(with: event)
             return
@@ -233,12 +246,19 @@ final class CanvasInteractionView: NSView {
             return
         }
 
-        if let tool = Self.toolShortcut(for: event) {
-            state.selectCursorTool(tool)
-            return
-        }
-
         super.keyDown(with: event)
+    }
+
+    /// Runs the first shortcut whose binding matches, unless a text field is being
+    /// edited (so bare letters and ⌘C/⌘V keep working in fields).
+    private func runShortcut(for event: NSEvent) -> Bool {
+        guard window?.firstResponderAcceptsTextInput != true else { return false }
+        let store = ShortcutStore.shared
+        for (command, action) in shortcutActions where store.binding(for: command).matches(event) {
+            action()
+            return true
+        }
+        return false
     }
 
     private func documentPoint(for event: NSEvent) -> CGPoint {
@@ -253,19 +273,6 @@ final class CanvasInteractionView: NSView {
     /// Single-letter tool shortcuts (V/A/L/R/T), matching the tool-rail tooltips.
     /// Only fires with no modifiers so it never shadows menu commands; text editing
     /// is unaffected because the in-canvas text editor is first responder then.
-    nonisolated static func toolShortcut(for event: NSEvent) -> EditorTool? {
-        guard event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
-              let chars = event.charactersIgnoringModifiers?.lowercased() else { return nil }
-        switch chars {
-        case "v": return .select
-        case "a": return .arrow
-        case "l": return .line
-        case "r": return .rectangle
-        case "t": return .text
-        default:  return nil
-        }
-    }
-
     nonisolated static func keyboardNudgeDelta(for event: NSEvent) -> CGSize? {
         let ignoredModifiers: NSEvent.ModifierFlags = [.command, .control, .option]
         guard event.modifierFlags.intersection(ignoredModifiers).isEmpty else { return nil }

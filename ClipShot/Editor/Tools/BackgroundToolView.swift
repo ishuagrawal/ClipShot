@@ -55,6 +55,7 @@ struct BackgroundToolView: View {
     // the outgoing page.
     @State private var visibleSection: Section = .color
     private static let sectionClipInset: CGFloat = 6
+    private static let effectsClipInset: CGFloat = 16
 
     private var style: BackgroundStyle { state.document.background }
 
@@ -97,6 +98,9 @@ struct BackgroundToolView: View {
             .padding(.top, Theme.panelSectionSpacing)
             .opacity(effectsOpacity)
             .allowsHitTesting(style.kind != .none)
+            // Headroom so the clip doesn't shave the bottom slider's knob glow
+            // into a hard-edged box.
+            .padding(Self.effectsClipInset)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { natural in
                 effectsNaturalHeight = natural
                 if style.kind != .none, effectsHeight != natural {
@@ -105,6 +109,7 @@ struct BackgroundToolView: View {
             }
             .frame(height: effectsHeight, alignment: .top)
             .clipped()
+            .padding(-Self.effectsClipInset)
         }
         .onChange(of: style.kind == .none) { _, isNone in
             withAnimation(Theme.panelSpring) {
@@ -121,7 +126,7 @@ struct BackgroundToolView: View {
                 sectionOpacity = 0
                 visibleSection = newSection
             }
-            withAnimation(.easeOut(duration: 0.22).delay(0.05)) { sectionOpacity = 1 }
+            withAnimation(.easeOut(duration: 0.13)) { sectionOpacity = 1 }
         }
         .onAppear {
             section = section(for: style)
@@ -247,14 +252,15 @@ struct BackgroundToolView: View {
                 }
             }
 
-            // Wildcard well: a rainbow-filled GlassColorWell — same component
-            // and size as the gradient pickers — that opens the system picker.
+            // Wildcard well: a rainbow-filled GlassColorWell sized to match the
+            // preset swatches; opens the system picker.
             GlassColorWell(
                 selection: $solid,
                 label: "Custom color",
                 fill: AnyShapeStyle(AngularGradient(colors: [
                     .red, .orange, .yellow, .green, .cyan, .blue, .purple, .pink, .red
-                ], center: .center))
+                ], center: .center)),
+                diameter: 28
             )
             .onChange(of: solid) { _, _ in
                 guard !isSyncingControls else { return }
