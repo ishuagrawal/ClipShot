@@ -145,13 +145,11 @@ struct TitleBarView: View {
     }
 
     private func defaultFilename() -> String {
-        let slug = state.document.sourceTitle
-            .lowercased()
-            .replacingOccurrences(of: #"[^a-z0-9]+"#, with: "-", options: .regularExpression)
-            .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
-        let base = slug.isEmpty ? "clipshot" : slug
-        let stamp = ISO8601DateFormatter().string(from: Date())
-            .replacingOccurrences(of: ":", with: "-")
-        return "\(base)-\(stamp).png"
+        // Exactly the titlebar text; only the path separator is illegal in a name.
+        let title = state.document.sourceTitle
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "/", with: "-")
+        let base = title.isEmpty ? "Untitled capture" : title
+        return "\(base).png"
     }
 }
