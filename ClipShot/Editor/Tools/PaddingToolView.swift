@@ -9,6 +9,11 @@ struct PaddingToolView: View {
     @State private var shotCornerStart: CGFloat?
     @State private var shadowColor = Color(cgColor: ShadowConfig.default.color)
     @State private var syncingShadow = false
+    // Shadow config slot springs between zero and its measured height as the
+    // toggle flips — same mechanism as the Background effects slot.
+    @State private var shadowNaturalHeight: CGFloat = 0
+    @State private var shadowHeight: CGFloat = 0
+    @State private var shadowOpacity: Double = 0
     @State private var isCentering = false
     @State private var centerCache: CenterCache?
     @State private var insetDragStart: (
@@ -319,54 +324,94 @@ struct PaddingToolView: View {
 
     private var shadow: ShadowConfig { state.document.shadow }
 
+    private static let shadowClipInset: CGFloat = 6
+
     private var shadowSection: some View {
-        PanelSection("Shadow") {
-            Toggle("Shadow", isOn: Binding(
-                get: { shadow.isEnabled },
-                set: { var next = shadow; next.isEnabled = $0; commitShadow(next) }
-            ))
-            .labelsHidden()
-            .toggleStyle(GlassToggleStyle())
-        } content: {
-            if shadow.isEnabled {
-                shadowSlider("Blur", value: shadow.blur, range: 0...Double(ShadowConfig.maximumBlur), suffix: "px") {
-                    var next = shadow; next.blur = $0; commitShadow(next)
-                }
-                shadowSlider(
-                    "Offset X",
-                    value: shadow.offsetX,
-                    range: -Double(ShadowConfig.maximumOffset)...Double(ShadowConfig.maximumOffset),
-                    suffix: "px"
-                ) {
-                    var next = shadow; next.offsetX = $0; commitShadow(next)
-                }
-                shadowSlider(
-                    "Offset Y",
-                    value: shadow.offsetY,
-                    range: -Double(ShadowConfig.maximumOffset)...Double(ShadowConfig.maximumOffset),
-                    suffix: "px"
-                ) {
-                    var next = shadow; next.offsetY = $0; commitShadow(next)
-                }
-                shadowSlider(
-                    "Opacity",
-                    value: shadow.opacity * 100,
-                    range: 0...Double(ShadowConfig.maximumOpacity * 100),
-                    suffix: "%"
-                ) {
-                    var next = shadow; next.opacity = $0 / 100; commitShadow(next)
-                }
-                HStack {
-                    InspectorRowLabel(text: "Color")
-                    GlassColorWell(selection: $shadowColor, label: "Shadow color")
-                        .onChange(of: shadowColor) { _, newColor in
-                            guard !syncingShadow else { return }
-                            var next = shadow
-                            next.color = NSColor(newColor).cgColor
-                            commitShadow(next)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                SectionLabel(text: "Shadow")
+                Spacer(minLength: 8)
+                // Zero height so the toggle floats over the heading without
+                // setting the row height (see PanelSection).
+                Toggle("Shadow", isOn: Binding(
+                    get: { shadow.isEnabled },
+                    set: { var next = shadow; next.isEnabled = $0; commitShadow(next) }
+                ))
+                .labelsHidden()
+                .toggleStyle(GlassToggleStyle())
+                .frame(height: 0)
+            }
+            // Always built so its height is measured; clipped to an animated
+            // height so the whole card springs open/shut on the panel spring.
+            // The heading gap is folded into the slot so it collapses too.
+            ZStack(alignment: .top) {
+                shadowControls
+                    .padding(.top, 11)
+                    .padding(Self.shadowClipInset)
+                    .opacity(shadowOpacity)
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { natural in
+                        shadowNaturalHeight = natural
+                        if shadow.isEnabled, shadowHeight != natural {
+                            shadowHeight = natural
                         }
-                    Spacer()
-                }
+                    }
+            }
+            .frame(height: shadowHeight, alignment: .top)
+            .clipped()
+            .padding(-Self.shadowClipInset)
+            .allowsHitTesting(shadow.isEnabled)
+        }
+        .onChange(of: shadow.isEnabled) { _, isEnabled in
+            withAnimation(Theme.panelSpring) {
+                shadowHeight = isEnabled ? shadowNaturalHeight : 0
+                shadowOpacity = isEnabled ? 1 : 0
+            }
+        }
+        .onAppear {
+            shadowOpacity = shadow.isEnabled ? 1 : 0
+            shadowHeight = shadow.isEnabled ? shadowNaturalHeight : 0
+        }
+    }
+
+    private var shadowControls: some View {
+        VStack(alignment: .leading, spacing: Theme.panelRowSpacing) {
+            shadowSlider("Blur", value: shadow.blur, range: 0...Double(ShadowConfig.maximumBlur), suffix: "px") {
+                var next = shadow; next.blur = $0; commitShadow(next)
+            }
+            shadowSlider(
+                "Offset X",
+                value: shadow.offsetX,
+                range: -Double(ShadowConfig.maximumOffset)...Double(ShadowConfig.maximumOffset),
+                suffix: "px"
+            ) {
+                var next = shadow; next.offsetX = $0; commitShadow(next)
+            }
+            shadowSlider(
+                "Offset Y",
+                value: shadow.offsetY,
+                range: -Double(ShadowConfig.maximumOffset)...Double(ShadowConfig.maximumOffset),
+                suffix: "px"
+            ) {
+                var next = shadow; next.offsetY = $0; commitShadow(next)
+            }
+            shadowSlider(
+                "Opacity",
+                value: shadow.opacity * 100,
+                range: 0...Double(ShadowConfig.maximumOpacity * 100),
+                suffix: "%"
+            ) {
+                var next = shadow; next.opacity = $0 / 100; commitShadow(next)
+            }
+            HStack {
+                InspectorRowLabel(text: "Color", nested: true)
+                GlassColorWell(selection: $shadowColor, label: "Shadow color")
+                    .onChange(of: shadowColor) { _, newColor in
+                        guard !syncingShadow else { return }
+                        var next = shadow
+                        next.color = NSColor(newColor).cgColor
+                        commitShadow(next)
+                    }
+                Spacer()
             }
         }
     }
@@ -379,7 +424,7 @@ struct PaddingToolView: View {
         _ set: @escaping (CGFloat) -> Void
     ) -> some View {
         HStack(spacing: 10) {
-            InspectorRowLabel(text: label)
+            InspectorRowLabel(text: label, nested: true)
             GlassSlider(
                 value: Binding(get: { Double(value) }, set: { set(CGFloat($0.rounded())) }),
                 range: range,

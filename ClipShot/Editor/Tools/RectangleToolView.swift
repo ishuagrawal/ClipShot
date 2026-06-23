@@ -20,14 +20,18 @@ struct RectangleToolView: View {
             }
             HStack(spacing: 10) {
                 InspectorRowLabel(text: "Fill")
+                Spacer()
                 Toggle("Fill", isOn: $fillEnabled)
                     .labelsHidden()
                     .toggleStyle(GlassToggleStyle())
                     .onChange(of: fillEnabled) { _, _ in apply() }
+            }
+            HStack(spacing: 10) {
                 GlassColorWell(selection: $fill, supportsOpacity: true, label: "Fill color")
                     .opacity(fillEnabled ? 1 : 0.35)
                     .disabled(!fillEnabled)
                     .onChange(of: fill) { _, _ in apply() }
+                Spacer()
             }
             HStack(spacing: 10) {
                 InspectorRowLabel(text: "Weight")

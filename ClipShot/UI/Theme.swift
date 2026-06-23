@@ -443,13 +443,16 @@ struct PanelSection<Accessory: View, Content: View>: View {
     }
 }
 
-/// Inspector row label (left column) — shared by every tool panel.
+/// Inspector row label (left column) — shared by every tool panel. Pass
+/// `nested: true` for rows that sit *under* a section heading, so they read as
+/// subordinate (smaller, dimmer) instead of competing with the heading.
 struct InspectorRowLabel: View {
     let text: String
+    var nested: Bool = false
     var body: some View {
         Text(text)
-            .font(Theme.label())
-            .foregroundStyle(Theme.textSecondary)
+            .font(nested ? Theme.label(11, .medium) : Theme.label())
+            .foregroundStyle(nested ? Theme.textTertiary : Theme.textSecondary)
             .frame(width: 56, alignment: .leading)
     }
 }
@@ -878,11 +881,21 @@ struct GlassSlider: View {
 struct GlassToggleStyle: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
         Button {
-            configuration.isOn.toggle()
+            // Drive the flip inside an explicit transaction: the bound state
+            // often commits through a command that rebuilds the parent, which
+            // swallows the implicit `.animation(value:)`.
+            withAnimation(.spring(duration: 0.22)) {
+                configuration.isOn.toggle()
+            }
         } label: {
-            Capsule()
-                .fill(configuration.isOn ? Theme.accent : Color.black.opacity(0.36))
-                .overlay(Capsule().stroke(Color.white.opacity(configuration.isOn ? 0.22 : 0.10), lineWidth: 0.5))
+            // Two fills crossfade on opacity (gradients don't interpolate, so a
+            // single swapped fill would snap); the vermilion ignites in step with
+            // the sliding bead.
+            ZStack {
+                Capsule().fill(trackFill(false))
+                Capsule().fill(trackFill(true)).opacity(configuration.isOn ? 1 : 0)
+            }
+                .overlay(Capsule().stroke(Color.white.opacity(configuration.isOn ? 0.28 : 0.08), lineWidth: 0.5))
                 .overlay(alignment: configuration.isOn ? .trailing : .leading) {
                     Circle()
                         .fill(
@@ -891,6 +904,9 @@ struct GlassToggleStyle: ToggleStyle {
                                 center: .init(x: 0.35, y: 0.25), startRadius: 0, endRadius: 9
                             )
                         )
+                        .overlay(Circle().strokeBorder(
+                            LinearGradient(colors: [.white.opacity(0.7), .black.opacity(0.18)],
+                                           startPoint: .top, endPoint: .bottom), lineWidth: 0.5))
                         .frame(width: 13, height: 13)
                         .shadow(color: .black.opacity(0.4), radius: 1.5, y: 1)
                         .padding(2.5)
@@ -901,6 +917,16 @@ struct GlassToggleStyle: ToggleStyle {
         .buttonStyle(.plain)
         .animation(.spring(duration: 0.22), value: configuration.isOn)
         .accessibilityAddTraits(configuration.isOn ? [.isSelected] : [])
+    }
+
+    /// Recessed track: on wears a top-lit vermilion gradient, off a carved dark
+    /// slot — both finished with an inner shadow so the bead reads as set into it.
+    private func trackFill(_ isOn: Bool) -> some ShapeStyle {
+        let colors: [Color] = isOn
+            ? [Theme.accent, Theme.accentText]
+            : [.black.opacity(0.46), .black.opacity(0.30)]
+        return LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
+            .shadow(.inner(color: .black.opacity(isOn ? 0.35 : 0.45), radius: 2, y: 1))
     }
 }
 
