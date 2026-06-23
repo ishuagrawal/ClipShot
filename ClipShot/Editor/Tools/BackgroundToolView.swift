@@ -112,17 +112,16 @@ struct BackgroundToolView: View {
                 effectsOpacity = isNone ? 0 : 1
             }
         }
-        // Two-phase swap: fade the current page out, exchange it while invisible,
-        // then fade the new page in. The page is never visible during the swap,
-        // so the outgoing one can't flash. Height springs in the invisible window.
+        // Instant-cut + single fade-up, matching the annotation tools' speed.
         .onChange(of: section) { _, newSection in
             guard newSection != visibleSection else { return }
-            withAnimation(.easeOut(duration: 0.13)) {
+            var snap = Transaction()
+            snap.disablesAnimations = true
+            withTransaction(snap) {
                 sectionOpacity = 0
-            } completion: {
                 visibleSection = newSection
-                withAnimation(.easeIn(duration: 0.16)) { sectionOpacity = 1 }
             }
+            withAnimation(.easeOut(duration: 0.22).delay(0.05)) { sectionOpacity = 1 }
         }
         .onAppear {
             section = section(for: style)
