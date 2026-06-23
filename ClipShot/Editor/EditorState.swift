@@ -90,11 +90,32 @@ final class EditorState: ObservableObject {
     /// content (no whitespace), its synthesized fill, and the card on screen.
     @Published var autoCenter: AutoCenterContext?
 
+    /// The view that existed immediately before centering, captured so disabling
+    /// Center returns there (e.g. an un-centered inset band) instead of the
+    /// pristine capture. A reference type so the value-type context stays cheap.
+    final class CenterOrigin {
+        let screenshot: CGImage
+        let selection: CGRect
+        let shift: CGSize
+        let context: AutoCenterContext?
+        init(screenshot: CGImage, selection: CGRect, shift: CGSize, context: AutoCenterContext?) {
+            self.screenshot = screenshot
+            self.selection = selection
+            self.shift = shift
+            self.context = context
+        }
+    }
+
     struct AutoCenterContext {
         var content: CGImage
         var fill: CGColor
         var inset: CGFloat
         var card: CGImage
+        /// True only for a real Center action; the inset slider seeds a context
+        /// without centering, and must not read as the centered state.
+        var centered: Bool = false
+        /// Set on a centered context: where to return when Center is switched off.
+        var origin: CenterOrigin? = nil
         // Original→trimmed annotation shift (excl. inset), and the shift currently
         // applied to annotations. Lets the inset slider compose from scratch even
         // before an explicit center, gluing annotations correctly.

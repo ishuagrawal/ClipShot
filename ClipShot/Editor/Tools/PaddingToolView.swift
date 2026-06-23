@@ -10,6 +10,7 @@ struct PaddingToolView: View {
     @State private var shadowColor = Color(cgColor: ShadowConfig.default.color)
     @State private var syncingShadow = false
     @State private var isCentering = false
+    @State private var centerCache: CenterCache?
     @State private var insetDragStart: (
         screenshot: CGImage,
         selection: CGRect,
@@ -50,16 +51,11 @@ struct PaddingToolView: View {
 
     private var padding: PaddingConfig { state.document.padding }
 
+    private var isCentered: Bool { activeInsetContext?.centered == true }
+
     private var header: some View {
         HStack {
-            ChipToggle(
-                label: "Center",
-                systemName: isCentering ? "circle.dotted" : "rectangle.center.inset.filled",
-                isOn: false,
-                isMomentary: true,
-                ghostAccent: true,
-                help: "Trim to content and center with equal inset"
-            ) { applyAutoCenter() }
+            CenterToggle(isOn: isCentered) { toggleCenter() }
             Spacer()
         }
     }
@@ -448,63 +444,117 @@ struct PaddingToolView: View {
         state.performCommand(SetPaddingCommand(from: from, to: next.clamped()))
     }
 
-    private func applyAutoCenter() {
+    private func toggleCenter() {
         guard !isCentering else { return }
+        if isCentered { disableCenter() } else { enableCenter() }
+    }
+
+    /// The expensive trim+compose of the pristine capture. The original never
+    /// changes, so once computed the cache stays valid for the document's life.
+    private struct CenterCache {
+        let sourceScreenshot: CGImage
+        let region: CGRect
+        let contentBox: CGRect
+        let contentImage: CGImage
+        let fill: CGColor
+        let inset: CGFloat
+        let card: CGImage
+        let baseShift: CGSize
+    }
+
+    /// Center always trims the original captured image and swaps only the
+    /// screenshot, gluing annotations to the content shift. Padding, corner,
+    /// background, and shadow are document properties and ride along untouched.
+    private func enableCenter() {
+        let original = state.originalDocument
+        let image = original.screenshot
+        let region = original.baseSelection
+
+        if let cache = centerCache, cache.sourceScreenshot === image {
+            applyCenter(from: cache)
+            return
+        }
         isCentering = true
-        let image = state.document.screenshot
-        let region = state.document.baseSelection
-        let fromPadding = state.document.padding
         Task {
-            let result = await Task.detached(priority: .userInitiated) { () -> (ApplyAutoCenterCommand, EditorState.AutoCenterContext)? in
+            let cache = await Task.detached(priority: .userInitiated) { () -> CenterCache? in
                 guard let content = ContentBoundsDetector().detect(in: image, region: region),
                       let contentImage = image.cropping(to: content.box.integral) else { return nil }
                 let inset = Self.contentInset(forContentSize: content.box.size)
                 guard let card = ContentInsetComposer.compose(
                     screenshot: image, content: content.box, inset: inset, fill: content.fillColor
                 ) else { return nil }
-
-                let toSelection = CGRect(x: 0, y: 0, width: card.width, height: card.height)
-                let toPadding = Self.resolvedUniformPadding(fromPadding, cardSize: toSelection.size)
-                // Glue annotations: shift by the content's new origin minus its old one.
-                let delta = CGSize(
-                    width: region.minX - content.box.minX + inset,
-                    height: region.minY - content.box.minY + inset
-                )
-                let command = ApplyAutoCenterCommand(
-                    fromScreenshot: image,
-                    toScreenshot: card,
-                    fromSelection: region,
-                    toSelection: toSelection,
-                    fromPadding: fromPadding,
-                    toPadding: toPadding,
-                    annotationDelta: delta
-                )
                 let baseShift = CGSize(width: region.minX - content.box.minX, height: region.minY - content.box.minY)
-                let context = EditorState.AutoCenterContext(
-                    content: contentImage, fill: content.fillColor, inset: inset, card: card,
-                    baseShift: baseShift, appliedShift: delta
+                return CenterCache(
+                    sourceScreenshot: image, region: region, contentBox: content.box,
+                    contentImage: contentImage, fill: content.fillColor, inset: inset,
+                    card: card, baseShift: baseShift
                 )
-                return (command, context)
             }.value
 
             isCentering = false
-            guard let (command, context) = result,
-                  state.document.screenshot === image,
-                  state.document.baseSelection == region else { return }
-            state.performCommand(command.withAutoCenterContexts(
-                from: activeInsetContext,
-                to: context.bound(toCard: command.toScreenshot)
-            ))
+            guard let cache, !isCentered else { return }
+            centerCache = cache
+            applyCenter(from: cache)
         }
     }
 
-    /// Equal outer margins: keep the user's uniform amount if they set one, else
-    /// the size-derived sweet spot.
-    nonisolated private static func resolvedUniformPadding(_ current: PaddingConfig, cardSize: CGSize) -> PaddingConfig {
-        if let uniform = current.uniform, uniform > 0 {
-            return current
-        }
-        return PaddingConfig.autoSweetSpot(forSelection: cardSize).clamped()
+    private func applyCenter(from cache: CenterCache) {
+        let padding = state.document.padding
+        let toSelection = CGRect(x: 0, y: 0, width: cache.card.width, height: cache.card.height)
+        // Total annotation shift from the ORIGINAL content origin into the card.
+        let delta = CGSize(
+            width: cache.region.minX - cache.contentBox.minX + cache.inset,
+            height: cache.region.minY - cache.contentBox.minY + cache.inset
+        )
+        // Annotations may already be displaced by an independent un-centered inset
+        // band; the band is discarded by centering, so move only the remainder.
+        let priorShift = activeInsetContext?.appliedShift ?? .zero
+        let netDelta = CGSize(width: delta.width - priorShift.width, height: delta.height - priorShift.height)
+        // Remember the view we're leaving so disabling Center returns to it.
+        let origin = EditorState.CenterOrigin(
+            screenshot: state.document.screenshot,
+            selection: state.document.baseSelection,
+            shift: priorShift,
+            context: activeInsetContext
+        )
+        let context = EditorState.AutoCenterContext(
+            content: cache.contentImage, fill: cache.fill, inset: cache.inset, card: cache.card,
+            centered: true, origin: origin, baseShift: cache.baseShift, appliedShift: delta
+        )
+        state.performCommand(ApplyAutoCenterCommand(
+            fromScreenshot: state.document.screenshot,
+            toScreenshot: cache.card,
+            fromSelection: state.document.baseSelection,
+            toSelection: toSelection,
+            fromPadding: padding,
+            toPadding: padding,
+            annotationDelta: netDelta,
+            fromAutoCenter: activeInsetContext,
+            toAutoCenter: context.bound(toCard: cache.card)
+        ))
+    }
+
+    /// Return to the view that existed just before centering — including an
+    /// un-centered inset band, if any. Padding, corner, and background ride along.
+    private func disableCenter() {
+        guard let context = activeInsetContext, let origin = context.origin else { return }
+        let padding = state.document.padding
+        // Annotations sit at the centered shift; move them back to the origin shift.
+        let revertDelta = CGSize(
+            width: origin.shift.width - context.appliedShift.width,
+            height: origin.shift.height - context.appliedShift.height
+        )
+        state.performCommand(ApplyAutoCenterCommand(
+            fromScreenshot: state.document.screenshot,
+            toScreenshot: origin.screenshot,
+            fromSelection: state.document.baseSelection,
+            toSelection: origin.selection,
+            fromPadding: padding,
+            toPadding: padding,
+            annotationDelta: revertDelta,
+            fromAutoCenter: context,
+            toAutoCenter: origin.context
+        ))
     }
 
     /// Synthesized whitespace band inside the card: ~6% of the content's longer
@@ -520,5 +570,56 @@ struct PaddingToolView: View {
         state.document.padding = from
         state.performCommand(SetPaddingCommand(from: from, to: to.clamped()))
         editStart = nil
+    }
+}
+
+/// The Center action as a stateful toggle. Off reads as an inviting accent
+/// control (tinted fill, accent hairline); on recesses into a glowing accent
+/// slab so the engaged state never looks like a plain button.
+private struct CenterToggle: View {
+    let isOn: Bool
+    let action: () -> Void
+    @State private var hovering = false
+
+    private static let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: "arrow.down.right.and.arrow.up.left")
+                    .font(.system(size: 11, weight: .semibold))
+                Text("Center").font(.system(size: 11.5, weight: .semibold))
+            }
+            .foregroundStyle(isOn ? Theme.accentInk : Theme.textPrimary)
+            .padding(.horizontal, 11)
+            .frame(height: 28)
+            .background(background)
+            .overlay(Self.shape.stroke(strokeColor, lineWidth: 1))
+            .contentShape(Self.shape)
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.14), value: isOn)
+        .animation(.easeOut(duration: 0.12), value: hovering)
+        .help(isOn ? "Revert to the original framing" : "Trim to content and center with equal inset")
+        .accessibilityAddTraits(isOn ? [.isSelected] : [])
+    }
+
+    @ViewBuilder private var background: some View {
+        if isOn {
+            // Engaged: recessed accent slab — inner shadow reads as "pressed in".
+            Self.shape.fill(
+                LinearGradient(colors: [Theme.accent, Theme.accentText], startPoint: .top, endPoint: .bottom)
+                    .shadow(.inner(color: .black.opacity(0.38), radius: 3, y: 1))
+            )
+        } else {
+            // Resting: visible accent wash so the feature invites a click.
+            Self.shape.fill(Theme.accent.opacity(hovering ? 0.24 : 0.15))
+        }
+    }
+
+    private var strokeColor: Color {
+        isOn ? Color.black.opacity(0.25)
+            : Theme.accentFocus.opacity(hovering ? 1.0 : 0.7)
     }
 }
