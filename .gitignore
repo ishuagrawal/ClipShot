@@ -43,6 +43,7 @@ id_ed25519
 .superpowers/
 docs/superpowers/
 plan.html
+AGENTS.md
 .agents/
 .claude/skills/
 skills-lock.json

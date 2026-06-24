@@ -73,7 +73,7 @@ private extension Annotation.Kind {
     var symbolName: String {
         switch self {
         case .arrow(_, _, let pathStyle, _, _, _, _):
-            return pathStyle == .straight ? "arrow.up.right" : "arrow.triangle.turn.up.right.circle"
+            return pathStyle == .straight ? "arrow.up.right" : "arrow.uturn.up"
         case .line:  return "line.diagonal"
         case .rect:  return "rectangle"
         case .text:  return "textformat"
